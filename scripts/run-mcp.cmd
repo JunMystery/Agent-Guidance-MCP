@@ -32,10 +32,9 @@ if %errorlevel% equ 0 (
 if "%IS_EXPLORER%"=="1" (
     if "%~1"=="" (
         echo [INFO] Detected launch from Windows Explorer.
-        echo [INFO] Starting MCP server with Streamable HTTP transport...
-        "%PYTHON%" -m ai_agent_standards_mcp --transport streamable-http
-        echo.
-        echo MCP server stopped.
+        echo [INFO] Running MCP server in stdio transport mode...
+        echo [INFO] Press Ctrl+C to exit.
+        "%PYTHON%" -m ai_agent_standards_mcp
         pause
         exit /b 0
     )

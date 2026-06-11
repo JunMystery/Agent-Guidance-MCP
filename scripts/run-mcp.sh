@@ -20,9 +20,8 @@ else
 fi
 
 if [ -t 0 ] && [ $# -eq 0 ]; then
-    echo "[INFO] Detected interactive terminal session."
-    echo "[INFO] Starting MCP server with Streamable HTTP transport..."
-    exec "$PYTHON" -m ai_agent_standards_mcp --transport streamable-http
+    echo "[INFO] Running MCP server in stdio transport mode (waiting for JSON-RPC input)..."
+    echo "[INFO] Press Ctrl+C to exit."
 fi
 
 exec "$PYTHON" -m ai_agent_standards_mcp "$@"

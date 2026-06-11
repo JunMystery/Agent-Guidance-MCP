@@ -18,8 +18,6 @@ else:
 
 def create_server(
     root: str | Path | None = None,
-    host: str = "127.0.0.1",
-    port: int = 41731,
 ) -> Any:
     if FastMCP is None:
         raise RuntimeError(
@@ -28,7 +26,7 @@ def create_server(
         ) from MCP_IMPORT_ERROR
 
     catalog = build_catalog(root)
-    mcp = FastMCP("AI Agent Standards", json_response=True, host=host, port=port)
+    mcp = FastMCP("AI Agent Standards", json_response=True)
     register_handlers(mcp, catalog)
     return mcp
 

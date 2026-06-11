@@ -107,12 +107,10 @@ def test_register_handlers_exposes_expected_mcp_contract():
     assert "Apply AI-Coding-Standards v3.0.3" in prompt
 
 
-def test_create_server_passes_http_host_and_port(monkeypatch):
+def test_create_server_initialization(monkeypatch):
     monkeypatch.setattr(server, "FastMCP", FakeFastMCP)
 
-    mcp = server.create_server(ROOT, host="0.0.0.0", port=9001)
+    mcp = server.create_server(ROOT)
 
     assert mcp.name == "AI Agent Standards"
-    assert mcp.kwargs["host"] == "0.0.0.0"
-    assert mcp.kwargs["port"] == 9001
     assert mcp.kwargs["json_response"] is True

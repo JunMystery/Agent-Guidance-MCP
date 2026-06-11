@@ -15,23 +15,6 @@ def parse_args() -> argparse.Namespace:
         "--root",
         help="Path to a standards corpus. Defaults to AI_AGENT_STANDARDS_ROOT or the bundled MCP repo corpus.",
     )
-    parser.add_argument(
-        "--transport",
-        choices=("stdio", "streamable-http"),
-        default="stdio",
-        help="MCP transport to use.",
-    )
-    parser.add_argument(
-        "--host",
-        default="127.0.0.1",
-        help="Host for HTTP transports. Defaults to 127.0.0.1.",
-    )
-    parser.add_argument(
-        "--port",
-        type=int,
-        default=41731,
-        help="Port for HTTP transports. Defaults to 41731.",
-    )
     return parser.parse_args()
 
 
@@ -39,8 +22,8 @@ def main() -> None:
     try:
         args = parse_args()
         root = find_standards_root(args.root)
-        server = create_server(root, host=args.host, port=args.port)
-        server.run(transport=args.transport)
+        server = create_server(root)
+        server.run()
     except KeyboardInterrupt:
         sys.exit(0)
 

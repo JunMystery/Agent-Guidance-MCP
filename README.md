@@ -121,17 +121,6 @@ $env:AI_AGENT_STANDARDS_ROOT="C:\path\to\AI-Agent-Standards"
 python -m ai_agent_standards_mcp
 ```
 
-For Streamable HTTP:
-
-```bash
-python -m ai_agent_standards_mcp --transport streamable-http
-```
-
-The HTTP host and port can be changed:
-
-```bash
-python -m ai_agent_standards_mcp --transport streamable-http --host 127.0.0.1 --port 41731
-```
 
 ## MCP Surface
 
