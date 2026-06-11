@@ -1,8 +1,8 @@
 # AI Agent Standards MCP (v3.0.1)
 
-Model Context Protocol server for the AI Agent Coding Standards corpus (supporting skill set `v3.0.0`).
+Model Context Protocol server for the AI Agent Coding Standards corpus (supporting skill set `v3.0.1`).
 
-This server exposes the standards corpus, local skills (v3.0.0), and recommendation
+This server exposes the standards corpus, local skills (v3.0.1), and recommendation
 workflows as MCP resources, tools, and prompts.
 The standards and skills are bundled in this repository so it can run as an
 independent checkout. This repo intentionally excludes direct AI-agent
@@ -159,6 +159,18 @@ Prompts:
   - Access registered prompts directly via the MCP Prompts UI list.
   - Or, instruct the agent directly in the chat, for example: *"Chạy prompt `plan` thiết kế hệ thống đăng nhập"* (Run prompt `plan` to design login system) or *"Gọi prompt `debug` lỗi database connection refused"*.
 - **Auto-Discovery**: Since individual detailed skills (like `accessibility`, `api-design`, etc.) are registered as resources and tools, the AI agent will automatically search and load them on-demand when it detects matching keywords in your prompt. You do not need to manually call them most of the time.
+
+#### Forcing Auto-Discovery in VS Code Extensions (Cline, Roo-Code, Cursor)
+
+If your VS Code AI agent doesn't automatically call the MCP tools, you can force it by configuring its **Custom System Prompt** or **Custom Instructions**:
+
+1. **In Cline / Roo-Code Settings:** Add this instruction to the *Custom System Prompt* field:
+   ```text
+   Before starting any coding, refactoring, or debugging task, you MUST invoke the `recommend_context(task)` tool from the `ai-agent-standards` MCP server. You must use the returned standards and skills to ground your work.
+   ```
+2. **In Cursor (.cursorrules):** Add the same directive to your project's custom rules or global settings.
+3. **Keyword triggers:** Alternatively, always start your prompt with keywords related to the skills (e.g. "Run a security audit on..." or "Check accessibility of...") to trigger auto-discovery.
+
 
 ## Bundled Corpus
 

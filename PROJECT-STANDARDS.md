@@ -31,3 +31,11 @@ This file contains standards, conventions, and rules specific to this project. A
 *(You can check the `PROJECT-STANDARDS-EXAMPLE.md` file in the same directory for available template examples and copy/paste them here to enforce them as hard rules for your project)*
 
 <!-- ADD YOUR STANDARDS BELOW -->
+
+### MCP Skill Auto-Discovery
+- **Rule (Required):** Before starting any implementation, design, refactoring, or debugging task, the AI Agent MUST automatically invoke the `recommend_context(task)` tool from the `ai-agent-standards` MCP server. You must use the returned resources, principles, and skills to ground your work.
+- **Reason (Required):** To ensure all coding activities comply with the 6 Core Principles and local project standards without needing explicit manual user prompts.
+- **Do / Good Example:** Executing `recommend_context("implement rate limiting for Auth API")` at the beginning of the chat session.
+- **Don't / Bad Example:** Coding immediately without consulting the MCP server's standards and context.
+- **How to Test (Optional):** Ask the agent to list the standards/skills it loaded for the current task.
+

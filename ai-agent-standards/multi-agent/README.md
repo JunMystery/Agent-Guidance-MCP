@@ -1,7 +1,7 @@
 # Multi-Agent Framework
 
-**Status:** [OK] Implemented (v3.0.0)
-**Framework:** AI-Coding-Standards v3.0.0 with 6 Core Principles
+**Status:** [OK] Implemented (v3.0.1)
+**Framework:** AI-Coding-Standards v3.0.1 with 6 Core Principles
 
 ---
 
