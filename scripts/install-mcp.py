@@ -46,8 +46,12 @@ def main():
         cursor_path = home / ".config" / "Cursor" / "User" / "globalStorage"
 
     targets = []
-    # Always attempt to configure Claude Desktop (create folders if missing)
+    # Always attempt to configure Claude Desktop and Antigravity IDE (create folders if missing)
     targets.append(("Claude Desktop", claude_path, True))
+    
+    # Antigravity IDE config path (cross-platform)
+    antigravity_path = Path.home() / ".gemini" / "config" / "mcp_config.json"
+    targets.append(("Antigravity IDE", antigravity_path, True))
 
     # Cline & Roo-Code for VS Code and Cursor
     extensions = [
