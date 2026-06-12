@@ -39,7 +39,7 @@ Linux/macOS:
   "mcpServers": {
     "agent-guidance-mcp": {
       "command": "/absolute/path/to/repo/.venv/bin/python",
-      "args": ["-m", "ai_agent_standards_mcp"],
+      "args": ["-m", "agent_guidance_mcp"],
       "env": { "PYTHONPATH": "/absolute/path/to/repo/src" }
     }
   }
@@ -53,7 +53,7 @@ Windows:
   "mcpServers": {
     "agent-guidance-mcp": {
       "command": "C:\\absolute\\path\\to\\repo\\.venv\\Scripts\\python.exe",
-      "args": ["-m", "ai_agent_standards_mcp"],
+      "args": ["-m", "agent_guidance_mcp"],
       "env": { "PYTHONPATH": "C:\\absolute\\path\\to\\repo\\src" }
     }
   }
@@ -71,11 +71,13 @@ The bundled `scripts/install-mcp.py` attempts to configure several common client
 
 ## Environment Variables
 
-Use `AI_AGENT_STANDARDS_ROOT` only when the standards corpus is outside this repository:
+Use `AGENT_GUIDANCE_ROOT` only when the standards corpus is outside this repository:
 
 ```bash
-AI_AGENT_STANDARDS_ROOT=/path/to/AI-Agent-Standards
+AGENT_GUIDANCE_ROOT=/path/to/Agent-Guidance
 ```
+
+`AI_AGENT_STANDARDS_ROOT` is still accepted as a legacy alias for existing local setups.
 
 Project-context tools should receive an explicit `project_path` argument. Avoid relying on the MCP process current working directory when scanning a user project.
 

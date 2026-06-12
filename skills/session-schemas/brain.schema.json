@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://ai-agent-standards.local/schemas/brain.schema.json",
-  "title": "AI Agent Standards Brain Context Schema",
+  "$id": "https://agent-guidance.local/schemas/brain.schema.json",
+  "title": "Agent Guidance Brain Context Schema",
   "description": "Static project knowledge - tech stack, DB schema, APIs, features. Session state moved to session.json",
   "version": "1.1.0",
   "type": "object",

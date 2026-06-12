@@ -54,7 +54,7 @@ You want to:
 
 ```
 Step 1: Load Preferences (how the AI communicates)
-├── ~/.ai-agent-standards/preferences.json     # Global defaults
+├── ~/.agent-guidance/preferences.json     # Global defaults
 └── .brain/preferences.json             # Local override (if any)
     → Merge: Local override Global
 

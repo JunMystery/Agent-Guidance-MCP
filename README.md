@@ -29,14 +29,15 @@ python -m venv .venv
 Run the server module:
 
 ```bash
-.venv/bin/python -m ai_agent_standards_mcp          # Linux / macOS
-.venv\Scripts\python.exe -m ai_agent_standards_mcp  # Windows
+agent-guidance-mcp
+.venv/bin/python -m agent_guidance_mcp          # Linux / macOS
+.venv\Scripts\python.exe -m agent_guidance_mcp  # Windows
 ```
 
 To point the server to a different standards corpus, set:
 
 ```bash
-AI_AGENT_STANDARDS_ROOT=/path/to/AI-Agent-Standards
+AGENT_GUIDANCE_ROOT=/path/to/Agent-Guidance
 ```
 
 Platform notes and client-specific setup are covered in [Installation](docs/installation.md) and [Client Configuration](docs/client-configuration.md).
@@ -46,7 +47,7 @@ Platform notes and client-specific setup are covered in [Installation](docs/inst
 Run the server through an MCP client, or verify it locally with MCP Inspector:
 
 ```bash
-npx @modelcontextprotocol/inspector .venv/bin/python -m ai_agent_standards_mcp
+npx @modelcontextprotocol/inspector .venv/bin/python -m agent_guidance_mcp
 ```
 
 Then use the standards tools to load guidance and the project-context tools to inspect code before editing. See [Usage Guide](docs/usage.md) for practical workflows.

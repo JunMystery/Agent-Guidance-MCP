@@ -7,7 +7,7 @@ description: >-
 version: 1.0.0
 ---
 
-# AI Agent Standards Auto-Save (Eternal Context)
+# Agent Guidance Auto-Save (Eternal Context)
 
 Tu dong luu session de khong bao gio mat context.
 

@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://ai-agent-standards.local/schemas/session.schema.json",
-  "title": "AI Agent Standards Session State Schema",
+  "$id": "https://agent-guidance.local/schemas/session.schema.json",
+  "title": "Agent Guidance Session State Schema",
   "description": "Dynamic session state with 3-tier context system for Eternal Context",
   "version": "2.0.0",
   "type": "object",

@@ -160,7 +160,7 @@ After each milestone, display:
 ├── session.json                   # 📍 Dynamic session (changes constantly)
 └── preferences.json               # ⚙️ Local override (if different from global)
 
-~/.ai-agent-standards/                    # GLOBAL (all projects)
+~/.agent-guidance/                    # GLOBAL (all projects)
 ├── preferences.json               # Default AI preferences
 └── defaults/                      # Templates
 ```

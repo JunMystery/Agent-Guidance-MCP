@@ -33,8 +33,8 @@ After installation, run the MCP server with:
 
 ```bash
 agent-guidance-mcp
-.venv/bin/python -m ai_agent_standards_mcp      # Linux / macOS
-.venv\Scripts\python.exe -m ai_agent_standards_mcp  # Windows
+.venv/bin/python -m agent_guidance_mcp      # Linux / macOS
+.venv\Scripts\python.exe -m agent_guidance_mcp  # Windows
 ```
 
 The server uses Stdio transport, so it is normally launched by an MCP client rather than directly by a human-operated terminal.
@@ -44,14 +44,16 @@ The server uses Stdio transport, so it is normally launched by an MCP client rat
 By default, the package discovers the bundled standards corpus. To point the server to a different standards folder, set:
 
 ```bash
-AI_AGENT_STANDARDS_ROOT=/path/to/AI-Agent-Standards
+AGENT_GUIDANCE_ROOT=/path/to/Agent-Guidance
 ```
+
+`AI_AGENT_STANDARDS_ROOT` is still accepted as a legacy alias for existing local setups.
 
 The target folder must contain:
 
 - `karpathy/principles.md`
 - `SKILL-REFERENCE.md`
-- `ai-agent-standards/INDEX.md`
+- `agent-guidance/INDEX.md`
 
 ## Related Docs
 

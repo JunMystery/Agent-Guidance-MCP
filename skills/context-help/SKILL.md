@@ -7,7 +7,7 @@ description: >-
 version: 1.0.0
 ---
 
-# AI Agent Standards Context Help
+# Agent Guidance Context Help
 
 Smart help based on the current context.
 

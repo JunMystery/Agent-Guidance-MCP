@@ -7,14 +7,17 @@ from pathlib import Path
 
 SERVER_ID = "agent-guidance-mcp"
 LEGACY_SERVER_ID = "ai-agent-standards-mcp"
-MODULE_NAME = "ai_agent_standards_mcp"
+MODULE_NAME = "agent_guidance_mcp"
+LEGACY_MODULE_NAME = "ai_agent_standards_mcp"
 
 
 def owns_json_server_config(server_config):
     if not isinstance(server_config, dict):
         return False
     args = server_config.get("args", [])
-    return isinstance(args, list) and MODULE_NAME in args
+    return isinstance(args, list) and (
+        MODULE_NAME in args or LEGACY_MODULE_NAME in args
+    )
 
 
 def main():
@@ -180,7 +183,11 @@ def configure_codex(python_exe, repo_root):
                 index += 1
 
             block_text = "\n".join(block_lines)
-            if server_id == SERVER_ID or MODULE_NAME in block_text:
+            if (
+                server_id == SERVER_ID
+                or MODULE_NAME in block_text
+                or LEGACY_MODULE_NAME in block_text
+            ):
                 if not block_found:
                     block_found = True
                     new_lines.extend(new_block[:-1]) # add new block without the trailing newline

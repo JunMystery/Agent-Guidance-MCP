@@ -15,12 +15,12 @@ Track versions and updates for the AI Agent Coding Standards framework.
 ## [3.0.3] - 2026-06-11
 
 ### Added
-- **Cursor Native Auto-Installation:** Updated `scripts/install-mcp.py` to automatically detect and configure the `ai-agent-standards-mcp` server inside the global Cursor configuration file `~/.cursor/mcp.json` (for Cursor Native MCP).
+- **Cursor Native Auto-Installation:** Updated `scripts/install-mcp.py` to automatically detect and configure the `agent-guidance-mcp` server inside the global Cursor configuration file `~/.cursor/mcp.json` (for Cursor Native MCP).
 
 ## [3.0.2] - 2026-06-11
 
 ### Added
-- **Codex Auto-Installation:** Updated `scripts/install-mcp.py` to automatically detect and configure the `ai-agent-standards-mcp` server inside the global Codex config file `~/.codex/config.toml` (for Codex CLI & VS Code/Codex App extension).
+- **Codex Auto-Installation:** Updated `scripts/install-mcp.py` to automatically detect and configure the `agent-guidance-mcp` server inside the global Codex config file `~/.codex/config.toml` (for Codex CLI & VS Code/Codex App extension).
 
 ## [3.0.1] - 2026-06-11
 
@@ -104,14 +104,14 @@ Track versions and updates for the AI Agent Coding Standards framework.
 - **`scripts/setup.py`** - Automated setup script: copies rule files to any project root and auto-rewrites internal links to match the actual folder path. Supports auto-detection of project root and custom path arguments.
 
 ### Fixed
-- **Link Architecture** - Reverted all internal paths in root instruction files to bare relative paths (`ai-agent-standards/...`) so they resolve correctly when used directly inside the repo. The `setup.py` script now adds the folder prefix dynamically when copying to external projects.
+- **Link Architecture** - Reverted all internal paths in root instruction files to bare relative paths (`agent-guidance/...`) so they resolve correctly when used directly inside the repo. The `setup.py` script now adds the folder prefix dynamically when copying to external projects.
 - **ASCII Bell characters** - Cleaned up `\x07` control characters in Auto-Discovery paths caused by Python escape sequences.
 - **Principle 5 parity** - Added DRY & Reusability to `.cursorrules` and `.cursor/rules/karpathy-guidelines.mdc`.
 - **Version parity** - Synchronized version to v2.1 across all config, documentation, and multi-agent files.
 
 ### Changed
 - **`INSTALL.md`** - Rewritten with automated setup as primary installation method.
-- **`README.md`** - Quick Start now shows `python AI-Agent-Standards/scripts/setup.py`.
+- **`README.md`** - Quick Start now shows `python Agent-Guidance/scripts/setup.py`.
 
 ---
 
@@ -207,18 +207,18 @@ Track versions and updates for the AI Agent Coding Standards framework.
   - `.cursorrules` - Cursor/Windsurf fallback
 - **Verification Prompt:** Each instruction file includes a verification block - users can ask `/standards` to confirm the AI loaded the correct skills
 - **`INSTALL.md`** - 1-step installation guide with verification instructions
-- **Root `.gitignore`** - Moved from `.ai-agent-standards/`
+- **Root `.gitignore`** - Moved from `.agent-guidance/`
 
 ### Changed
-- **Renamed `.ai-agent-standards/` -> `ai-agent-standards/`** - Removed dot prefix for visibility across all OS/tools
+- **Renamed `.agent-guidance/` -> `agent-guidance/`** - Removed dot prefix for visibility across all OS/tools
 - **`README.md`** - Rewritten in English with AI Tool Support Matrix and simplified Quick Start
 - **All instruction files** - Converted to 100% English
 
 ### Removed
 - **`andrej-karpathy-skills/`** - Deleted after content was integrated into the main framework
-- **`.ai-agent-standards/.cursor/`** - Moved to root `.cursor/`
-- **`.ai-agent-standards/.cursorrules`** - Merged into root `.cursorrules`
-- **`.ai-agent-standards/.gitignore`** - Moved to root `.gitignore`
+- **`.agent-guidance/.cursor/`** - Moved to root `.cursor/`
+- **`.agent-guidance/.cursorrules`** - Merged into root `.cursorrules`
+- **`.agent-guidance/.gitignore`** - Moved to root `.gitignore`
 
 ---
 

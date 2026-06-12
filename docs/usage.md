@@ -9,7 +9,7 @@ Use this MCP server to give AI agents standards guidance, skill references, work
 After installation, launch the MCP Inspector:
 
 ```bash
-npx @modelcontextprotocol/inspector .venv/bin/python -m ai_agent_standards_mcp
+npx @modelcontextprotocol/inspector .venv/bin/python -m agent_guidance_mcp
 ```
 
 Open the printed URL, usually `http://localhost:5173`, and inspect the registered tools, prompts, and resources.

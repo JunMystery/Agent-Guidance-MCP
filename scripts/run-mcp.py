@@ -36,7 +36,7 @@ def main() -> None:
         env["PYTHONPATH"] = src_path
 
     # Construct execution command
-    cmd = [python_exe, "-m", "ai_agent_standards_mcp"] + sys.argv[1:]
+    cmd = [python_exe, "-m", "agent_guidance_mcp"] + sys.argv[1:]
 
     # Run the server process
     try:

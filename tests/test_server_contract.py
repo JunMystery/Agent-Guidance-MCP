@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from ai_agent_standards_mcp.catalog import build_catalog
-from ai_agent_standards_mcp import server
-from ai_agent_standards_mcp.server import register_handlers
+from agent_guidance_mcp.catalog import build_catalog
+from agent_guidance_mcp import server
+from agent_guidance_mcp.server import register_handlers
 
 
 ROOT = Path(__file__).resolve().parents[1]

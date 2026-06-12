@@ -34,11 +34,11 @@ if "%IS_EXPLORER%"=="1" (
         echo [INFO] Detected launch from Windows Explorer.
         echo [INFO] Running MCP server in stdio transport mode...
         echo [INFO] Press Ctrl+C to exit.
-        "%PYTHON%" -m ai_agent_standards_mcp
+        "%PYTHON%" -m agent_guidance_mcp
         pause
         exit /b 0
     )
 )
 
-"%PYTHON%" -m ai_agent_standards_mcp %*
+"%PYTHON%" -m agent_guidance_mcp %*
 exit /b %ERRORLEVEL%

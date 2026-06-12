@@ -7,7 +7,7 @@ description: >-
 version: 1.0.0
 ---
 
-# AI Agent Standards Error Translator
+# Agent Guidance Error Translator
 
 Translate technical errors into plain language for non-tech users.
 

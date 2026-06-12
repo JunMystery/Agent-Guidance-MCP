@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from ai_agent_standards_mcp.catalog import build_catalog, find_standards_root
+from agent_guidance_mcp.catalog import build_catalog, find_standards_root
 
 
 ROOT = Path(__file__).resolve().parents[1]

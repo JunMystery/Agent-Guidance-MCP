@@ -260,12 +260,12 @@ Just list them, I will remember all of them!"
 *   Only apply to the current project
 
 **If option 2 (Global) is chosen:**
-*   Windows: Save to `%USERPROFILE%\.ai-agent-standards\preferences.json`
-*   Mac/Linux: Save to `~/.ai-agent-standards/preferences.json`
+*   Windows: Save to `%USERPROFILE%\.agent-guidance\preferences.json`
+*   Mac/Linux: Save to `~/.agent-guidance/preferences.json`
 *   Apply to all new projects
 *   **Auto-create folder if it doesn't exist:**
-    - Windows: `mkdir %USERPROFILE%\.ai-agent-standards`
-    - Mac/Linux: `mkdir -p ~/.ai-agent-standards`
+    - Windows: `mkdir %USERPROFILE%\.agent-guidance`
+    - Mac/Linux: `mkdir -p ~/.agent-guidance`
 
 **If option 3 (Both) is chosen:**
 *   Save to both locations
@@ -323,7 +323,7 @@ When starting a session:
 
 ### When global folder cannot be created:
 ```
-If ~/.ai-agent-standards cannot be created:
+If ~/.agent-guidance cannot be created:
 → Fallback: Only save locally (.brain/preferences.json)
 → Report: "I will only save locally, the global folder could not be created"
 ```

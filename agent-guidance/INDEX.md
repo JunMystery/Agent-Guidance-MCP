@@ -45,8 +45,8 @@
 | File | Purpose | Priority |
 |------|---------|----------|
 | [`principles/karpathy-framework.md`](principles/karpathy-framework.md) | Understand core behavioral principles | *** |
-| [`reference/methodology-for-management.md`](reference/methodology-for-management.md) | Methodology explanation | *** |
-| [`risk-management/cost-control-policy.md`](risk-management/cost-control-policy.md) | AI cost control | ** |
+| [`onboarding/karpathy-principles-guide.md`](onboarding/karpathy-principles-guide.md) | Methodology explanation | *** |
+| [`risk-management/README.md`](risk-management/README.md) | Risk controls and escalation overview | ** |
 
 ---
 
@@ -136,9 +136,6 @@
 | [`risk-management/security-constraints.md`](risk-management/security-constraints.md) | Non-negotiable constraints |
 | [`risk-management/ai-failure-log-template.md`](risk-management/ai-failure-log-template.md) | AI failure log template |
 | [`risk-management/escalation-workflow.md`](risk-management/escalation-workflow.md) | Escalation when AI won't cooperate |
-| [`risk-management/cost-control-policy.md`](risk-management/cost-control-policy.md) | API cost control policy |
-| [`risk-management/incident-response-plan.md`](risk-management/incident-response-plan.md) | Incident response plan |
-| [`risk-management/mitigation-strategies.md`](risk-management/mitigation-strategies.md) | Risk mitigation strategies |
 
 ---
 
@@ -158,8 +155,6 @@
 | File | Content |
 |------|---------|
 | [`multi-agent/README.md`](multi-agent/README.md) | Overview (P2) |
-| [`multi-agent/roadmap.md`](multi-agent/roadmap.md) | Development roadmap |
-| [`multi-agent/orchestration-design.md`](multi-agent/orchestration-design.md) | Preliminary orchestration design |
 
 ---
 
@@ -169,10 +164,7 @@
 |------|---------|
 | [`reference/README.md`](reference/README.md) | Reference directory guide |
 | [`reference/error-reference-complete.md`](reference/error-reference-complete.md) | Common AI error table |
-| [`reference/use-case-cookbook.md`](reference/use-case-cookbook.md) | Detailed use case examples |
-| [`reference/methodology-for-management.md`](reference/methodology-for-management.md) | Methodology for managers |
 | [`reference/glossary.md`](reference/glossary.md) | Terms & definitions |
-| [`reference/external-links.md`](reference/external-links.md) | External documentation links |
 | [`reference/sync-karpathy-across-tools.md`](reference/sync-karpathy-across-tools.md) | Keeping principles synced across AI tools |
 
 ---
@@ -237,7 +229,7 @@
 | Write prompts | [`prompts/PROMPT-TEMPLATE.md`](prompts/PROMPT-TEMPLATE.md) + [`prompts/sample-use-cases/`](prompts/sample-use-cases/) |
 | Handle AI errors | [`risk-management/escalation-workflow.md`](risk-management/escalation-workflow.md) |
 | Find error solutions | [`reference/error-reference-complete.md`](reference/error-reference-complete.md) |
-| Understand methodology | [`reference/methodology-for-management.md`](reference/methodology-for-management.md) |
+| Understand methodology | [`principles/karpathy-framework.md`](principles/karpathy-framework.md) |
 | Verify AI loaded skills | Ask: "What coding standards are you following?" or `/standards` |
 
 ---

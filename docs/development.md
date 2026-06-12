@@ -43,13 +43,13 @@ git diff --check
 ## Project Structure
 
 ```text
-AI-Agent-Standards-mcp/
-├── ai-agent-standards/          # Core standards corpus
+Agent-Guidance-MCP/
+├── agent-guidance/          # Core standards corpus
 ├── docs/                        # Maintainer and user documentation
 ├── karpathy/                    # Karpathy framework references
 ├── scripts/                     # Installer, launchers, docs generators
 ├── skills/                      # On-demand skill capsules
-├── src/ai_agent_standards_mcp/  # Python package source
+├── src/agent_guidance_mcp/  # Python package source
 ├── tests/                       # Pytest suite
 ├── PROJECT-STANDARDS.md         # Project-specific agent standards
 ├── pyproject.toml               # Python package metadata
@@ -82,7 +82,7 @@ The wheel includes:
 - `docs/`
 - `karpathy/`
 - `skills/`
-- `ai-agent-standards/`
+- `agent-guidance/`
 
 These paths are configured in `pyproject.toml`.
 

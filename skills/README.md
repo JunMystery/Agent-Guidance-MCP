@@ -1,6 +1,6 @@
 # Local Skills
 
-This directory contains on-demand skill capsules ported from the ECC workflow and AI Agent Standards (workflow framework) into this repository.
+This directory contains on-demand skill capsules ported from the ECC workflow and Agent Guidance (workflow framework) into this repository.
 
 Each skill is a standalone Markdown file that should be loaded only when the task matches its trigger.
 
@@ -296,4 +296,4 @@ Each skill is a standalone Markdown file that should be loaded only when the tas
 - `workspace-surface-audit`
 - `x-api`
 
-These skills are intentionally lightweight and point back to the existing AI-Agent-Standards documents for the full policy surface.
+These skills are intentionally lightweight and point back to the existing Agent-Guidance documents for the full policy surface.

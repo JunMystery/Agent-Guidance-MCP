@@ -24,4 +24,4 @@ if [ -t 0 ] && [ $# -eq 0 ]; then
     echo "[INFO] Press Ctrl+C to exit."
 fi
 
-exec "$PYTHON" -m ai_agent_standards_mcp "$@"
+exec "$PYTHON" -m agent_guidance_mcp "$@"

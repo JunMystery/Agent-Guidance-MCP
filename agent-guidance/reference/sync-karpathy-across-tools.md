@@ -90,7 +90,7 @@ Your team uses multiple AI tools:
 
 ### 3. Cursor IDE
 
-**File:** `.ai-agent-standards/.cursor/rules/karpathy-guidelines.mdc`
+**File:** `.agent-guidance/.cursor/rules/karpathy-guidelines.mdc`
 
 **Source:** Based on `principles/karpathy-framework.md`
 
@@ -193,7 +193,7 @@ Your team uses multiple AI tools:
    - [ ] Links working?
 
 3. **Check Cursor Rules** (5 min)
-   - Open `.ai-agent-standards/.cursor/rules/karpathy-guidelines.mdc`
+   - Open `.agent-guidance/.cursor/rules/karpathy-guidelines.mdc`
    - Compare to master doc
    - [ ] Principles match?
    - [ ] Cursor-specific guidance useful?

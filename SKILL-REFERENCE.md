@@ -58,29 +58,29 @@ The following on-demand skill capsules are available in [skills/](./skills/):
 > Auth, payments, encryption, user data, API keys
 
 ```
-@ai-agent-standards/risk-management/security-constraints.md
+@agent-guidance/risk-management/security-constraints.md
 ```
 
 ### RAG / AI Pipeline
 > Vector DB retrieval, LLM generation, embeddings
 
 ```
-@ai-agent-standards/prompts/sample-use-cases/rag-implementation-cookbook.md
+@agent-guidance/prompts/sample-use-cases/rag-implementation-cookbook.md
 ```
 
 ### Writing a Complex Prompt
 > Multi-step tasks, strict constraints, specific output format
 
 ```
-@ai-agent-standards/prompts/PROMPT-TEMPLATE.md
+@agent-guidance/prompts/PROMPT-TEMPLATE.md
 ```
 
 ### Code Review / Audit
 > Reviewing AI-generated code before merge
 
 ```
-@ai-agent-standards/quality-control/audit-ai-code-full.md
-@ai-agent-standards/quality-control/code-review-checklist.md
+@agent-guidance/quality-control/audit-ai-code-full.md
+@agent-guidance/quality-control/code-review-checklist.md
 ```
 
 ### Large File Refactor
@@ -94,91 +94,91 @@ The following on-demand skill capsules are available in [skills/](./skills/):
 > AI imports fake libraries, calls non-existent APIs
 
 ```
-@ai-agent-standards/quality-control/hallucination-detection.md
+@agent-guidance/quality-control/hallucination-detection.md
 ```
 
 ### Database Migrations
 > Schema changes, data migration, rollback strategy
 
 ```
-@ai-agent-standards/prompts/sample-use-cases/database-migration.md
+@agent-guidance/prompts/sample-use-cases/database-migration.md
 ```
 
 ### Caching & Performance
 > Redis, cache invalidation, query optimization
 
 ```
-@ai-agent-standards/prompts/sample-use-cases/refactor-cache-strategy.md
+@agent-guidance/prompts/sample-use-cases/refactor-cache-strategy.md
 ```
 
 ### Unit Test Generation
 > Writing tests for existing or new code
 
 ```
-@ai-agent-standards/prompts/sample-use-cases/generate-unit-tests.md
+@agent-guidance/prompts/sample-use-cases/generate-unit-tests.md
 ```
 
 ### Security Audit
 > Scanning for vulnerabilities in existing code
 
 ```
-@ai-agent-standards/prompts/sample-use-cases/security-audit.md
+@agent-guidance/prompts/sample-use-cases/security-audit.md
 ```
 
 ### API Development
 > REST endpoints, rate limiting, authentication
 
 ```
-@ai-agent-standards/prompts/sample-use-cases/create-api-with-rate-limiting.md
+@agent-guidance/prompts/sample-use-cases/create-api-with-rate-limiting.md
 ```
 
 ### Mobile Development
 > Android, iOS, Flutter, React Native - lifecycle, permissions, offline
 
 ```
-@ai-agent-standards/prompts/sample-use-cases/mobile-development-cookbook.md
+@agent-guidance/prompts/sample-use-cases/mobile-development-cookbook.md
 ```
 
 ### Documentation & Changelogs
 > Writing README, API Specs, Docstrings, or Changelogs
 
 ```
-@ai-agent-standards/engineering-practices/DOCUMENTATION_STANDARDS.md
+@agent-guidance/engineering-practices/DOCUMENTATION_STANDARDS.md
 ```
 
 ### Release & Branching Strategy
 > Bumping versions (SemVer), Gitflow, or pre-release checks
 
 ```
-@ai-agent-standards/engineering-practices/RELEASE_PROCESS.md
+@agent-guidance/engineering-practices/RELEASE_PROCESS.md
 ```
 
 ### Testing Strategy & TDD
 > Setting up test pyramids, coverage bounds, or adhering to FIRST principles
 
 ```
-@ai-agent-standards/engineering-practices/TESTING_STANDARDS.md
+@agent-guidance/engineering-practices/TESTING_STANDARDS.md
 ```
 
 ### Performance & DB Optimization
 > Caching strategy, N+1 queries, concurrency, response time budgets
 
 ```
-@ai-agent-standards/engineering-practices/NON_FUNCTIONAL_REQUIREMENTS.md
+@agent-guidance/engineering-practices/NON_FUNCTIONAL_REQUIREMENTS.md
 ```
 
 ### Industry Compliance
 > OWASP, NIST, or CISA alignment checks
 
 ```
-@ai-agent-standards/compliance/COMPLIANCE.md
+@agent-guidance/compliance/COMPLIANCE.md
 ```
 
 ### UI Accessibility (A11Y)
 > Reviewing HTML/React for WCAG 2.1 AA, ARIA, and Keyboard Navigation
 
 ```
-@ai-agent-standards/compliance/A11Y_CHECKLIST.md
+@agent-guidance/compliance/A11Y_CHECKLIST.md
 ```
 
 ---
@@ -189,10 +189,10 @@ Assign the appropriate file as system instructions for each agent:
 
 | Agent | File to load |
 |-------|-------------|
-| Coder | `@ai-agent-standards/multi-agent/coder-agent.md` |
-| Test | `@ai-agent-standards/multi-agent/test-agent.md` |
-| Reviewer | `@ai-agent-standards/multi-agent/reviewer-agent.md` |
-| Documentation | `@ai-agent-standards/multi-agent/documentation-agent.md` |
+| Coder | `@agent-guidance/multi-agent/coder-agent.md` |
+| Test | `@agent-guidance/multi-agent/test-agent.md` |
+| Reviewer | `@agent-guidance/multi-agent/reviewer-agent.md` |
+| Documentation | `@agent-guidance/multi-agent/documentation-agent.md` |
 
 ---
 
@@ -203,9 +203,9 @@ For complex tasks, combine multiple references:
 ```
 # Example: Build a secure API with tests
 
-@ai-agent-standards/risk-management/security-constraints.md
-@ai-agent-standards/prompts/sample-use-cases/create-api-with-rate-limiting.md
-@ai-agent-standards/prompts/PROMPT-TEMPLATE.md
+@agent-guidance/risk-management/security-constraints.md
+@agent-guidance/prompts/sample-use-cases/create-api-with-rate-limiting.md
+@agent-guidance/prompts/PROMPT-TEMPLATE.md
 
 Build POST /api/v1/register with email validation,
 bcrypt password hashing, and JWT response.

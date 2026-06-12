@@ -115,9 +115,9 @@ DO NOT:
 
 KEY DOCUMENTATION:
 
-- Karpathy Framework: .ai-agent-standards/principles/karpathy-framework.md
-- Code Review Checklist: .ai-agent-standards/quality-control/code-review-checklist.md
-- Quick Reference: .ai-agent-standards/onboarding/quick-reference.md
+- Karpathy Framework: .agent-guidance/principles/karpathy-framework.md
+- Code Review Checklist: .agent-guidance/quality-control/code-review-checklist.md
+- Quick Reference: .agent-guidance/onboarding/quick-reference.md
 - Framework Overview: AI Agent Coding.md
 
 ---
@@ -198,7 +198,7 @@ print(response.content[0].text)
 
 ## Integration with Prompt Template
 
-When engineers send you prompts, expect them to follow [HEADER-TEMPLATE.yaml](../../ai-agent-standards/prompts/HEADER-TEMPLATE.yaml):
+When engineers send you prompts, expect them to follow [HEADER-TEMPLATE.yaml](../../agent-guidance/prompts/HEADER-TEMPLATE.yaml):
 
 ```yaml
 ---

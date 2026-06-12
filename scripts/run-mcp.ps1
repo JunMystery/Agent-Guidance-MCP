@@ -27,5 +27,5 @@ if ([string]::IsNullOrEmpty($env:PYTHONPATH)) {
     $env:PYTHONPATH = "$SrcPath;$env:PYTHONPATH"
 }
 
-& $Python -m ai_agent_standards_mcp @McpArgs
+& $Python -m agent_guidance_mcp @McpArgs
 exit $LASTEXITCODE

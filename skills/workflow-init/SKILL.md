@@ -121,7 +121,7 @@ Choose 1 of 2:
 If `.brain/preferences.json` does not exist yet:
 
 ```
-👋 Welcome to AI Agent Standards!
+👋 Welcome to Agent Guidance!
 
 This is your first time. Do you want to:
 1️⃣ Use defaults (Recommended)

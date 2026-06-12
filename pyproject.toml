@@ -22,19 +22,18 @@ dev = [
 ]
 
 [project.scripts]
-agent-guidance-mcp = "ai_agent_standards_mcp.__main__:main"
-ai-agent-standards-mcp = "ai_agent_standards_mcp.__main__:main"
+agent-guidance-mcp = "agent_guidance_mcp.__main__:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/ai_agent_standards_mcp"]
+packages = ["src/agent_guidance_mcp"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"SKILL-REFERENCE.md" = "ai_agent_standards_mcp/bundled/SKILL-REFERENCE.md"
-"docs" = "ai_agent_standards_mcp/bundled/docs"
-"karpathy" = "ai_agent_standards_mcp/bundled/karpathy"
-"skills" = "ai_agent_standards_mcp/bundled/skills"
-"ai-agent-standards" = "ai_agent_standards_mcp/bundled/ai-agent-standards"
+"SKILL-REFERENCE.md" = "agent_guidance_mcp/bundled/SKILL-REFERENCE.md"
+"docs" = "agent_guidance_mcp/bundled/docs"
+"karpathy" = "agent_guidance_mcp/bundled/karpathy"
+"skills" = "agent_guidance_mcp/bundled/skills"
+"agent-guidance" = "agent_guidance_mcp/bundled/agent-guidance"

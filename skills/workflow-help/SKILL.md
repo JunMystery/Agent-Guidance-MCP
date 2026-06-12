@@ -92,7 +92,7 @@ Check current state:
 ### Full menu:
 
 ```
-❓ **AI Agent Standards HELP CENTER**
+❓ **Agent Guidance HELP CENTER**
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -235,7 +235,7 @@ Or type /next for me to analyze and suggest.
 ```
 📚 **QUICK START GUIDE (2 mins)**
 
-AI Agent Standards helps you create apps without needing a lot of coding knowledge.
+Agent Guidance helps you create apps without needing a lot of coding knowledge.
 
 🔄 **Basic workflow:**
 
@@ -273,7 +273,7 @@ Let me ask simply: Do you want to:
 1️⃣ Create a new app
 2️⃣ Continue the app currently in progress
 3️⃣ Fix errors
-4️⃣ Learn how to use AI Agent Standards
+4️⃣ Learn how to use Agent Guidance
 
 Just choose a number, I will guide you further!"
 ```

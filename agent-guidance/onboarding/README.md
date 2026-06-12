@@ -20,7 +20,7 @@
    ```
 
 3. **Learn .cursorrules:**
-   - Open: `project/ai-agent-standards/.cursorrules`
+   - Open: `project/agent-guidance/.cursorrules`
    - Understand: Framework, naming conventions, security rules
 
 4. **Setup IDE (if using Cursor/Windsurf):**

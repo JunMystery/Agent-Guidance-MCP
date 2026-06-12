@@ -364,7 +364,7 @@ When there is a new API, automatically append it to the existing docs file.
 ├── session.json                   # 📍 Dynamic session (changes constantly)
 └── preferences.json               # ⚙️ Local override (if different from global)
 
-~/.ai-agent-standards/                    # GLOBAL (all projects)
+~/.agent-guidance/                    # GLOBAL (all projects)
 ├── preferences.json               # Default preferences
 └── defaults/                      # Templates
 ```

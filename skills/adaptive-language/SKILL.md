@@ -7,7 +7,7 @@ description: >-
 version: 1.0.0
 ---
 
-# AI Agent Standards Adaptive Language
+# Agent Guidance Adaptive Language
 
 Automatically adjust technical language based on the user's level.
 
@@ -19,7 +19,7 @@ Automatically adjust technical language based on the user's level.
 ```
 if exists(".brain/preferences.json"):
     → Read technical_level
-else if exists("~/.ai-agent-standards/preferences.json"):
+else if exists("~/.agent-guidance/preferences.json"):
     → Read global technical_level
 else:
     → Default: "basic"
@@ -114,8 +114,8 @@ if exists(".brain/preferences.json"):
     preferences = parse(".brain/preferences.json")
 
 # Fallback to global
-if !preferences && exists("~/.ai-agent-standards/preferences.json"):
-    preferences = parse("~/.ai-agent-standards/preferences.json")
+if !preferences && exists("~/.agent-guidance/preferences.json"):
+    preferences = parse("~/.agent-guidance/preferences.json")
 
 # Extract level
 level = preferences?.technical?.technical_level || "basic"
@@ -138,7 +138,7 @@ This skill operates SILENTLY:
 
 ## Integration with Workflows
 
-All AI Agent Standards workflows should respect the set terminology level:
+All Agent Guidance workflows should respect the set terminology level:
 
 ```
 When outputting technical terms:

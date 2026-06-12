@@ -1,7 +1,7 @@
 ---
 name: codex-vscode
-description: Configure and troubleshoot OpenAI Codex in VS Code and VS Code-compatible IDEs. Use when adding Codex project instructions, installing standards for the Codex VS Code extension, explaining Codex instruction discovery, or aligning Codex with this repository's AI-Agent-Standards workflow.
-origin: AI-Agent-Standards
+description: Configure and troubleshoot OpenAI Codex in VS Code and VS Code-compatible IDEs. Use when adding Codex project instructions, installing standards for the Codex VS Code extension, explaining Codex instruction discovery, or aligning Codex with this repository's Agent-Guidance workflow.
+origin: Agent-Guidance
 ---
 
 # Codex VS Code

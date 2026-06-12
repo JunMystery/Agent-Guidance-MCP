@@ -7,9 +7,9 @@ description: >-
 version: 1.0.0
 ---
 
-# AI Agent Standards Onboarding
+# Agent Guidance Onboarding
 
-Guide new users to get familiar with AI Agent Standards.
+Guide new users to get familiar with Agent Guidance.
 
 ## Trigger Conditions
 
@@ -20,7 +20,7 @@ Guide new users to get familiar with AI Agent Standards.
 
 **Check:**
 ```
-if NOT exists(".brain/preferences.json") AND NOT exists("~/.ai-agent-standards/preferences.json"):
+if NOT exists(".brain/preferences.json") AND NOT exists("~/.agent-guidance/preferences.json"):
      Activate onboarding
 else:
      Skip (returning user)
@@ -31,11 +31,11 @@ else:
 ### Step 1: Welcome Message
 
 ```
-👋 **WELCOME TO AI Agent Standards!**
+👋 **WELCOME TO Agent Guidance!**
 
 I am your AI assistant, and I will help you turn your ideas into a real app.
 
-🎯 AI Agent Standards can help you:
+🎯 Agent Guidance can help you:
    • Create apps/websites from scratch
    • No coding required (I will do it for you!)
    • Remember everything between work sessions

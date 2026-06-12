@@ -73,4 +73,4 @@ difficulty: Simple
 
 ## 📝 Reference
 
-- Testing Best Practices: [`../../reference/use-case-cookbook.md`](../../reference/use-case-cookbook.md)
+- Testing Best Practices: [`../README.md`](../README.md)

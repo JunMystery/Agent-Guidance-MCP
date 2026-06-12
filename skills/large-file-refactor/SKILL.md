@@ -1,7 +1,7 @@
 ---
 name: large-file-refactor
 description: Workflow for refactoring large or monolithic files by responsibility, not by line-count alone. Use when splitting files over 300 LOC, extracting modules, reducing mixed responsibilities, or breaking React components into hooks/subcomponents.
-origin: AI-Agent-Standards
+origin: Agent-Guidance
 ---
 
 # Large-File Refactor

@@ -11,9 +11,6 @@ Risk management system & escalation procedures when AI fails to cooperate.
 | [`security-constraints.md`](security-constraints.md) | Non-negotiable security rules |
 | [`ai-failure-log-template.md`](ai-failure-log-template.md) | Template for logging AI failures |
 | [`escalation-workflow.md`](escalation-workflow.md) | Escalation workflow |
-| [`cost-control-policy.md`](cost-control-policy.md) | API cost control policy |
-| [`incident-response-plan.md`](incident-response-plan.md) | Incident response plan |
-| [`mitigation-strategies.md`](mitigation-strategies.md) | Risk mitigation strategies |
 
 ---
 
@@ -86,7 +83,6 @@ Before task starts:
 - **Security:** [`security-constraints.md`](security-constraints.md) ⭐
 - **Escalation:** [`escalation-workflow.md`](escalation-workflow.md) ⭐
 - **Failure Log:** [`ai-failure-log-template.md`](ai-failure-log-template.md)
-- **Cost Control:** [`cost-control-policy.md`](cost-control-policy.md)
 
 ---
 

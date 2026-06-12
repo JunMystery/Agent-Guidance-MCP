@@ -14,6 +14,8 @@ def find_standards_root(root: str | Path | None = None) -> Path:
     candidates: list[Path] = []
     if root:
         candidates.append(Path(root))
+    if os.environ.get("AGENT_GUIDANCE_ROOT"):
+        candidates.append(Path(os.environ["AGENT_GUIDANCE_ROOT"]))
     if os.environ.get("AI_AGENT_STANDARDS_ROOT"):
         candidates.append(Path(os.environ["AI_AGENT_STANDARDS_ROOT"]))
 
@@ -28,7 +30,8 @@ def find_standards_root(root: str | Path | None = None) -> Path:
             return resolved
 
     raise FileNotFoundError(
-        "Could not find AI-Agent-Standards root. Set AI_AGENT_STANDARDS_ROOT or pass --root."
+        "Could not find Agent Guidance root. Set AGENT_GUIDANCE_ROOT, set legacy "
+        "AI_AGENT_STANDARDS_ROOT, or pass --root."
     )
 
 
@@ -36,7 +39,7 @@ def is_standards_root(path: Path) -> bool:
     return (
         (path / "karpathy" / "principles.md").is_file()
         and (path / "SKILL-REFERENCE.md").is_file()
-        and (path / "ai-agent-standards" / "INDEX.md").is_file()
+        and (path / "agent-guidance" / "INDEX.md").is_file()
     )
 
 
@@ -68,7 +71,7 @@ def infer_kind(relative_path: str) -> str:
         return "doc"
     if parts and parts[0] == "karpathy":
         return "principle"
-    if parts and parts[0] == "ai-agent-standards":
+    if parts and parts[0] == "agent-guidance":
         return "standard"
     return "root"
 
@@ -77,7 +80,7 @@ def infer_category(relative_path: str) -> str:
     parts = Path(relative_path).parts
     if not parts:
         return "root"
-    if parts[0] == "ai-agent-standards" and len(parts) > 1:
+    if parts[0] == "agent-guidance" and len(parts) > 1:
         return parts[1]
     if parts[0] == "skills" and len(parts) > 1:
         return "skills"

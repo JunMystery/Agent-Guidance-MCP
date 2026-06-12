@@ -6,7 +6,7 @@ description: >-
 version: 2.0.0
 ---
 
-# AI Agent Standards Session Restore (Lazy Loading)
+# Agent Guidance Session Restore (Lazy Loading)
 
 Khoi phuc context voi 3 cap do de tiet kiem token.
 
@@ -22,7 +22,7 @@ Khoi phuc context voi 3 cap do de tiet kiem token.
 
 ### Auto-Trigger (Level 1 only)
 - Bat dau session moi
-- Truoc moi AI Agent Standards workflow
+- Truoc moi Agent Guidance workflow
 
 ### Manual Trigger
 - `/recap` → Level 1 (nhanh)

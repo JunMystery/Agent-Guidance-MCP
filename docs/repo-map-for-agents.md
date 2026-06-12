@@ -22,14 +22,14 @@ These files are generated. Edit `karpathy/principles.md`, `rules/agent-manifest.
 - `src/`: Python source code for the MCP server.
 - `tests/`: Pytest test suite for the server and catalog.
 - `skills/`: On-demand workflow capsules.
-- `ai-agent-standards/`: Framework documentation, standards, checklists, prompts, and compliance docs.
+- `agent-guidance/`: Framework documentation, standards, checklists, prompts, and compliance docs.
 - `docs/`: Maintainer-facing documentation for the repository.
 
 ## Common Workflows
 
 - Updating core behavior: edit `karpathy/principles.md`, regenerate rules, run generator check.
 - Adding or changing an agent instruction file: update `rules/agent-manifest.json` and a template, regenerate, then verify setup still lists the agent.
-- Updating task-specific standards: edit the relevant file under `ai-agent-standards/`.
+- Updating task-specific standards: edit the relevant file under `agent-guidance/`.
 - Updating a skill: edit only the matching `skills/<name>/SKILL.md`.
 - Refactoring large files or reducing monolithic modules: load `skills/large-file-refactor/SKILL.md`.
 

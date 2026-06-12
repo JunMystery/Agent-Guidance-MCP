@@ -159,9 +159,9 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
                 "- Violations of surgical-change, simplicity, DRY, or organization rules.",
                 "",
                 "Useful references:",
-                "- ai-agent-standards/quality-control/code-review-checklist.md",
-                "- ai-agent-standards/quality-control/audit-ai-code-full.md",
-                "- ai-agent-standards/risk-management/security-constraints.md",
+                "- agent-guidance/quality-control/code-review-checklist.md",
+                "- agent-guidance/quality-control/audit-ai-code-full.md",
+                "- agent-guidance/risk-management/security-constraints.md",
                 "- karpathy/principles.md",
             ]
         )

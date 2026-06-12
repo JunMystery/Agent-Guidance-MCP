@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://ai-agent-standards.local/schemas/preferences.schema.json",
-  "title": "AI Agent Standards User Preferences Schema",
+  "$id": "https://agent-guidance.local/schemas/preferences.schema.json",
+  "title": "Agent Guidance User Preferences Schema",
   "description": "User preferences for AI communication and working style",
   "version": "2.0.0",
   "type": "object",

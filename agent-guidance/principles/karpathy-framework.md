@@ -50,7 +50,7 @@ The Karpathy principles directly address these by promoting **careful analysis, 
 **Complement to AI-Coding-Standards framework:**
 - This principle elevates **prompt quality** before sending to AI (step 1 of pipeline)
 - Reduces "back-and-forth" iterations by clarifying requirements upfront
-- Aligns with `.ai-agent-standards/prompts/HEADER-TEMPLATE.yaml` requirement to define success criteria
+- Aligns with `.agent-guidance/prompts/HEADER-TEMPLATE.yaml` requirement to define success criteria
 
 **Real Example:**
 ```
