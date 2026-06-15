@@ -2,7 +2,7 @@
 
 Track versions and updates for the AI Agent Coding Standards framework.
 
-## [3.1.0] - 2026-06-12
+## [3.1.1] - 2026-06-12
 
 ### Added
 - **Project-context MCP tools** - Added bounded project tree, code search, file read, and snapshot export tools so AI agents can inspect codebases quickly without broad file reads.
@@ -10,7 +10,7 @@ Track versions and updates for the AI Agent Coding Standards framework.
 
 ### Changed
 - **README landing page** - Reduced the root README to the essential project overview, installation, quick start, documentation links, MCP summary, and development command.
-- **Version synchronization** - Updated framework and package release surfaces to v3.1.0.
+- **Version synchronization** - Updated framework and package release surfaces to v3.1.1.
 
 ## [3.0.3] - 2026-06-11
 

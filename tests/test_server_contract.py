@@ -177,11 +177,11 @@ def test_grouped_tool_operations_return_useful_payloads(tmp_path):
     entry = mcp.tools["guidance"](
         operation="get", identifier="frontend-hub", include_content=True
     )
-    workflow_plan = mcp.tools["guidance"](
-        operation="get", identifier="workflow-plan", include_content=True
+    workflow_modes = mcp.tools["guidance"](
+        operation="get", identifier="workflow-modes", include_content=True
     )
-    react_testing = mcp.tools["guidance"](
-        operation="get", identifier="react-testing", include_content=True
+    framework_testing = mcp.tools["guidance"](
+        operation="get", identifier="framework-testing", include_content=True
     )
     searched = mcp.tools["guidance"](operation="search", query="security auth", limit=2)
     framework_search = mcp.tools["guidance"](
@@ -204,11 +204,11 @@ def test_grouped_tool_operations_return_useful_payloads(tmp_path):
 
     assert listed
     assert "# Frontend Hub" in entry["content"]
-    assert "# Deprecated: use `workflow-modes`" in workflow_plan["content"]
-    assert "# Deprecated: use `framework-testing`" in react_testing["content"]
+    assert "# Workflow Modes" in workflow_modes["content"]
+    assert "# Framework Testing" in framework_testing["content"]
     assert searched
     assert any(
-        result["identifier"] in {"framework-testing", "python-testing"}
+        result["identifier"] == "framework-testing"
         for result in framework_search
     )
     assert tree["tree"]
