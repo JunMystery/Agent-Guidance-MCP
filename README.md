@@ -50,7 +50,7 @@ Run the server through an MCP client, or verify it locally with MCP Inspector:
 npx @modelcontextprotocol/inspector .venv/bin/python -m agent_guidance_mcp
 ```
 
-Then use the standards tools to load guidance and the project-context tools to inspect code before editing. See [Usage Guide](docs/usage.md) for practical workflows.
+Then call `task_pipeline(...)` to load task guidance and bounded project context before editing. See [Usage Guide](docs/usage.md) for practical workflows.
 
 ## Documentation
 
@@ -58,7 +58,8 @@ Then use the standards tools to load guidance and the project-context tools to i
 - [Client Configuration](docs/client-configuration.md) - VS Code, GitHub Copilot, Claude Desktop, Cursor, Gemini-compatible config, and env vars.
 - [Usage Guide](docs/usage.md) - quick checks, recommended agent workflows, and examples.
 - [MCP Surface Reference](docs/mcp-surface.md) - all tools, prompts, and resources.
-- [Project Context Tools](docs/project-context-tools.md) - tree, search, file read, snapshot export, token guidance, and freshness rules.
+- [Project Context Tools](docs/project-context-tools.md) - grouped tree, search, file read, snapshot export, token guidance, and freshness rules.
+- [Skill Grouping Audit](docs/skill-grouping-audit.md) - hub-first grouping map, unassigned skills, and future merge candidates.
 - [Development Guide](docs/development.md) - tests, project structure, and maintainer notes.
 - [Repo Map For Agents](docs/repo-map-for-agents.md) - existing repository orientation notes.
 - [Rules Generation](docs/rules-generation.md) - existing rules-generation documentation.
@@ -66,21 +67,14 @@ Then use the standards tools to load guidance and the project-context tools to i
 
 ## MCP Surface
 
-Core standards tools:
+Grouped tools:
 
-- `list_entries(category, kind)`
-- `get_entry(identifier)`
-- `search_entries(query, limit, kind)`
-- `recommend_context(task, limit)`
+- `task_pipeline(task, project_path, focus, code_query, include_tree, include_ui, limit)`
+- `guidance(operation, query, identifier, category, kind, limit, include_content)`
+- `project_context(operation, project_path, query, relative_path, start_line, max_lines, max_depth, output_path, max_file_bytes, max_total_bytes, limit)`
+- `ui_ux(operation, query, domain, stack, project_name, output_format, limit)`
 
-Project-context tools:
-
-- `get_project_tree(project_path, max_depth)`
-- `search_project_code(project_path, query, limit)`
-- `read_project_file(project_path, relative_path, start_line, max_lines)`
-- `export_project_snapshot(project_path, output_path, max_file_bytes, max_total_bytes)`
-
-Prompts include `/init`, `/plan`, `/design`, `/code`, `/run`, `/test`, `/deploy`, `/debug`, `/refactor`, `/audit`, `/rollback`, and `/recap`. Full details are in [MCP Surface Reference](docs/mcp-surface.md).
+`task_pipeline` is the recommended first call. Skill recommendations prefer domain hubs first; load a hub first, then load deep skills only as needed. `ui_ux` is backed by the repo-owned `ui-ux-pro-max` skill and its internal references. `workflow_prompt(mode, subject, target)` replaces the individual workflow prompts. Full details are in [MCP Surface Reference](docs/mcp-surface.md).
 
 ## Development
 

@@ -2,7 +2,7 @@
 
 [Back to README](../README.md)
 
-This page lists the MCP resources, tools, and prompts exposed by the server.
+This page lists the public MCP resources, grouped tools, and prompt exposed by the server.
 
 ## Resources
 
@@ -12,56 +12,71 @@ This page lists the MCP resources, tools, and prompts exposed by the server.
 | `standards://document/{identifier}` | Markdown content for a standards document by slug or identifier. |
 | `standards://skill/{name}` | Markdown content for a local on-demand skill capsule by name. |
 
-## Standards Tools
+## Tools
 
 | Tool | Description |
 |---|---|
-| `list_entries(category, kind)` | List indexed standards catalog entries, optionally filtered by category or kind. |
-| `get_entry(identifier)` | Fetch one entry by slug, skill name, agent key, URI, or relative path. |
-| `search_entries(query, limit, kind)` | Search standards entries and return ranked snippets. |
-| `recommend_context(task, limit)` | Recommend standards, skills, and references for a coding task. |
+| `task_pipeline(task, project_path=".", focus="general", code_query=None, include_tree=True, include_ui=True, limit=8)` | Recommended first call. Returns standards recommendations, hub skill suggestions, a bounded project tree, optional code-search matches, and optional UI/UX guidance for frontend/design tasks. |
+| `guidance(operation, query=None, identifier=None, category=None, kind=None, limit=10, include_content=False)` | Grouped standards catalog operations. |
+| `project_context(operation, project_path=".", query=None, relative_path=None, start_line=1, max_lines=300, max_depth=3, output_path=".agent-context/code-snapshot.json", max_file_bytes=200000, max_total_bytes=2000000, limit=20)` | Grouped project tree, search, read, and snapshot operations. |
+| `ui_ux(operation, query, domain=None, stack=None, project_name=None, output_format="markdown", limit=3)` | Grouped UI/UX Pro Max search, design-system, and slide guidance operations. |
 
-## Project Context Tools
+## Tool Operations
 
-| Tool | Description |
+`guidance` supports:
+
+- `list`: replaces `list_entries(category, kind)`.
+- `get`: replaces `get_entry(identifier)`.
+- `search`: replaces `search_entries(query, limit, kind)`.
+- `recommend`: replaces `recommend_context(task, limit)`.
+
+`project_context` supports:
+
+- `tree`: replaces `get_project_tree(project_path, max_depth)`.
+- `search`: replaces `search_project_code(project_path, query, limit)`.
+- `read`: replaces `read_project_file(project_path, relative_path, start_line, max_lines)`.
+- `snapshot`: replaces `export_project_snapshot(project_path, output_path, max_file_bytes, max_total_bytes)`.
+
+`ui_ux` supports:
+
+- `search`: replaces `search_ui_ux_guidance(query, domain, stack, limit)`.
+- `design_system`: replaces `generate_ui_ux_design_system(query, project_name, output_format)`.
+- `slides`: replaces `search_slide_guidance(query, domain, limit)`.
+
+Unsupported operations return an error payload with `supported_operations`.
+
+## Prompt
+
+| Prompt | Description |
 |---|---|
-| `get_project_tree(project_path, max_depth)` | Return a bounded source tree for a project. |
-| `search_project_code(project_path, query, limit)` | Search project source files and return bounded snippets. |
-| `read_project_file(project_path, relative_path, start_line, max_lines)` | Read a bounded line range from one project text file. |
-| `export_project_snapshot(project_path, output_path, max_file_bytes, max_total_bytes)` | Export bounded project tree and code content for AI agent context. |
+| `workflow_prompt(mode="plan", subject="", target="")` | Loads one workflow prompt by mode. Supported modes: `init`, `plan`, `design`, `visualize`, `code`, `run`, `test`, `deploy`, `debug`, `refactor`, `audit`, `rollback`, `recap`, `review`. |
 
-See [Project Context Tools](project-context-tools.md) for detailed usage and safety notes.
-
-## Prompts
-
-| Prompt | Slash Command | Description |
-|---|---|---|
-| `apply_standards` | - | Generate a standards-aware system instructions prompt. |
-| `review_ai_code` | - | Review code against the Karpathy principles framework. |
-| `init` | `/init` | Initialize a new project workflow. |
-| `plan` | `/plan` | Plan feature design and workflow layout. |
-| `design` | `/design` | Technical architectural design guidelines. |
-| `visualize` | `/visualize` | Create UI/UX mockups and design guides. |
-| `code` | `/code` | Write high-quality compliant code implementations. |
-| `run` | `/run` | Build, run, and verify the application environment. |
-| `test` | `/test` | Write and execute unit/integration test suites. |
-| `deploy` | `/deploy` | Check safety checklists before deployment. |
-| `debug` | `/debug` | Systematic troubleshooting and error-solving protocol. |
-| `refactor` | `/refactor` | Safe code refactoring instructions. |
-| `audit` | `/audit` | Execute security and system-health audits. |
-| `rollback` | `/rollback` | Execute emergency recovery/rollback steps. |
-| `recap` | `/recap` | Rebuild workspace and context session state. |
+The individual workflow prompts are no longer public MCP prompts. Use `workflow_prompt` with the desired `mode`.
 
 ## Recommended Ordering
 
-For coding tasks, a good default order is:
+For most coding tasks, start with:
 
-1. `recommend_context(task)`
-2. `get_project_tree(project_path)`
-3. `search_project_code(project_path, query)`
-4. `read_project_file(project_path, relative_path)`
+1. `task_pipeline(task, project_path, code_query=None)`
+2. `project_context(operation="search", project_path=..., query=...)` when more code context is needed.
+3. `project_context(operation="read", project_path=..., relative_path=...)` before editing a target file.
+4. `ui_ux(operation="search" | "design_system" | "slides", query=...)` for frontend, brand, dashboard, landing page, or presentation work.
 5. Edit only the files needed.
 6. Run targeted verification.
+
+## Skill Hubs
+
+Recommendations prefer domain hubs first:
+
+- `frontend-hub`
+- `testing-hub`
+- `security-hub`
+- `docs-research-hub`
+- `workflow-hub`
+- `backend-hub`
+
+Specialized skills remain directly loadable by identifier for deeper references.
+Load a hub first, then load deep skills only as needed. See [Skill Grouping Audit](skill-grouping-audit.md) for the current grouping map.
 
 ## Related Docs
 

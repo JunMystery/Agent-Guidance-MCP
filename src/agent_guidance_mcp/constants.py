@@ -6,39 +6,51 @@ DEFAULT_INCLUDE_DIRS = ("karpathy", "agent-guidance", "skills", "docs")
 
 TASK_ANCHORS = {
     "security": (
+        "skills/security-hub/SKILL.md",
         "agent-guidance/risk-management/security-constraints.md",
-        "skills/security-review/SKILL.md",
     ),
     "api": (
-        "skills/api-design/SKILL.md",
+        "skills/backend-hub/SKILL.md",
         "agent-guidance/prompts/sample-use-cases/create-api-with-rate-limiting.md",
     ),
     "tests": (
+        "skills/testing-hub/SKILL.md",
         "agent-guidance/engineering-practices/TESTING_STANDARDS.md",
-        "skills/tdd-workflow/SKILL.md",
     ),
     "docs": (
+        "skills/docs-research-hub/SKILL.md",
         "agent-guidance/engineering-practices/DOCUMENTATION_STANDARDS.md",
-        "skills/documentation-lookup/SKILL.md",
     ),
     "accessibility": (
+        "skills/frontend-hub/SKILL.md",
         "agent-guidance/compliance/A11Y_CHECKLIST.md",
-        "skills/accessibility/SKILL.md",
     ),
     "performance": (
+        "skills/backend-hub/SKILL.md",
         "agent-guidance/engineering-practices/NON_FUNCTIONAL_REQUIREMENTS.md",
-        "skills/production-audit/SKILL.md",
     ),
     "release": (
+        "skills/workflow-hub/SKILL.md",
         "agent-guidance/engineering-practices/RELEASE_PROCESS.md",
-        "skills/git-workflow/SKILL.md",
     ),
     "skills": (
+        "skills/workflow-hub/SKILL.md",
         "SKILL-REFERENCE.md",
-        "skills/skill-scout/SKILL.md",
     ),
     "review": (
+        "skills/workflow-hub/SKILL.md",
         "agent-guidance/quality-control/code-review-checklist.md",
-        "agent-guidance/quality-control/audit-ai-code-full.md",
+    ),
+    "ui": (
+        "skills/frontend-hub/SKILL.md",
+        "skills/ui-ux-pro-max/SKILL.md",
+    ),
+    "workflow": (
+        "skills/workflow-hub/SKILL.md",
+        "skills/verification-loop/SKILL.md",
+    ),
+    "backend": (
+        "skills/backend-hub/SKILL.md",
+        "skills/api-design/SKILL.md",
     ),
 }

@@ -2,7 +2,7 @@
 
 [Back to README](../README.md)
 
-Project-context tools give AI agents a bounded, repeatable way to inspect a project before editing code. They are intentionally lightweight: no database, no GraphRAG, no UI, and no LLM calls.
+The `project_context` grouped tool gives AI agents a bounded, repeatable way to inspect a project before editing code. It is intentionally lightweight: no database, no GraphRAG, no UI, and no LLM calls.
 
 ## Why These Tools Exist
 
@@ -17,15 +17,15 @@ The tools skip common dependency/cache folders, binary files, and generated snap
 
 ## Agent Instruction Policy
 
-At the start of each coding session, call `recommend_context(task)` and `get_project_tree(project_path)`.
+At the start of each coding session, call `task_pipeline(task, project_path)`. It includes recommendations and can include the bounded project tree.
 
-For large refactors, upgrades, audits, or unfamiliar code, also use `search_project_code(project_path, query)` and `export_project_snapshot(project_path)` when a reusable overview is useful.
+For large refactors, upgrades, audits, or unfamiliar code, also use `project_context(operation="search", project_path=..., query=...)` and `project_context(operation="snapshot", project_path=...)` when a reusable overview is useful.
 
-Before editing any file, inspect the current target file with `read_project_file(project_path, relative_path)` or an equivalent file-read tool.
+Before editing any file, inspect the current target file with `project_context(operation="read", project_path=..., relative_path=...)` or an equivalent file-read tool.
 
 Avoid repeated broad scans during the same session unless the project changed significantly.
 
-## `get_project_tree`
+## `project_context(operation="tree")`
 
 Returns a bounded source tree for a project.
 
@@ -33,6 +33,7 @@ Example:
 
 ```json
 {
+  "operation": "tree",
   "project_path": "/absolute/path/to/project",
   "max_depth": 3
 }
@@ -47,7 +48,7 @@ The result includes entries with:
 - `language_hint` for files
 - `size_bytes` for files
 
-## `search_project_code`
+## `project_context(operation="search")`
 
 Searches source files and returns ranked snippets.
 
@@ -55,6 +56,7 @@ Example:
 
 ```json
 {
+  "operation": "search",
   "project_path": "/absolute/path/to/project",
   "query": "auth refresh token",
   "limit": 10
@@ -71,7 +73,7 @@ The result includes:
 - `line`
 - `snippet`
 
-## `read_project_file`
+## `project_context(operation="read")`
 
 Reads a bounded range from one text file inside the project.
 
@@ -79,6 +81,7 @@ Example:
 
 ```json
 {
+  "operation": "read",
   "project_path": "/absolute/path/to/project",
   "relative_path": "src/auth/token_service.py",
   "start_line": 1,
@@ -88,7 +91,7 @@ Example:
 
 Use this immediately before editing a file. It validates that the requested file stays inside the project root.
 
-## `export_project_snapshot`
+## `project_context(operation="snapshot")`
 
 Writes a bounded JSON snapshot to the project.
 
@@ -96,6 +99,7 @@ Example:
 
 ```json
 {
+  "operation": "snapshot",
   "project_path": "/absolute/path/to/project"
 }
 ```
@@ -126,9 +130,9 @@ Each file entry includes:
 
 Treat snapshots as cached overview context, not the source of truth.
 
-Before editing a file, the agent should still call `read_project_file` or use an equivalent current file-read tool. This avoids making changes from stale snapshot content.
+Before editing a file, the agent should still use `project_context(operation="read", ...)` or an equivalent current file-read tool. This avoids making changes from stale snapshot content.
 
-Use `export_project_snapshot` when:
+Use `project_context(operation="snapshot", ...)` when:
 
 - onboarding into a larger project,
 - preparing an audit,
@@ -152,7 +156,7 @@ Recommended defaults:
 
 Use larger values only when the task requires it.
 
-`export_project_snapshot` has byte limits:
+`project_context(operation="snapshot", ...)` has byte limits:
 
 ```json
 {
@@ -168,7 +172,7 @@ These limits protect the agent context window, but a snapshot can still be much 
 - Pass an explicit absolute `project_path` whenever possible.
 - Do not rely on the MCP process current working directory for multi-project workflows.
 - Do not edit code based only on snapshot content.
-- Prefer `search_project_code` and `read_project_file` for focused task work.
+- Prefer `project_context(operation="search", ...)` and `project_context(operation="read", ...)` for focused task work.
 
 ## Related Docs
 

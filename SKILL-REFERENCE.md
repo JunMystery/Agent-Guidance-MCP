@@ -25,9 +25,15 @@ The root instruction file for each agent should still be the primary entrypoint;
 
 ## Local Skills Implemented Here
 
-The following on-demand skill capsules are available in [skills/](./skills/):
+The following on-demand skill capsules are available in [skills/](./skills/). Load a hub first, then load deep skills only as needed. See [Skill Grouping Audit](./docs/skill-grouping-audit.md) for the current grouping map.
 
 - [coding-standards](./skills/coding-standards/SKILL.md)
+- [frontend-hub](./skills/frontend-hub/SKILL.md)
+- [testing-hub](./skills/testing-hub/SKILL.md)
+- [security-hub](./skills/security-hub/SKILL.md)
+- [docs-research-hub](./skills/docs-research-hub/SKILL.md)
+- [workflow-hub](./skills/workflow-hub/SKILL.md)
+- [backend-hub](./skills/backend-hub/SKILL.md)
 - [tdd-workflow](./skills/tdd-workflow/SKILL.md)
 - [verification-loop](./skills/verification-loop/SKILL.md)
 - [security-review](./skills/security-review/SKILL.md)
@@ -37,6 +43,7 @@ The following on-demand skill capsules are available in [skills/](./skills/):
 - [browser-qa](./skills/browser-qa/SKILL.md)
 - [prompt-optimizer](./skills/prompt-optimizer/SKILL.md)
 - [skill-scout](./skills/skill-scout/SKILL.md)
+- [ui-ux-pro-max](./skills/ui-ux-pro-max/SKILL.md)
 - [codex-vscode](./skills/codex-vscode/SKILL.md)
 - [large-file-refactor](./skills/large-file-refactor/SKILL.md)
 - [accessibility](./skills/accessibility/SKILL.md)
@@ -58,7 +65,7 @@ The following on-demand skill capsules are available in [skills/](./skills/):
 > Auth, payments, encryption, user data, API keys
 
 ```
-@agent-guidance/risk-management/security-constraints.md
+@skills/security-hub/SKILL.md
 ```
 
 ### RAG / AI Pipeline
@@ -81,6 +88,7 @@ The following on-demand skill capsules are available in [skills/](./skills/):
 ```
 @agent-guidance/quality-control/audit-ai-code-full.md
 @agent-guidance/quality-control/code-review-checklist.md
+@skills/workflow-hub/SKILL.md
 ```
 
 ### Large File Refactor
@@ -101,35 +109,35 @@ The following on-demand skill capsules are available in [skills/](./skills/):
 > Schema changes, data migration, rollback strategy
 
 ```
-@agent-guidance/prompts/sample-use-cases/database-migration.md
+@skills/backend-hub/SKILL.md
 ```
 
 ### Caching & Performance
 > Redis, cache invalidation, query optimization
 
 ```
-@agent-guidance/prompts/sample-use-cases/refactor-cache-strategy.md
+@skills/backend-hub/SKILL.md
 ```
 
 ### Unit Test Generation
 > Writing tests for existing or new code
 
 ```
-@agent-guidance/prompts/sample-use-cases/generate-unit-tests.md
+@skills/testing-hub/SKILL.md
 ```
 
 ### Security Audit
 > Scanning for vulnerabilities in existing code
 
 ```
-@agent-guidance/prompts/sample-use-cases/security-audit.md
+@skills/security-hub/SKILL.md
 ```
 
 ### API Development
 > REST endpoints, rate limiting, authentication
 
 ```
-@agent-guidance/prompts/sample-use-cases/create-api-with-rate-limiting.md
+@skills/backend-hub/SKILL.md
 ```
 
 ### Mobile Development
@@ -143,28 +151,28 @@ The following on-demand skill capsules are available in [skills/](./skills/):
 > Writing README, API Specs, Docstrings, or Changelogs
 
 ```
-@agent-guidance/engineering-practices/DOCUMENTATION_STANDARDS.md
+@skills/docs-research-hub/SKILL.md
 ```
 
 ### Release & Branching Strategy
 > Bumping versions (SemVer), Gitflow, or pre-release checks
 
 ```
-@agent-guidance/engineering-practices/RELEASE_PROCESS.md
+@skills/workflow-hub/SKILL.md
 ```
 
 ### Testing Strategy & TDD
 > Setting up test pyramids, coverage bounds, or adhering to FIRST principles
 
 ```
-@agent-guidance/engineering-practices/TESTING_STANDARDS.md
+@skills/testing-hub/SKILL.md
 ```
 
 ### Performance & DB Optimization
 > Caching strategy, N+1 queries, concurrency, response time budgets
 
 ```
-@agent-guidance/engineering-practices/NON_FUNCTIONAL_REQUIREMENTS.md
+@skills/backend-hub/SKILL.md
 ```
 
 ### Industry Compliance
@@ -178,8 +186,20 @@ The following on-demand skill capsules are available in [skills/](./skills/):
 > Reviewing HTML/React for WCAG 2.1 AA, ARIA, and Keyboard Navigation
 
 ```
-@agent-guidance/compliance/A11Y_CHECKLIST.md
+@skills/frontend-hub/SKILL.md
 ```
+
+### UI/UX, Frontend Design, Dashboards, Landing Pages, Slides
+> Visual design, component styling, product-specific UX, design systems, brand assets, and slide/presentation UI
+
+```
+@skills/frontend-hub/SKILL.md
+@skills/ui-ux-pro-max/SKILL.md
+```
+
+Use this as the single public UI/UX Pro Max entrypoint. Banner, brand, slides,
+UI styling, and imported design-system references are internal files under
+`skills/ui-ux-pro-max/` and should be loaded only as needed.
 
 ---
 
