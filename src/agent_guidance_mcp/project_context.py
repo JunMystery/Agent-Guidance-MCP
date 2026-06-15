@@ -5,6 +5,15 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
+from .response_optimizer import (
+    TokenBudget,
+    estimate_tokens,
+    optimize_snapshot_content,
+    optimize_source_content,
+)
+from .token_analytics import TokenTracker
+from .token_config import TokenOptimizationConfig, load_config_from_env
+from .token_filter import FilterLevel
 from .project_scan import (
     DEFAULT_MAX_DEPTH,
     DEFAULT_MAX_FILE_BYTES,
@@ -29,8 +38,11 @@ def export_project_snapshot(
     output_path: str = DEFAULT_SNAPSHOT_PATH,
     max_file_bytes: int = DEFAULT_MAX_FILE_BYTES,
     max_total_bytes: int = DEFAULT_MAX_TOTAL_BYTES,
+    config: TokenOptimizationConfig | None = None,
+    tracker: TokenTracker | None = None,
 ) -> dict[str, object]:
     """Write a bounded JSON snapshot of source files and return its manifest."""
+    config = config or load_config_from_env()
     root = resolve_project_root(project_path)
     output = resolve_inside_project(root, output_path)
     output_relative = output.relative_to(root).as_posix()
@@ -60,6 +72,13 @@ def export_project_snapshot(
                 "content": content,
             }
         )
+
+    raw_files = files
+    if config.enabled:
+        files = optimize_snapshot_content(
+            files, max_total_tokens=config.snapshot_total_max_tokens, config=config
+        )
+        _record_savings(tracker, "project_context", "snapshot", raw_files, files)
 
     snapshot = {
         "project_root": str(root),
@@ -98,8 +117,11 @@ def read_project_file(
     relative_path_value: str = "",
     start_line: int = 1,
     max_lines: int = DEFAULT_MAX_READ_LINES,
+    config: TokenOptimizationConfig | None = None,
+    tracker: TokenTracker | None = None,
 ) -> dict[str, object]:
     """Read a bounded line range from one text file inside a project."""
+    config = config or load_config_from_env()
     if not relative_path_value:
         raise ValueError("relative_path is required.")
 
@@ -122,14 +144,51 @@ def read_project_file(
             selected.append(line.rstrip("\n"))
 
     end_line = start_line + len(selected) - 1 if selected else start_line - 1
+    content = "\n".join(selected)
+    if config.enabled:
+        optimized, token_stats = optimize_source_content(
+            content, language_hint(path), FilterLevel.MINIMAL, config=config
+        )
+        _record_savings(tracker, "project_context", "read", content, optimized)
+    else:
+        optimized = content
+        original_tokens = estimate_tokens(content)
+        token_stats = {
+            "original_tokens": original_tokens,
+            "optimized_tokens": original_tokens,
+            "savings_pct": 0,
+        }
+
     return {
         "project_root": str(root),
         "path": relative_path(root, path),
         "start_line": start_line,
         "end_line": end_line,
         "truncated": truncated,
-        "content": "\n".join(selected),
+        "content": optimized,
+        "token_stats": token_stats,
     }
+
+
+def _record_savings(
+    tracker: TokenTracker | None,
+    tool_name: str,
+    operation: str,
+    original: object,
+    optimized: object,
+) -> None:
+    if tracker is None:
+        return
+    import json
+
+    original_text = original if isinstance(original, str) else json.dumps(original, default=str)
+    optimized_text = optimized if isinstance(optimized, str) else json.dumps(optimized, default=str)
+    tracker.record(
+        tool_name=tool_name,
+        operation=operation,
+        original_tokens=estimate_tokens(original_text),
+        optimized_tokens=estimate_tokens(optimized_text),
+    )
 
 
 def search_project_code(

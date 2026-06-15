@@ -7,6 +7,7 @@ import sys
 
 from .catalog import find_standards_root
 from .server import create_server
+from .token_config import TokenOptimizationConfig
 
 
 def parse_args() -> argparse.Namespace:
@@ -18,6 +19,11 @@ def parse_args() -> argparse.Namespace:
             "legacy AI_AGENT_STANDARDS_ROOT, or the bundled MCP repo corpus."
         ),
     )
+    parser.add_argument(
+        "--no-optimize",
+        action="store_true",
+        help="Disable token optimization and savings tracking for this server session.",
+    )
     return parser.parse_args()
 
 
@@ -25,7 +31,8 @@ def main() -> None:
     try:
         args = parse_args()
         root = find_standards_root(args.root)
-        server = create_server(root)
+        config = TokenOptimizationConfig.disabled() if args.no_optimize else None
+        server = create_server(root, config=config)
         server.run()
     except KeyboardInterrupt:
         sys.exit(0)

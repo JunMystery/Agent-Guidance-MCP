@@ -7,6 +7,9 @@ from typing import Any
 
 from .catalog import StandardsCatalog, build_catalog
 from . import pipelines
+from .response_optimizer import TokenBudget, estimate_tokens, optimize_markdown
+from .token_analytics import TokenTracker
+from .token_config import TokenOptimizationConfig, load_config_from_env
 
 try:
     from mcp.server.fastmcp import FastMCP
@@ -16,9 +19,42 @@ except ImportError as exc:  # pragma: no cover - exercised only without optional
 else:
     MCP_IMPORT_ERROR = None
 
+_global_config: TokenOptimizationConfig | None = None
+_global_tracker: TokenTracker | None = None
+
+
+def get_config() -> TokenOptimizationConfig:
+    """Return the process-level token optimization config."""
+    global _global_config
+    if _global_config is None:
+        _global_config = load_config_from_env()
+    return _global_config
+
+
+def set_config(config: TokenOptimizationConfig | None) -> None:
+    """Set the process-level token optimization config."""
+    global _global_config, _global_tracker
+    _global_config = config
+    _global_tracker = None
+
+
+def get_tracker() -> TokenTracker:
+    """Return the process-level token savings tracker."""
+    global _global_tracker
+    if _global_tracker is None:
+        config = get_config()
+        _global_tracker = TokenTracker(enabled=config.enabled and config.track_savings)
+    return _global_tracker
+
+
+def reset_tracker() -> None:
+    """Reset token tracking data."""
+    get_tracker().reset()
+
 
 def create_server(
     root: str | Path | None = None,
+    config: TokenOptimizationConfig | None = None,
 ) -> Any:
     if FastMCP is None:
         raise RuntimeError(
@@ -26,6 +62,7 @@ def create_server(
             "'pip install -e .', or 'pip install mcp'."
         ) from MCP_IMPORT_ERROR
 
+    set_config(config or load_config_from_env())
     catalog = build_catalog(root)
     mcp = FastMCP("Agent Guidance MCP", json_response=True)
     register_handlers(mcp, catalog)
@@ -41,12 +78,20 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
     @mcp.resource("standards://document/{identifier}", mime_type="text/markdown")
     def document(identifier: str) -> str:
         """Return a standards document by slug."""
-        return catalog.read_entry(identifier)
+        config = get_config()
+        raw = catalog.read_entry(identifier, optimize=False)
+        optimized = catalog.read_entry(identifier, config=config)
+        _record_savings("resource", "document", raw, optimized)
+        return optimized
 
     @mcp.resource("standards://skill/{name}", mime_type="text/markdown")
     def skill(name: str) -> str:
         """Return a local on-demand skill capsule by name."""
-        return catalog.read_entry(name)
+        config = get_config()
+        raw = catalog.read_entry(name, optimize=False)
+        optimized = catalog.read_entry(name, config=config)
+        _record_savings("resource", "skill", raw, optimized)
+        return optimized
 
     @mcp.tool()
     def task_pipeline(
@@ -68,6 +113,8 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             include_tree=include_tree,
             include_ui=include_ui,
             limit=limit,
+            config=get_config(),
+            tracker=get_tracker(),
         )
 
     @mcp.tool()
@@ -90,6 +137,8 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             kind=kind,
             limit=limit,
             include_content=include_content,
+            config=get_config(),
+            tracker=get_tracker(),
         )
 
     @mcp.tool()
@@ -119,6 +168,8 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             max_file_bytes=max_file_bytes,
             max_total_bytes=max_total_bytes,
             limit=limit,
+            config=get_config(),
+            tracker=get_tracker(),
         )
 
     @mcp.tool()
@@ -141,7 +192,14 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             project_name=project_name,
             output_format=output_format,
             limit=limit,
+            config=get_config(),
+            tracker=get_tracker(),
         )
+
+    @mcp.tool()
+    def token_stats() -> dict[str, object]:
+        """Return token optimization statistics for this session."""
+        return get_tracker().summary()
 
     @mcp.prompt()
     def workflow_prompt(mode: str = "plan", subject: str = "", target: str = "") -> str:
@@ -173,7 +231,17 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             supported = ", ".join(sorted(workflow_references))
             return f"Unsupported workflow mode: {mode}. Supported modes: {supported}."
 
-        content = catalog.read_path(workflow_references[mode_key])
+        config = get_config()
+        raw_content = catalog.read_path(workflow_references[mode_key])
+        if config.enabled:
+            content = optimize_markdown(
+                raw_content,
+                max_tokens=config.workflow_max_tokens,
+                config=config,
+            )
+        else:
+            content = raw_content
+        _record_savings("workflow_prompt", mode_key, raw_content, content)
         additions = []
         if subject:
             additions.append(f"Subject: {subject}")
@@ -182,3 +250,18 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         if additions:
             return f"{content}\n\n" + "\n".join(additions)
         return content
+
+
+def _record_savings(
+    tool_name: str,
+    operation: str,
+    original: str,
+    optimized: str,
+) -> None:
+    tracker = get_tracker()
+    tracker.record(
+        tool_name=tool_name,
+        operation=operation,
+        original_tokens=estimate_tokens(original),
+        optimized_tokens=estimate_tokens(optimized),
+    )

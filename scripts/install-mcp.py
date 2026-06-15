@@ -126,12 +126,9 @@ def main():
             python_exe_str = str(python_exe)
             pythonpath_str = str(repo_root / "src")
 
-        legacy_config = config[config_key].get(LEGACY_SERVER_ID)
-        if legacy_config is not None and owns_json_server_config(legacy_config):
+        if LEGACY_SERVER_ID in config[config_key]:
             config[config_key].pop(LEGACY_SERVER_ID)
-            print(f"    Migrated legacy '{LEGACY_SERVER_ID}' config to '{SERVER_ID}' in {config_key}.")
-        elif legacy_config is not None:
-            print(f"    Left custom legacy '{LEGACY_SERVER_ID}' config unchanged.")
+            print(f"    Flushed legacy '{LEGACY_SERVER_ID}' config from {config_key}.")
             
         config[config_key][SERVER_ID] = {
             "command": python_exe_str,
@@ -170,7 +167,9 @@ def configure_codex(python_exe, repo_root):
         f"[mcp_servers.{SERVER_ID}]",
         f'command = "{python_exe_str}"',
         f'args = ["-m", "{MODULE_NAME}"]',
-        f'env = {{ PYTHONPATH = "{pythonpath_str}" }}',
+        "",
+        f"[mcp_servers.{SERVER_ID}.env]",
+        f'PYTHONPATH = "{pythonpath_str}"',
         ""
     ]
     
@@ -188,9 +187,10 @@ def configure_codex(python_exe, repo_root):
             block_found = False
     
             def matching_server_id(header):
-                if header == f"[mcp_servers.{SERVER_ID}]":
+                header_stripped = header.strip("[]")
+                if header_stripped == f"mcp_servers.{SERVER_ID}" or header_stripped.startswith(f"mcp_servers.{SERVER_ID}."):
                     return SERVER_ID
-                if header == f"[mcp_servers.{LEGACY_SERVER_ID}]":
+                if header_stripped == f"mcp_servers.{LEGACY_SERVER_ID}" or header_stripped.startswith(f"mcp_servers.{LEGACY_SERVER_ID}."):
                     return LEGACY_SERVER_ID
                 return None
     
@@ -211,11 +211,7 @@ def configure_codex(python_exe, repo_root):
                     index += 1
     
                 block_text = "\n".join(block_lines)
-                if (
-                    server_id == SERVER_ID
-                    or MODULE_NAME in block_text
-                    or LEGACY_MODULE_NAME in block_text
-                ):
+                if server_id == SERVER_ID or server_id == LEGACY_SERVER_ID:
                     if not block_found:
                         block_found = True
                         new_lines.extend(new_block[:-1]) # add new block without the trailing newline

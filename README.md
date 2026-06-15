@@ -1,4 +1,4 @@
-# Agent Guidance MCP (v3.1.1)
+# Agent Guidance MCP (v3.2.0)
 
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)

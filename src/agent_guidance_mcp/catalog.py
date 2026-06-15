@@ -26,6 +26,7 @@ from .text import (
     title_from_path,
     tokenize,
 )
+from .token_config import TokenOptimizationConfig, load_config_from_env
 
 
 @dataclass(frozen=True)
@@ -85,9 +86,25 @@ class StandardsCatalog:
 
         raise KeyError(f"No standards entry found for {identifier!r}.")
 
-    def read_entry(self, identifier: str) -> str:
+    def read_entry(
+        self,
+        identifier: str,
+        optimize: bool = True,
+        config: TokenOptimizationConfig | None = None,
+    ) -> str:
         entry = self.get_entry(identifier)
-        return self.read_path(entry.path)
+        content = self.read_path(entry.path)
+        config = config or load_config_from_env()
+        if optimize and config.enabled:
+            from .response_optimizer import TokenBudget, optimize_markdown
+
+            budget = (
+                config.skill_max_tokens
+                if entry.kind == "skill"
+                else config.document_max_tokens
+            )
+            content = optimize_markdown(content, max_tokens=budget, config=config)
+        return content
 
     def read_path(self, relative_path: str) -> str:
         path = resolve_inside_root(self.root, relative_path)

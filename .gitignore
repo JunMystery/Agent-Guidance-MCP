@@ -24,3 +24,6 @@ tests/
 # Local editor/agent config
 .codex/
 .vscode/
+
+rtk/
+rtk-implementing/
