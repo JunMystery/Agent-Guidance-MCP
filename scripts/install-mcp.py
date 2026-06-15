@@ -78,6 +78,14 @@ def main():
     vscode_native_workspace_path = repo_root / ".vscode" / "mcp.json"
     targets.append(("VS Code Native (Workspace)", vscode_native_workspace_path, True))
 
+    # Continue Global config path (cross-platform)
+    continue_global_path = Path.home() / ".continue" / "mcpServers" / "config.json"
+    targets.append(("Continue (Global)", continue_global_path, True))
+
+    # Continue Workspace config path
+    continue_workspace_path = repo_root / ".continue" / "mcpServers" / "config.json"
+    targets.append(("Continue (Workspace)", continue_workspace_path, True))
+
     # Cline & Roo-Code for VS Code and Cursor
     extensions = [
         ("VS Code Cline", code_path / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"),

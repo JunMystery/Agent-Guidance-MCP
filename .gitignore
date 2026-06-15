@@ -7,6 +7,8 @@ htmlcov/
 build/
 dist/
 *.egg-info/
+.pytest_temp/
+.continue/
 
 # Environments
 .venv/
