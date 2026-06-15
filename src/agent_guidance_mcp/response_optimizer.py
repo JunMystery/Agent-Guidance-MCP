@@ -96,7 +96,7 @@ def truncate_to_budget(content: str, max_tokens: int) -> str:
         if remaining_tokens <= notice_tokens:
             break
 
-        section_lines = [line for line in [header, *body] if line != ""]
+        section_lines = [header, *body] if header else body
         section_text = "\n".join(section_lines)
         section_tokens = estimate_tokens(section_text)
 
@@ -117,7 +117,7 @@ def truncate_to_budget(content: str, max_tokens: int) -> str:
         break
 
     result_lines.append(_truncation_notice(estimate_tokens(content), max_tokens))
-    return "\n".join(line for line in result_lines if line != "").strip()
+    return "\n".join(result_lines).strip()
 
 
 def optimize_source_content(

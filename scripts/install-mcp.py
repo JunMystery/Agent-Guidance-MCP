@@ -132,8 +132,6 @@ def main():
         
         # Write back config
         try:
-            if force_create:
-                path.parent.mkdir(parents=True, exist_ok=True)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(config, indent=2), encoding="utf-8")
             print(f"    Success: Configured '{SERVER_ID}' server.")

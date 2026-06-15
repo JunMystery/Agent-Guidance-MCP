@@ -372,8 +372,8 @@ STEP 7: Done! Log metrics
 
 **Foundational sources:**
 - [Andrej Karpathy's observations](https://x.com/karpathy/status/2015883857489522876) on LLM coding pitfalls
-- `/andrej-karpathy-skills/CLAUDE.md` — Detailed principle explanations
-- `/andrej-karpathy-skills/EXAMPLES.md` — Real-world "wrong vs. right" code examples
+- [`karpathy/principles.md`](../../karpathy/principles.md) — Detailed principle explanations
+- [`karpathy/examples.md`](../../karpathy/examples.md) — Real-world "wrong vs. right" code examples
 
 **Framework integration:**
 - [HEADER-TEMPLATE.yaml](../prompts/HEADER-TEMPLATE.yaml) — Updated prompt structure

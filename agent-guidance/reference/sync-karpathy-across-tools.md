@@ -248,7 +248,7 @@ Your team uses multiple AI tools:
 - [ ] 6 principle names are consistent everywhere
 - [ ] Descriptions are accurate (check against master)
 - [ ] Examples are current and relevant
-- [ ] Order is consistent (always 1-4 in same order)
+- [ ] Order is consistent (always 1-6 in same order)
 
 ### Project Context
 - [ ] Framework name (AI-Coding-Standards) consistent
@@ -424,7 +424,7 @@ A: Minimally quarterly. More frequently if: (a) principles change, (b) team disc
 A: Raise it with the team. Discuss. If consensus changes, update `principles/karpathy-framework.md` FIRST, then sync all tools.
 
 **Q: Can I have tool-specific variations of principles?**  
-A: Minor emphasis variations are OK (e.g., Cursor emphasizes "surgical changes" more because it edits code directly). But the 4 core principles must be consistent.
+A: Minor emphasis variations are OK (e.g., Cursor emphasizes "surgical changes" more because it edits code directly). But the 6 core principles must be consistent.
 
 ---
 

@@ -802,7 +802,7 @@ def get_user_by_id(user_id):
 
 - **Karpathy Framework:** `principles/karpathy-framework.md` — Deep dive into each principle
 - **Code Review Checklist:** `quality-control/code-review-checklist.md` — What to check
-- **Examples:** `/andrej-karpathy-skills/EXAMPLES.md` — Real "wrong vs. right" code
+- **Examples:** [`karpathy/examples.md`](../../karpathy/examples.md) — Real "wrong vs. right" code
 - **Quick Reference:** `onboarding/quick-reference.md` — 1-page summary
 
 ---

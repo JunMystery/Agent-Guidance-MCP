@@ -39,6 +39,6 @@ Use the narrowest checks that prove the change:
 
 ```bash
 python scripts/generate-rules.py --check
-python -m unittest discover
+python -m pytest
 git diff --check
 ```

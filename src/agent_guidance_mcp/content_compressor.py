@@ -341,10 +341,7 @@ def _starts_python_docstring(trimmed: str) -> bool:
 
 
 def _ends_python_docstring(trimmed: str) -> bool:
-    return (
-        (trimmed.endswith('"""') and not trimmed == '"""')
-        or (trimmed.endswith("'''") and not trimmed == "'''")
-    )
+    return trimmed.endswith('"""') or trimmed.endswith("'''")
 
 
 def _is_single_line_python_docstring(trimmed: str) -> bool:

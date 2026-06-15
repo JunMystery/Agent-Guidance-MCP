@@ -36,7 +36,7 @@ The check fails when any generated instruction file differs from the current sou
 
 ## Setup Script Relationship
 
-`scripts/setup.py` reads `rules/agent-manifest.json` to know which instruction files can be installed into another project. It does not generate files during setup; it copies the generated files already committed in this repo and rewrites internal links for the target project.
+`scripts/setup.py` (available in the upstream parent repository) reads `rules/agent-manifest.json` to know which instruction files can be installed into another project. It does not generate files during setup; it copies the generated files already committed in this repo and rewrites internal links for the target project.
 
 ## Skill Installation
 
