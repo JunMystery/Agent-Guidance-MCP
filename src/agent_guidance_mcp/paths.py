@@ -16,8 +16,6 @@ def find_standards_root(root: str | Path | None = None) -> Path:
         candidates.append(Path(root))
     if os.environ.get("AGENT_GUIDANCE_ROOT"):
         candidates.append(Path(os.environ["AGENT_GUIDANCE_ROOT"]))
-    if os.environ.get("AI_AGENT_STANDARDS_ROOT"):
-        candidates.append(Path(os.environ["AI_AGENT_STANDARDS_ROOT"]))
 
     here = Path(__file__).resolve()
     candidates.append(here.parent / "bundled")
@@ -30,8 +28,7 @@ def find_standards_root(root: str | Path | None = None) -> Path:
             return resolved
 
     raise FileNotFoundError(
-        "Could not find Agent Guidance root. Set AGENT_GUIDANCE_ROOT, set legacy "
-        "AI_AGENT_STANDARDS_ROOT, or pass --root."
+        "Could not find Agent Guidance root. Set AGENT_GUIDANCE_ROOT or pass --root."
     )
 
 

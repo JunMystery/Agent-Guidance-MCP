@@ -5,7 +5,7 @@
 [![MCP Version](https://img.shields.io/badge/mcp-%3E%3D1.0.0-green)](https://modelcontextprotocol.io/)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen)](#development)
 
-MCP server serving AI agent guidance through the AI Agent Coding Standards corpus, skill set, prompts, and bounded project-code context tools over **Stdio** transport.
+MCP server serving AI agent guidance through the bundled guidance corpus, skill set, prompts, and bounded project-code context tools over **Stdio** transport.
 
 ![Agent Guidance MCP Architecture Flowchart](docs/images/architecture-flowchart.png)
 

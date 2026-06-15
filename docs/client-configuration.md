@@ -77,7 +77,6 @@ Use `AGENT_GUIDANCE_ROOT` only when the standards corpus is outside this reposit
 AGENT_GUIDANCE_ROOT=/path/to/Agent-Guidance
 ```
 
-`AI_AGENT_STANDARDS_ROOT` is still accepted as a legacy alias for existing local setups.
 
 Project-context tools should receive an explicit `project_path` argument. Avoid relying on the MCP process current working directory when scanning a user project.
 

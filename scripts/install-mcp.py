@@ -6,18 +6,14 @@ import subprocess
 from pathlib import Path
 
 SERVER_ID = "agent-guidance-mcp"
-LEGACY_SERVER_ID = "ai-agent-standards-mcp"
 MODULE_NAME = "agent_guidance_mcp"
-LEGACY_MODULE_NAME = "ai_agent_standards_mcp"
 
 
 def owns_json_server_config(server_config):
     if not isinstance(server_config, dict):
         return False
     args = server_config.get("args", [])
-    return isinstance(args, list) and (
-        MODULE_NAME in args or LEGACY_MODULE_NAME in args
-    )
+    return isinstance(args, list) and MODULE_NAME in args
 
 
 def main():
@@ -126,10 +122,6 @@ def main():
             python_exe_str = str(python_exe)
             pythonpath_str = str(repo_root / "src")
 
-        if LEGACY_SERVER_ID in config[config_key]:
-            config[config_key].pop(LEGACY_SERVER_ID)
-            print(f"    Flushed legacy '{LEGACY_SERVER_ID}' config from {config_key}.")
-            
         config[config_key][SERVER_ID] = {
             "command": python_exe_str,
             "args": ["-m", MODULE_NAME],
@@ -181,7 +173,7 @@ def configure_codex(python_exe, repo_root):
             if config_path.exists():
                 content = config_path.read_text(encoding="utf-8")
                 
-            # Parse and replace owned legacy/current blocks while preserving unrelated blocks.
+            # Parse and replace owned current blocks while preserving unrelated blocks.
             lines = content.splitlines()
             new_lines = []
             block_found = False
@@ -190,8 +182,6 @@ def configure_codex(python_exe, repo_root):
                 header_stripped = header.strip("[]")
                 if header_stripped == f"mcp_servers.{SERVER_ID}" or header_stripped.startswith(f"mcp_servers.{SERVER_ID}."):
                     return SERVER_ID
-                if header_stripped == f"mcp_servers.{LEGACY_SERVER_ID}" or header_stripped.startswith(f"mcp_servers.{LEGACY_SERVER_ID}."):
-                    return LEGACY_SERVER_ID
                 return None
     
             index = 0
@@ -211,7 +201,7 @@ def configure_codex(python_exe, repo_root):
                     index += 1
     
                 block_text = "\n".join(block_lines)
-                if server_id == SERVER_ID or server_id == LEGACY_SERVER_ID:
+                if server_id == SERVER_ID:
                     if not block_found:
                         block_found = True
                         new_lines.extend(new_block[:-1]) # add new block without the trailing newline

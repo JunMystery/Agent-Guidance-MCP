@@ -10,13 +10,13 @@ from .server import create_server
 from .token_config import TokenOptimizationConfig
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the Agent Guidance MCP server.")
     parser.add_argument(
         "--root",
         help=(
             "Path to a standards corpus. Defaults to AGENT_GUIDANCE_ROOT, "
-            "legacy AI_AGENT_STANDARDS_ROOT, or the bundled MCP repo corpus."
+            "the bundled corpus, or --root."
         ),
     )
     parser.add_argument(
@@ -24,7 +24,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Disable token optimization and savings tracking for this server session.",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def main() -> None:

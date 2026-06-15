@@ -47,7 +47,6 @@ By default, the package discovers the bundled standards corpus. To point the ser
 AGENT_GUIDANCE_ROOT=/path/to/Agent-Guidance
 ```
 
-`AI_AGENT_STANDARDS_ROOT` is still accepted as a legacy alias for existing local setups.
 
 The target folder must contain:
 
