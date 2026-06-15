@@ -17,7 +17,9 @@ prompts/
     ├── refactor-cache-strategy.md
     ├── generate-unit-tests.md
     ├── security-audit.md
-    └── database-migration.md
+    ├── database-migration.md
+    ├── rag-implementation-cookbook.md
+    └── mobile-development-cookbook.md
 ```
 
 ---
@@ -123,7 +125,7 @@ difficulty: Intermediate                         # Difficulty: Simple/Intermedia
 
 | Type | Count | Status |
 |------|-------|--------|
-| Sample Use Cases | 5 | ✓ Ready |
+| Sample Use Cases | 7 | ✓ Ready |
 | Template Templates | 2 | ✓ Ready |
 | Advanced Prompts | TBD | Upcoming |
 
@@ -152,6 +154,8 @@ difficulty: Intermediate                         # Difficulty: Simple/Intermedia
 3. **`generate-unit-tests.md`** — Auto-generate unit tests
 4. **`security-audit.md`** — Security vulnerability check
 5. **`database-migration.md`** — Safe schema migration
+6. **`rag-implementation-cookbook.md`** — Medical RAG pipeline cookbook
+7. **`mobile-development-cookbook.md`** — Android, iOS, cross-platform mobile cookbook
 
 ---
 

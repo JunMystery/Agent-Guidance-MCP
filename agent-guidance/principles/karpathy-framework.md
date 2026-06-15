@@ -239,12 +239,14 @@ Verification: Run cache_benchmark.test.js, include results in Self-Check Report"
 
 | What AI Should Do | Red Flag | Green Flag |
 |---|---|---|
+| **File Size Limit (Keep files focused)** | Keeping all code in a single file when it grows large | Split files when they exceed **300 lines of code (LOC)** |
 | Respect existing module boundaries | Controller talks directly to persistence when services exist | Logic stays in the established service/model layer |
 | Keep files focused | Adds unrelated functions to a catch-all file | Creates or updates the smallest appropriate module |
 | Use clear, general names | Names tied to one prompt or temporary workflow | Names match existing domain vocabulary |
 
 **Success Criteria:**
 - ✓ Code lives in the correct layer/module
+- ✓ Files are kept focused and generally under **300 lines of code (LOC)**
 - ✓ No monolithic files or dumping-ground modules are created
 - ✓ Names are clear, general, and consistent with nearby code
 - ✓ Architecture constraints and 12 security constraints remain intact

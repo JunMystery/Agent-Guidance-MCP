@@ -1,8 +1,8 @@
 ---
 id: PROMPT-TEMPLATE
-version: 1.0
+version: 1.1
 author: [Your Name]
-last_updated: 2026-05-12
+last_updated: 2026-06-15
 applicable_stack: [NodeJS, React, etc]
 category: General
 difficulty: Intermediate
@@ -57,6 +57,7 @@ Describe a single feature in detail & independently:
   - ✓ Try-catch mandatory for async operations
   - ✓ Input validation with zod/joi mandatory
   - ✓ 80%+ test coverage mandatory
+  - ✓ Adherence to **Principle #6: Code Organization** (All files strictly <300 LOC limit)
 - **Process:**
   - ✓ Must run Self-Check before output (Section III.4)
   - ✓ Output must include Self-Check report
@@ -108,6 +109,7 @@ Clearly define expected format & presentation:
   [ ] Security check passed (SQLi, XSS, info leak)?
   [ ] Exception handling (null, timeout, errors)?
   [ ] Regression risk low (no breaking existing code)?
+  [ ] Principle #6: Code Organization (Under 300 LOC limit)?
 - Notes: [Optional]
 ```
 

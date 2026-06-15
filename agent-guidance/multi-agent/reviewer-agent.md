@@ -36,6 +36,16 @@ A human engineer has final authority over all architectural and security decisio
 - Verify tests exist and pass
 - Confirm Self-Check report is complete and accurate
 
+### 5. DRY & Reusability
+- Flag duplicated UI, logic, configurations, types, or test setup
+- Suggest reuse of existing helpers, components, and patterns before creating new ones
+
+### 6. Code Organization
+- Verify code lives in the correct layer/module
+- Ensure files are kept focused and generally under **300 lines of code (LOC)**
+- Flag monolithic files or unrelated logic in catch-all modules
+- Check that names are clear, general, and consistent with project structure
+
 ---
 
 ## Permissions

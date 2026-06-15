@@ -49,7 +49,7 @@ Your team uses multiple AI tools:
 **File:** `principles/karpathy-framework.md`
 
 **Contains:**
-- Principle 1-4 detailed explanations
+- Principle 1-6 detailed explanations
 - Integration with existing framework
 - Reviewer checklist
 - Success criteria
@@ -67,7 +67,7 @@ Your team uses multiple AI tools:
 **Source:** Based on `principles/karpathy-framework.md`
 
 **Contains:**
-- 4 principles summarized for Copilot
+- 6 principles summarized for Copilot
 - Specific guidance on Copilot's role
 - Project context & standards
 - Dos and don'ts
@@ -95,7 +95,7 @@ Your team uses multiple AI tools:
 **Source:** Based on `principles/karpathy-framework.md`
 
 **Contains:**
-- 4 principles for Cursor
+- 6 principles for Cursor
 - Project context specific to Cursor workflows
 - Scenario examples for Cursor usage
 - Communication guidelines
@@ -162,7 +162,7 @@ Your team uses multiple AI tools:
 - When onboarding new team members
 
 **How to check:**
-1. Each file should reference the 4 principles
+1. Each file should reference the 6 principles
 2. Each file should link to `principles/karpathy-framework.md`
 3. Terminology should be consistent across files
 4. Examples should align
@@ -181,7 +181,7 @@ Your team uses multiple AI tools:
 
 1. **Read Master Document** (5 min)
    - Open `principles/karpathy-framework.md`
-   - Skim all 4 principles
+   - Skim all 6 principles
    - Note any recent clarifications or changes
 
 2. **Check Copilot Config** (5 min)
@@ -245,7 +245,7 @@ Your team uses multiple AI tools:
 **Use this checklist for quarterly sync or when making changes:**
 
 ### Principles Definitions
-- [ ] 4 principle names are consistent everywhere
+- [ ] 6 principle names are consistent everywhere
 - [ ] Descriptions are accurate (check against master)
 - [ ] Examples are current and relevant
 - [ ] Order is consistent (always 1-4 in same order)
@@ -268,7 +268,7 @@ Your team uses multiple AI tools:
 
 ### Self-Check Templates
 - [ ] Principles verified in Self-Check Report
-- [ ] All 4 principles have checkboxes
+- [ ] All 6 principles have checkboxes
 - [ ] Checklist matches code-review-checklist.md
 
 ### Links & References
@@ -313,7 +313,7 @@ Your team uses multiple AI tools:
 
 ### Scenario 3: Tool-Specific Misalignment
 
-**Symptom:** "Cursor applies all 4 principles beautifully, but Copilot seems to skip #3 (Surgical Changes)"
+**Symptom:** "Cursor applies all 6 principles beautifully, but Copilot seems to skip #3 (Surgical Changes)"
 
 **Cause:** `.instructions.md` might not emphasize surgical changes in Copilot context
 
@@ -403,7 +403,7 @@ Your team uses multiple AI tools:
 
 **Sync is successful when:**
 
-1. ✓ All 4 principles accurately reflected in all tool configs
+1. ✓ All 6 principles accurately reflected in all tool configs
 2. ✓ No contradictions between tools
 3. ✓ Each tool correctly applies principles when tested
 4. ✓ Team members report consistency across tools

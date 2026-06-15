@@ -12,12 +12,12 @@ Use this map before changing the repository. Prefer the smallest relevant source
 - `.cursorrules`: Windsurf and legacy Cursor fallback.
 - `.cursor/rules/karpathy-guidelines.mdc`: Cursor rule file with frontmatter.
 
-These files are generated. Edit `karpathy/principles.md`, `rules/agent-manifest.json`, or `rules/templates/`, then run `python scripts/generate-rules.py`.
+These files are generated. Edit `karpathy/principles.md`, `rules/agent-manifest.json`, or `rules/templates/`, then run `python scripts/generate-rules.py`. *(Note: The rules template configuration, manifest, and rules-generation scripts are located in the upstream parent repository and are excluded from standalone MCP server packages).*
 
 ## Core Sources
 
 - `karpathy/`: source of truth for the 6 Core Principles and examples.
-- `rules/`: manifest and templates used to generate agent instruction files.
+- `rules/`: manifest and templates (available in upstream repository).
 - `scripts/`: Server launchers (run-mcp.py, run-mcp.cmd, run-mcp.sh, run-mcp.ps1).
 - `src/`: Python source code for the MCP server.
 - `tests/`: Pytest test suite for the server and catalog.

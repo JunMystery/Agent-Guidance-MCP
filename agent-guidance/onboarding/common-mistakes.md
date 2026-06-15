@@ -290,6 +290,33 @@ if (value > 100 && user.role !== 'admin') {
 
 ---
 
+## 🚫 Mistake 11: Creating Monolithic Files (Exceeding 300 LOC Limit)
+
+**What:** Letting a single code file grow too large (exceeding 300 lines of code) or combining unrelated responsibilities.
+
+**Why bad:**
+- Violates **Principle #6: Code Organization** (Modular design)
+- Difficult to test, review, and maintain
+- Bloats token count in subsequent AI context prompts
+- Increases the risk of logic regression during edits
+
+**Fix:**
+- Adhere to the strict **<300 LOC limit** per file.
+- Split files logically (e.g., UI component, helper functions, TypeScript types, and styling) when approaching the limit.
+- Utilize role-based suffixes and barrel exports to maintain structure.
+
+**Example:**
+```javascript
+// ❌ BAD: A 450-line file containing UI, styling, hooks, and helpers.
+
+// ✅ GOOD: Split into smaller files (<300 LOC each)
+// - src/components/Dashboard/Dashboard.tsx (UI logic - 120 lines)
+// - src/components/Dashboard/Dashboard.helpers.ts (Utility functions - 80 lines)
+// - src/components/Dashboard/Dashboard.types.ts (Types/Interfaces - 30 lines)
+```
+
+---
+
 ## ✅ Lessons Summary
 
 | Mistake | Cause | Prevention |
@@ -304,6 +331,7 @@ if (value > 100 && user.role !== 'admin') {
 | Too many iterations | Perfectionism | Limit to 2 tries |
 | No comments | Copy-paste | Ask for comments |
 | Skip checklist | Hurry | Make it mandatory |
+| Creating Monolithic Files | Lack of modularity | Strictly enforce <300 LOC limit |
 
 ---
 
@@ -318,12 +346,13 @@ if (value > 100 && user.role !== 'admin') {
 [ ] Tests: >= 80% coverage?
 [ ] Comments: Explain complex logic?
 [ ] No breaking changes?
+[ ] Code organization: Under 300 LOC limit?
 [ ] Code review checklist passed?
 [ ] Ready to merge!
 ```
 
 ---
 
-**Common Mistakes v1.0 | Last updated: 2026-05-12**
+**Common Mistakes v1.1 | Last updated: 2026-06-15**
 
 **Next:** Keep a copy handy during your first week! 📌

@@ -36,6 +36,15 @@ A human engineer has final authority over all test strategy and acceptance crite
 - Every test must answer: "What behavior am I verifying?"
 - Coverage target: >= 80% on new/changed code
 
+### 5. DRY & Reusability
+- Share test utilities, mock factories, and assertion helpers
+- Avoid duplicating mock data schemas or setup blocks across test suites
+
+### 6. Code Organization
+- Co-locate tests close to their target code module/file
+- Keep test files focused and generally under **300 lines of code (LOC)**
+- Name test files consistently (e.g. `*.test.js` or `test_*.py`)
+
 ---
 
 ## Permissions

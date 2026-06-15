@@ -2,7 +2,7 @@
 
 > Derived from [Andrej Karpathy's observations](https://x.com/karpathy/status/2015883857489522876) on LLM coding pitfalls.
 
-## The 4 Principles at a Glance
+## The 6 Principles at a Glance
 
 | # | Principle | Core Rule |
 |---|-----------|-----------|
@@ -10,12 +10,14 @@
 | 2 | **Simplicity First** | Minimum code that solves the problem. Nothing speculative. |
 | 3 | **Surgical Changes** | Touch only what you must. Match existing style. |
 | 4 | **Goal-Driven Execution** | Define verifiable success criteria. Loop until verified. |
+| 5 | **DRY & Reusability** | Never duplicate code, UI, configs, types. Use shared systems. |
+| 6 | **Code Organization** | Put code in the right layer/module. Split if >300 LOC. |
 
 ## Files in This Module
 
 | File | Purpose |
 |------|---------|
-| [principles.md](./principles.md) | **Source of truth** — Full description of all 4 principles |
+| [principles.md](./principles.md) | **Source of truth** — Full description of all 6 principles |
 | [examples.md](./examples.md) | Real-world anti-patterns and correct approaches |
 
 ## How These Principles Are Used

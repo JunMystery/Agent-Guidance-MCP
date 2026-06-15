@@ -111,6 +111,7 @@ difficulty: Intermediate
   - Input validation with zod/joi
   - Unit tests (80%+ coverage)
   - Comments explain logic
+  - Adherence to **Principle #6: Code Organization** (All files strictly <300 LOC limit)
 
 ### [OUTPUT]
 - TypeScript file: src/controllers/auth.controller.ts
@@ -139,6 +140,7 @@ difficulty: Intermediate
 ✓ Error handling complete?
 ✓ Tests >= 80%?
 ✓ No hardcoded secrets?
+✓ Principle #6 check (<300 LOC limit)?
 ```
 
 **Use Quick Checklist:**
@@ -147,6 +149,7 @@ difficulty: Intermediate
 - [ ] Error handling?
 - [ ] Tests exist?
 - [ ] No breaking changes?
+- [ ] Code organization: Under 300 LOC limit per file?
 
 **If Self-Check Report says ⚠️ REQUIRES ATTENTION:**
 - Note the failed items
@@ -189,6 +192,7 @@ difficulty: Intermediate
 - [ ] Tests: 80%+ coverage?
 - [ ] Comments clear?
 - [ ] Backward compatible?
+- [ ] Code organization: Under 300 LOC limit (Principle #6)?
 
 **Decision:** ✅ APPROVE or ❌ REQUEST CHANGES
 
@@ -263,6 +267,6 @@ You're ready to:
 
 ---
 
-**Walkthrough v1.0 | Estimated time: 60 minutes**
+**Walkthrough v1.1 | Estimated time: 60 minutes | Last updated: 2026-06-15**
 
 Questions? Slack your mentor → [`#ai-coding`]

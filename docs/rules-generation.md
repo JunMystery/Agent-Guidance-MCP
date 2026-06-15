@@ -1,5 +1,8 @@
 # Rules Generation
 
+> [!NOTE]
+> The rules templates, manifest, and rules-generation scripts (such as `generate-rules.py`) are maintained in the upstream parent repository and are not shipped in this standalone MCP package distribution.
+
 Agent instruction files are generated from a small set of shared sources so the framework can update rules without editing every AI configuration file by hand.
 
 ## Source Files

@@ -58,7 +58,7 @@
 
 | File | Content |
 |------|---------|
-| [`../karpathy/principles.md`](../karpathy/principles.md) | **SOURCE OF TRUTH**: 4 Principles - Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution |
+| [`../karpathy/principles.md`](../karpathy/principles.md) | **SOURCE OF TRUTH**: 6 Principles - Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution, DRY & Reusability, Code Organization |
 | [`../karpathy/examples.md`](../karpathy/examples.md) | Real-world anti-patterns and correct approaches for each principle |
 
 ---
@@ -67,7 +67,7 @@
 
 | File | Content |
 |------|---------|
-| [`principles/karpathy-framework.md`](principles/karpathy-framework.md) | **MASTER REFERENCE**: 4 Principles with detailed explanation, integration with framework, reviewer checklist |
+| [`principles/karpathy-framework.md`](principles/karpathy-framework.md) | **MASTER REFERENCE**: 6 Principles with detailed explanation, integration with framework, reviewer checklist |
 
 **Quick Learning Path:**
 1. Read [`karpathy/principles.md`](../karpathy/principles.md) - 5 min

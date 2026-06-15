@@ -36,6 +36,17 @@ A human engineer has final authority over all architectural and security decisio
 - Write tests that verify the criteria
 - Do not declare done until tests pass
 
+### 5. DRY & Reusability
+- Do not duplicate UI, logic, configurations, or types
+- Reuse existing helpers and patterns before adding new ones
+- Extract shared code only when reuse is real
+
+### 6. Code Organization
+- Keep code in the right module/layer
+- Keep files focused; split files when they exceed **300 lines of code (LOC)**
+- Avoid monolithic files and vague dumping grounds
+- Use clear, general names that match existing structure
+
 ---
 
 ## Permissions

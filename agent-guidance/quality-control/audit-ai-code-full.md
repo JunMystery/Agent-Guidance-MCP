@@ -143,6 +143,8 @@ Detailed audit of AI-generated code to detect:
 - [ ] Separation of concerns respected?
 - [ ] Framework conventions followed?
 - [ ] File structure organized correctly?
+- [ ] Adheres to **Principle #6 (Code Organization)**: Keeping files strictly <300 LOC (modulo imports/metadata)?
+- [ ] Adheres to all **6 Karpathy Core Principles** (Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution, DRY & Reusability, Code Organization)?
 
 #### Design Patterns
 - [ ] Appropriate patterns used?
@@ -353,4 +355,4 @@ grep -r "className" src/  # Verify file exists
 
 ---
 
-**Audit Checklist Version:** 1.1 | **Last Updated:** 2026-05-13
+**Audit Checklist Version:** 1.2 | **Last Updated:** 2026-06-15

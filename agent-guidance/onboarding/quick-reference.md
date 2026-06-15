@@ -39,6 +39,7 @@
 
 ### 6️⃣ **Code Organization**
 - Keep code in the right module/layer
+- Keep files focused; split files when they exceed **300 lines of code (LOC)**
 - Avoid monolithic files and vague dumping grounds
 - Use clear, general names that match existing structure
 

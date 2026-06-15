@@ -1,8 +1,8 @@
-# Karpathy Principles — Real-World Examples
+# Examples: LLM Pitfalls and Corrective Patterns
 
-Real-world code examples demonstrating the four principles. Each example shows what LLMs commonly do wrong and how to fix it.
+Real-world code examples demonstrating the six principles. Each example shows what LLMs commonly do wrong and how to fix it.
 
-> **Reference:** These examples complement [principles.md](./principles.md) — the source of truth for all 4 principles.
+> **Reference:** These examples complement [principles.md](./principles.md) — the source of truth for all 6 principles.
 
 ---
 

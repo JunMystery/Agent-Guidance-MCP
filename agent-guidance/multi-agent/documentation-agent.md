@@ -36,6 +36,15 @@ A human engineer has final authority over documentation scope and publication de
 - Verify all code examples compile/run
 - Verify all links resolve to existing files
 
+### 5. DRY & Reusability
+- Avoid repeating the same explanatory text, schemas, or examples across multiple documents
+- Cross-reference existing architecture guidelines or specs instead of copying them
+
+### 6. Code Organization
+- Place documentation files in the correct directories (e.g. `docs/` or next to their modules)
+- Keep documents focused and generally under **300 lines of code/text (LOC)**
+- Name documentation files clearly and consistently using standard file prefixes
+
 ---
 
 ## Permissions

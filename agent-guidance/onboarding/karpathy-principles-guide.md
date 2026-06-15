@@ -1,6 +1,6 @@
 # Karpathy Principles Guide - Detailed Training
 
-**Comprehensive training guide for the 4 Karpathy Principles**
+**Comprehensive training guide for the 6 Karpathy Principles**
 
 **For:** Engineers new to AI-Coding-Standards framework  
 **Time:** 20-30 minutes  
@@ -18,6 +18,8 @@ LLM coding mistakes follow predictable patterns:
 | 300-line solution instead of 50 | Over-engineering | #2: Simplicity First |
 | Review takes 2 hours, diff is huge | Scope creep | #3: Surgical Changes |
 | "Works but doesn't verify to requirements" | Vague goals | #4: Goal-Driven Execution |
+| Duplicated code blocks and config drift | Redundancy | #5: DRY & Reusability |
+| Massive, monolithic files | Poor separation | #6: Code Organization |
 
 **The Karpathy Principles directly address these** by promoting careful analysis, simplicity, precision, and verification.
 
@@ -657,6 +659,37 @@ Before submitting:
 
 ---
 
+## 🎓 Principle 5: DRY & Reusability
+
+**Concept:** Never duplicate UI, logic, configurations, types, or any code. Always use shared systems.
+
+### Why It Matters
+AI often copies existing blocks of code into a new place because it is fast and self-contained, but this creates maintenance debt and code drift.
+
+**Apply it:**
+- **UI & Styling:** Always reuse the project's design system or components instead of creating bespoke copies.
+- **Logic:** If you need code that performs calculations or formatting twice, extract it into a pure, reusable function.
+- **Types & Configs:** Share models, interfaces, configurations, and test mocks from central files.
+
+---
+
+## 🎓 Principle 6: Code Organization
+
+**Concept:** Put code in the right layer/module with clear, general names. Avoid monolithic files and keep files under **300 LOC**.
+
+### Why It Matters
+As files grow, they become harder for LLMs (and humans) to parse, leading to context loss and mistakes. Keeping files focused and under 300 LOC is a major factor in agent reliability.
+
+### File Size Limit Rule
+- Keep files focused and readable.
+- **Guideline:** Split files when they exceed **300 lines of code (LOC)**.
+- **Decision thresholds:**
+  - `<300 LOC`: Keep the file unless it mixes unrelated responsibilities.
+  - `300-500 LOC`: Recommend splitting if the file has more than one responsibility.
+  - `>500 LOC`: Perform an explicit split analysis and split.
+
+---
+
 ## 📝 Workshop: Putting It Together
 
 ### Exercise 1: Identify Principle Violations
@@ -760,6 +793,8 @@ def get_user_by_id(user_id):
 | #2: Simplicity First | Could this be written simpler? Any unnecessary abstractions? |
 | #3: Surgical Changes | Every line trace to request? Any unrelated changes? |
 | #4: Goal-Driven Execution | Success criteria met? Verified? |
+| #5: DRY & Reusability | No duplicated UI, logic, configs, or types? |
+| #6: Code Organization | Files focused (<300 LOC)? Module/layer correct? |
 
 ---
 

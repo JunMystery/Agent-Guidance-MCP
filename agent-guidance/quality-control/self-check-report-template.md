@@ -65,6 +65,14 @@
 - **Status:** ✓ PASS / ⚠️ PARTIAL / ❌ FAIL
 - **Notes:** [If not all pass, explain]
 
+### Principle 6: Code Organization ✓
+- [ ] Code lives in the correct layer/module for the existing architecture?
+- [ ] Files kept focused and generally under **300 lines of code (LOC)**?
+- [ ] No monolithic files or unrelated logic added to catch-all modules?
+- [ ] Names are clear, general, and consistent with nearby project structure?
+- **Status:** ✓ PASS / ⚠️ PARTIAL / ❌ FAIL
+- **Notes:** [If not all pass, explain]
+
 **Overall Principles Assessment:** ✓ ALL PASS / ⚠️ MINOR ISSUES / ❌ REQUIRES REWORK
 
 ---

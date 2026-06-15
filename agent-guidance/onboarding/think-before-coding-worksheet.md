@@ -401,9 +401,9 @@ Answer: ________________
 
 **Now:**
 
-1. Read [karpathy-principles-guide.md](karpathy-principles-guide.md) Principles #2, #3, #4
+1. Read [karpathy-principles-guide.md](karpathy-principles-guide.md) Principles #2, #3, #4, #5, #6
 2. Get the [quick-reference.md](quick-reference.md) poster
-3. Apply all 4 principles to your next AI task
+3. Apply all 6 principles to your next AI task
 4. Review code using [code-review-checklist.md](../quality-control/code-review-checklist.md)
 
 ---
