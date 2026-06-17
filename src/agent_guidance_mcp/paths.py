@@ -70,6 +70,10 @@ def infer_kind(relative_path: str) -> str:
         return "principle"
     if parts and parts[0] == "agent-guidance":
         return "standard"
+    if parts and parts[0] == "references":
+        return "reference"
+    if parts and parts[0] == "agents":
+        return "agent"
     return "root"
 
 
@@ -81,7 +85,7 @@ def infer_category(relative_path: str) -> str:
         return parts[1]
     if parts[0] == "skills" and len(parts) > 1:
         return "skills"
-    if parts[0] in {"karpathy", "docs"}:
+    if parts[0] in {"karpathy", "docs", "references", "agents"}:
         return parts[0]
     return "root"
 

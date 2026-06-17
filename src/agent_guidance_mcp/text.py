@@ -189,8 +189,11 @@ def title_from_path(relative_path: str) -> str:
     return stem.replace("-", " ").replace("_", " ").title()
 
 
-def tokenize(value: str) -> list[str]:
+def tokenize(value: str, min_length: int = 2) -> list[str]:
+    if min_length <= 1:
+        return [term for term in re.findall(r"[a-zA-Z0-9][a-zA-Z0-9_-]*", value.lower())]
     return [term for term in re.findall(r"[a-zA-Z0-9][a-zA-Z0-9_-]{1,}", value.lower())]
+
 
 
 def make_snippet(content: str, terms: list[str], radius: int = 140) -> str:

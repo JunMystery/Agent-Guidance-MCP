@@ -280,13 +280,6 @@ def _record_savings(
     original: object,
     optimized: object,
 ) -> None:
-    if tracker is None:
-        return
-    original_text = original if isinstance(original, str) else json.dumps(original, default=str)
-    optimized_text = optimized if isinstance(optimized, str) else json.dumps(optimized, default=str)
-    tracker.record(
-        tool_name=tool_name,
-        operation=operation,
-        original_tokens=estimate_tokens(original_text),
-        optimized_tokens=estimate_tokens(optimized_text),
-    )
+    from .utils import record_savings
+    record_savings(tracker, tool_name, operation, original, optimized)
+

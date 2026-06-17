@@ -223,11 +223,9 @@ def path_depth(relative: str) -> int:
 
 
 def tokenize(query: str) -> list[str]:
-    return [
-        term
-        for term in re.findall(r"[a-zA-Z0-9][a-zA-Z0-9_-]*", query.lower())
-        if term
-    ]
+    from .text import tokenize as text_tokenize
+    return text_tokenize(query, min_length=1)
+
 
 
 def first_matching_line(content: str, terms: list[str]) -> tuple[int, str]:

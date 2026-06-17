@@ -20,6 +20,10 @@ Use this skill for generating assets via Fal AI, video editing automations, Vide
 - `nutrient-document-processing`: [references/nutrient-document-processing.md](references/nutrient-document-processing.md)
 - `visa-doc-translate`: [references/visa-doc-translate.md](references/visa-doc-translate.md)
 
+### Presentation & Slide UI
+- `frontend-slides`: [references/frontend-slides.md](references/frontend-slides.md)
+- `ui-demo`: [references/ui-demo.md](references/ui-demo.md)
+
 ## Compatibility
 
 Old skill identifiers remain as compatibility shims for one release cycle. Prefer this canonical skill for new routing.

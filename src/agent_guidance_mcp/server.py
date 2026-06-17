@@ -258,10 +258,6 @@ def _record_savings(
     original: str,
     optimized: str,
 ) -> None:
-    tracker = get_tracker()
-    tracker.record(
-        tool_name=tool_name,
-        operation=operation,
-        original_tokens=estimate_tokens(original),
-        optimized_tokens=estimate_tokens(optimized),
-    )
+    from .utils import record_savings
+    record_savings(get_tracker(), tool_name, operation, original, optimized)
+

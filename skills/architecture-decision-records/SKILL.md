@@ -1,6 +1,6 @@
 ---
 name: architecture-decision-records
-description: Capture architectural decisions made during Claude Code sessions as structured ADRs. Auto-detects decision moments, records context, alternatives considered, and rationale. Maintains an ADR log so future developers understand why the codebase is shaped the way it is.
+description: Capture architectural decisions as structured ADRs, document APIs, write inline comments on intent, and maintain READMEs and changelogs.
 origin: ECC
 ---
 
@@ -173,7 +173,45 @@ proposed → accepted → [deprecated | superseded by ADR-NNNN]
 | **Testing** | Test framework, coverage targets, E2E vs integration balance |
 | **Process** | Branching strategy, review process, release cadence |
 
-## Integration with Other Skills
-
 - **Planner agent**: when the planner proposes architecture changes, suggest creating an ADR
 - **Code reviewer agent**: flag PRs that introduce architectural changes without a corresponding ADR
+
+## Code & API Documentation Standards
+
+Document decisions, not just code. The most valuable documentation captures the *why* — the context, constraints, and trade-offs.
+
+### 1. Inline Comments: Comment the Why
+Comment the *why*, not the *what*:
+```typescript
+// GOOD: Explains non-obvious intent
+// Rate limit uses a sliding window — reset counter at window boundary,
+// not on a fixed schedule, to prevent burst attacks at window edges
+if (now - windowStart > WINDOW_SIZE_MS) {
+  counter = 0;
+  windowStart = now;
+}
+```
+*Do not comment self-explanatory code, leave TODO comments for things you should do now, or leave commented-out code in the repository.*
+
+### 2. API Documentation
+For public APIs (REST, GraphQL, library interfaces), document parameter descriptions, types, and return values inline:
+```typescript
+/**
+ * Creates a new task.
+ * @param input - Task creation data (title required, description optional)
+ * @returns The created task with server-generated ID and timestamps
+ * @throws {ValidationError} If title is empty or exceeds 200 characters
+ */
+```
+
+### 3. README and Changelog Structure
+- **README**: Every project should maintain a README covering Quick Start, run commands, architectural overview, and links to decision records.
+- **Changelog**: Document features shipped under standard headers (`Added`, `Fixed`, `Changed`) with associated pull request references.
+
+## Verification
+
+- [ ] ADRs exist for all significant architectural decisions
+- [ ] README covers quick start, commands, and architecture overview
+- [ ] Inline comments explain *why* (not *what*) for non-obvious logic
+- [ ] No commented-out code remains
+

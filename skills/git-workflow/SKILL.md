@@ -1,6 +1,6 @@
 ---
 name: git-workflow
-description: Git workflow patterns including branching strategies, commit conventions, merge vs rebase, conflict resolution, and collaborative development best practices for teams of all sizes.
+description: Git workflow patterns including branching strategies, commit conventions, merge vs rebase, atomic commits, worktrees, change summaries, and disciplined version control for AI agents and developer teams.
 origin: ECC
 ---
 
@@ -147,6 +147,33 @@ Create `.gitmessage` in repo root:
 ```
 
 Enable with: `git config commit.template .gitmessage`
+
+## AI Agent Git Discipline & Version Control
+
+Disciplined version control keeps changes manageable, reviewable, and reversible when working with AI agents.
+
+### 1. Commit Early, Commit Often
+Each successful increment gets its own commit. Don't accumulate large uncommitted changes.
+- **Save Point Pattern**: If the next change breaks something, you can revert to the last known-good state instantly using `git reset --hard HEAD`.
+- **Atomic Commits**: Each commit does one logical thing. Never mix formatting refactors with behavioral feature code in the same commit.
+
+### 2. Sizing Changes
+- **~100 lines**: Target commit size. Easy to review, test, and revert.
+- **~300 lines**: Acceptable for a single logical file or component change.
+- **~1000 lines**: Too large. Should be split into smaller, progressive PRs.
+
+### 3. Git Worktrees for Parallel Streams
+To work on multiple features or parallel tasks without losing local state or constant branch switching:
+```bash
+# Create a worktree for a feature branch
+git worktree add ../project-feature-a feature/task-creation
+```
+
+### 4. Change Summaries
+After completing modifications, write a structured summary to help reviewers catch bad assumptions early:
+- **CHANGES MADE**: List of modified files with brief descriptions.
+- **THINGS I DIDN'T TOUCH (intentionally)**: Out-of-scope files/areas left untouched.
+- **POTENTIAL CONCERNS**: Any strictness, dependency additions, or risks.
 
 ## Merge vs Rebase
 

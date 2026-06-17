@@ -2,7 +2,7 @@
 
 TEXT_SUFFIXES = {".md", ".mdc", ".txt", ".yaml", ".yml", ".json"}
 SKIP_PARTS = {".git", "__pycache__", ".pytest_cache", ".venv", "venv", "node_modules"}
-DEFAULT_INCLUDE_DIRS = ("karpathy", "agent-guidance", "skills", "docs")
+DEFAULT_INCLUDE_DIRS = ("karpathy", "agent-guidance", "skills", "docs", "references", "agents")
 
 TASK_ANCHORS = {
     "security": (
