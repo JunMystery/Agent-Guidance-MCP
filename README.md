@@ -6,8 +6,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP Version](https://img.shields.io/badge/mcp-%3E%3D1.0.0-green)](https://modelcontextprotocol.io/)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen)](#development)
-![GitHub license](https://img.shields.io/github/license/JunMystery/Device-Ping)
-![GitHub repo size](https://img.shields.io/github/repo-size/JunMystery/Device-Ping)
+![GitHub license](https://img.shields.io/github/license/JunMystery/Agent-Guidance-MCP)
+![GitHub repo size](https://img.shields.io/github/repo-size/JunMystery/Agent-Guidance-MCP)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?logo=ko-fi&logoColor=white)](https://ko-fi.com/JunMystery)
 
 MCP server serving AI agent guidance through the bundled guidance corpus, skill set, prompts, and bounded project-code context tools over **Stdio** transport.
