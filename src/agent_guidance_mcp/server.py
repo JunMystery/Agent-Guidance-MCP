@@ -201,6 +201,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         """Return token optimization statistics for this session."""
         return get_tracker().summary()
 
+
     @mcp.prompt()
     def workflow_prompt(mode: str = "plan", subject: str = "", target: str = "") -> str:
         """Load a workflow prompt by mode."""
