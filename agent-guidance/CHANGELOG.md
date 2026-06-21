@@ -2,6 +2,12 @@
 
 Track versions and updates for the AI Agent Coding Standards framework.
 
+## [3.2.3] - 2026-06-21
+
+### Added
+- **OpenCode MCP Support:** Added automatic configuration of `opencode.json` in the workspace root during auto-installation.
+- **OpenCode Formatting:** Built a dedicated exporter in `install-mcp.py` to target the custom JSON schema used by OpenCode (e.g. `type: "local"`, command arrays, and `"environment"` keys).
+
 ## [3.2.2] - 2026-06-21
 
 ### Added
@@ -263,6 +269,7 @@ Track versions and updates for the AI Agent Coding Standards framework.
 
 | Version | Date | Changes | Status |
 |---------|------|---------|--------|
+| 3.2.3 | 2026-06-21 | OpenCode MCP config integration in installation script | Released |
 | 3.2.2 | 2026-06-21 | Codebase consolidation, global/workspace rule auto-installation, unit tests | Released |
 | 3.1.1 | 2026-06-12 | Project-context MCP tools, doc set split, README cleanup, version synchronization | Released |
 | 3.0.3 | 2026-06-11 | Add Cursor Native auto-installation support in scripts/install-mcp.py | Released |
