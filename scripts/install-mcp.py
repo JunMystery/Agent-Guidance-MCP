@@ -140,9 +140,116 @@ def main():
             
     # 4. Configure Codex (config.toml)
     configure_codex(python_exe, repo_root)
+
+    # 5. Configure Global Agents Rules
+    configure_global_agents_rules()
+
+    # 6. Configure Supporting Agents Rules
+    configure_supporting_agents(repo_root)
+
+    # 7. Configure Workspace Rules for common Coding Agents
+    configure_workspace_rules(repo_root)
             
     print("\n=== Installation Completed Successfully! ===")
     print("Restart your IDE / MCP Client to start using the server.")
+
+def configure_workspace_rules(repo_root):
+    targets = [
+        (".cursorrules", repo_root / ".cursorrules"),
+        (".clinerules", repo_root / ".clinerules"),
+        (".copilotrules", repo_root / ".copilotrules")
+    ]
+    print("  Configuring Workspace Coding Agent Rules...")
+    rule_block = (
+        "\n"
+        "## Agent Guidance MCP Server Tool Usage\n\n"
+        "Whenever the user prompts you to perform any coding action, repository lookup, refactoring, or planning, you MUST involve the custom `agent-guidance-mcp` server tools.\n\n"
+        "### Rules:\n"
+        "1. **Always Start with Context Gathering**: Before you read files or make changes, invoke `task_pipeline` or `project_context(operation=\"tree\" / \"search\" / \"read\")` to load optimized project states.\n"
+        "2. **Consult Standards**: Use the `guidance` tool (with `operation=\"search\"` or `operation=\"recommend\"`) to check if any coding standard or instruction applies to the implementation.\n"
+        "3. **Minimize Tokens**: Ensure that you leverage the optimized output of the MCP server tools to run context-efficient development.\n"
+        "4. **Enforce Execution**: Never perform direct filesystem lookups or file reads manually if the corresponding context can be loaded and optimized through the MCP server tools.\n"
+    )
+    for name, path in targets:
+        try:
+            content = ""
+            if path.exists():
+                content = path.read_text(encoding="utf-8")
+            
+            if "Agent Guidance MCP Server Tool Usage" not in content:
+                with path.open("a", encoding="utf-8") as f:
+                    if content and not content.endswith("\n"):
+                        f.write("\n")
+                    f.write(rule_block)
+                print(f"    Success: Appended global agent rules to {name}")
+            else:
+                print(f"    Note: Agent rules already present in {name}")
+        except Exception as e:
+            print(f"    Error: Failed to configure {name}: {e}")
+
+def configure_supporting_agents(repo_root):
+
+    agents_dir = repo_root / "agents"
+    if not agents_dir.exists() or not agents_dir.is_dir():
+        print("  No supporting agents directory found.")
+        return
+        
+    print("  Configuring Supporting Agents MCP Rules...")
+    rule_block = (
+        "\n"
+        "## Agent Guidance MCP Server Tool Usage\n\n"
+        "Whenever the user prompts you to perform any coding action, repository lookup, refactoring, or planning, you MUST involve the custom `agent-guidance-mcp` server tools.\n\n"
+        "### Rules:\n"
+        "1. **Always Start with Context Gathering**: Before you read files or make changes, invoke `task_pipeline` or `project_context(operation=\"tree\" / \"search\" / \"read\")` to load optimized project states.\n"
+        "2. **Consult Standards**: Use the `guidance` tool (with `operation=\"search\"` or `operation=\"recommend\"`) to check if any coding standard or instruction applies to the implementation.\n"
+        "3. **Minimize Tokens**: Ensure that you leverage the optimized output of the MCP server tools to run context-efficient development.\n"
+        "4. **Enforce Execution**: Never perform direct filesystem lookups or file reads manually if the corresponding context can be loaded and optimized through the MCP server tools.\n"
+    )
+    for agent_file in agents_dir.glob("*.md"):
+        try:
+            content = agent_file.read_text(encoding="utf-8")
+            if "Agent Guidance MCP Server Tool Usage" not in content:
+                with agent_file.open("a", encoding="utf-8") as f:
+                    if content and not content.endswith("\n"):
+                        f.write("\n")
+                    f.write(rule_block)
+                print(f"    Success: Appended global agent rules to {agent_file.name}")
+            else:
+                print(f"    Note: Agent rules already present in {agent_file.name}")
+        except Exception as e:
+            print(f"    Error: Failed to configure supporting agent {agent_file.name}: {e}")
+
+def configure_global_agents_rules():
+
+    global_agents_md = Path.home() / ".gemini" / "config" / "AGENTS.md"
+    print("  Configuring Global Agent Guidance MCP Rules...")
+    rule_block = (
+        "\n"
+        "## Agent Guidance MCP Server Tool Usage\n\n"
+        "Whenever the user prompts you to perform any coding action, repository lookup, refactoring, or planning, you MUST involve the custom `agent-guidance-mcp` server tools.\n\n"
+        "### Rules:\n"
+        "1. **Always Start with Context Gathering**: Before you read files or make changes, invoke `task_pipeline` or `project_context(operation=\"tree\" / \"search\" / \"read\")` to load optimized project states.\n"
+        "2. **Consult Standards**: Use the `guidance` tool (with `operation=\"search\"` or `operation=\"recommend\"`) to check if any coding standard or instruction applies to the implementation.\n"
+        "3. **Minimize Tokens**: Ensure that you leverage the optimized output of the MCP server tools to run context-efficient development.\n"
+        "4. **Enforce Execution**: Never perform direct filesystem lookups or file reads manually if the corresponding context can be loaded and optimized through the MCP server tools.\n"
+    )
+    try:
+        global_agents_md.parent.mkdir(parents=True, exist_ok=True)
+        content = ""
+        if global_agents_md.exists():
+            content = global_agents_md.read_text(encoding="utf-8")
+        
+        if "Agent Guidance MCP Server Tool Usage" not in content:
+            with global_agents_md.open("a", encoding="utf-8") as f:
+                if content and not content.endswith("\n"):
+                    f.write("\n")
+                f.write(rule_block)
+            print(f"    Success: Appended global agent rules to {global_agents_md}")
+        else:
+            print(f"    Note: Global agent rules already present in {global_agents_md}")
+    except Exception as e:
+        print(f"    Error: Failed to configure Global Agent Guidance MCP Rules: {e}")
+
 
 def configure_codex(python_exe, repo_root):
     targets = [

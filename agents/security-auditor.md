@@ -110,3 +110,13 @@ Map findings to the OWASP Top 10 for LLM Applications where relevant.
 - **Invoke directly when:** the user wants a security-focused pass on a specific change, file, or system component.
 - **Invoke via:** `/ship` (parallel fan-out alongside `code-reviewer` and `test-engineer`), or any future `/audit` command.
 - **Do not invoke from another persona.** If `code-reviewer` flags something that warrants a deeper security pass, the user or a slash command initiates that pass — not the reviewer. See [docs/agents.md](../docs/agents.md).
+
+## Agent Guidance MCP Server Tool Usage
+
+Whenever the user prompts you to perform any coding action, repository lookup, refactoring, or planning, you MUST involve the custom `agent-guidance-mcp` server tools.
+
+### Rules:
+1. **Always Start with Context Gathering**: Before you read files or make changes, invoke `task_pipeline` or `project_context(operation="tree" / "search" / "read")` to load optimized project states.
+2. **Consult Standards**: Use the `guidance` tool (with `operation="search"` or `operation="recommend"`) to check if any coding standard or instruction applies to the implementation.
+3. **Minimize Tokens**: Ensure that you leverage the optimized output of the MCP server tools to run context-efficient development.
+4. **Enforce Execution**: Never perform direct filesystem lookups or file reads manually if the corresponding context can be loaded and optimized through the MCP server tools.

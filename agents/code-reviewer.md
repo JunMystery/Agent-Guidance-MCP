@@ -95,3 +95,13 @@ Categorize every finding:
 - **Invoke directly when:** the user asks for a review of a specific change, file, or PR.
 - **Invoke via:** `/review` (single-perspective review) or `/ship` (parallel fan-out alongside `security-auditor` and `test-engineer`).
 - **Do not invoke from another persona.** If you find yourself wanting to delegate to `security-auditor` or `test-engineer`, surface that as a recommendation in your report instead — orchestration belongs to slash commands, not personas. See [docs/agents.md](../docs/agents.md).
+
+## Agent Guidance MCP Server Tool Usage
+
+Whenever the user prompts you to perform any coding action, repository lookup, refactoring, or planning, you MUST involve the custom `agent-guidance-mcp` server tools.
+
+### Rules:
+1. **Always Start with Context Gathering**: Before you read files or make changes, invoke `task_pipeline` or `project_context(operation="tree" / "search" / "read")` to load optimized project states.
+2. **Consult Standards**: Use the `guidance` tool (with `operation="search"` or `operation="recommend"`) to check if any coding standard or instruction applies to the implementation.
+3. **Minimize Tokens**: Ensure that you leverage the optimized output of the MCP server tools to run context-efficient development.
+4. **Enforce Execution**: Never perform direct filesystem lookups or file reads manually if the corresponding context can be loaded and optimized through the MCP server tools.

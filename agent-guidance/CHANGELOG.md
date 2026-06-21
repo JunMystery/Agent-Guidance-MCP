@@ -2,6 +2,16 @@
 
 Track versions and updates for the AI Agent Coding Standards framework.
 
+## [3.2.2] - 2026-06-21
+
+### Added
+- **Global & Workspace Rule Auto-Installation:** Updated `scripts/install-mcp.py` to automatically configure global agent guidance rules in `~/.gemini/config/AGENTS.md`, workspace rules (`.cursorrules`, `.clinerules`, `.copilotrules`), and supporting agent files (`agents/*.md`).
+- **Consolidation Unit Tests:** Added `tests/test_consolidation.py` to verify unified tokenization and savings tracking.
+
+### Changed
+- **Codebase Consolidation:** Merged token savings tracking across `server.py`, `pipelines.py`, and `project_context.py` into a shared `utils.py`. Consolidated duplicate `tokenize` functions across `text.py` and `project_scan.py`.
+- **Version Bump:** Upgraded version to v3.2.2 across project configuration and repository logs.
+
 ## [3.1.1] - 2026-06-12
 
 ### Added
@@ -253,6 +263,8 @@ Track versions and updates for the AI Agent Coding Standards framework.
 
 | Version | Date | Changes | Status |
 |---------|------|---------|--------|
+| 3.2.2 | 2026-06-21 | Codebase consolidation, global/workspace rule auto-installation, unit tests | Released |
+| 3.1.1 | 2026-06-12 | Project-context MCP tools, doc set split, README cleanup, version synchronization | Released |
 | 3.0.3 | 2026-06-11 | Add Cursor Native auto-installation support in scripts/install-mcp.py | Released |
 | 3.0.2 | 2026-06-11 | Add Codex auto-installation support in scripts/install-mcp.py | Released |
 | 3.0.1 | 2026-06-11 | Fix VS Code MCP client activation hang in run-mcp.cmd wrapper script | Released |
