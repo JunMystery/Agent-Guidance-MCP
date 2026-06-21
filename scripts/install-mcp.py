@@ -169,9 +169,95 @@ def main():
 
     # 7. Configure Workspace Rules for common Coding Agents
     configure_workspace_rules(repo_root)
+
+    # 8. Configure OpenCode .opencode/ directory (agents, skills)
+    configure_opencode_directory(repo_root)
+
+    # 9. Configure OpenCode global config (~/.config/opencode/opencode.json)
+    configure_opencode_global(python_exe, repo_root)
             
     print("\n=== Installation Completed Successfully! ===")
     print("Restart your IDE / MCP Client to start using the server.")
+
+def configure_opencode_directory(repo_root):
+    opencode_dir = repo_root / ".opencode"
+
+    print("  Configuring OpenCode .opencode/ directory...")
+
+    # Copy agent persona files to .opencode/agents/
+    agents_src = repo_root / "agents"
+    agents_dst = opencode_dir / "agents"
+    if agents_src.exists() and agents_src.is_dir():
+        agents_dst.mkdir(parents=True, exist_ok=True)
+        copied = 0
+        for agent_file in agents_src.glob("*.md"):
+            try:
+                content = agent_file.read_text(encoding="utf-8")
+                dest_file = agents_dst / agent_file.name
+                dest_file.write_text(content, encoding="utf-8")
+                copied += 1
+            except Exception as e:
+                print(f"    Error: Failed to copy agent {agent_file.name}: {e}")
+        if copied > 0:
+            print(f"    Success: Copied {copied} agent(s) to .opencode/agents/")
+        else:
+            print("    Note: No agent files found to copy.")
+    else:
+        print("    Note: No agents/ directory in repo root.")
+
+    # Ensure .opencode/skills reference exists
+    skills_ref = opencode_dir / "skills"
+    expected_ref = "../skills/"
+    if skills_ref.exists():
+        current = skills_ref.read_text(encoding="utf-8").strip()
+        if current != expected_ref:
+            skills_ref.write_text(expected_ref + "\n", encoding="utf-8")
+            print(f"    Success: Updated .opencode/skills reference.")
+        else:
+            print(f"    Note: .opencode/skills reference already correct.")
+    else:
+        skills_ref.write_text(expected_ref + "\n", encoding="utf-8")
+        print(f"    Success: Created .opencode/skills reference.")
+
+
+def configure_opencode_global(python_exe, repo_root):
+    opencode_global_dir = Path.home() / ".config" / "opencode"
+    opencode_global_path = opencode_global_dir / "opencode.json"
+
+    print("  Configuring OpenCode global config (~/.config/opencode/opencode.json)...")
+
+    python_exe_str = str(python_exe)
+    pythonpath_str = str(repo_root / "src")
+
+    config = {}
+    if opencode_global_path.exists():
+        try:
+            config = json.loads(opencode_global_path.read_text(encoding="utf-8"))
+        except Exception as e:
+            print(f"    Warning: Failed to read existing global config: {e}. Starting fresh.")
+
+    if "mcp" not in config:
+        config["mcp"] = {}
+
+    config["mcp"][SERVER_ID] = {
+        "type": "local",
+        "command": [python_exe_str, "-m", MODULE_NAME],
+        "enabled": True,
+        "environment": {
+            "PYTHONPATH": pythonpath_str
+        }
+    }
+
+    if "$schema" not in config:
+        config["$schema"] = "https://opencode.ai/config.json"
+
+    try:
+        opencode_global_dir.mkdir(parents=True, exist_ok=True)
+        opencode_global_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+        print(f"    Success: Configured 'agent-guidance-mcp' server in global OpenCode config.")
+    except Exception as e:
+        print(f"    Error: Failed to write global OpenCode config: {e}")
+
 
 def configure_workspace_rules(repo_root):
     targets = [
