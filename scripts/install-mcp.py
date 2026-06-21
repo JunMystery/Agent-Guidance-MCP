@@ -140,6 +140,12 @@ def main():
                     "PYTHONPATH": pythonpath_str
                 }
             }
+            # Add instructions so OpenCode loads AGENTS.md as system prompt
+            instructions = config.get("instructions", [])
+            agends_md = "AGENTS.md"
+            if agends_md not in instructions:
+                instructions.append(agends_md)
+                config["instructions"] = instructions
         else:
             config[config_key][SERVER_ID] = {
                 "command": python_exe_str,

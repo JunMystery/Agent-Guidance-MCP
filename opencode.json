@@ -13,5 +13,8 @@
         "PYTHONPATH": "E:\\Github\\Agent-Guidance-MCP\\src"
       }
     }
-  }
+  },
+  "instructions": [
+    "AGENTS.md"
+  ]
 }
