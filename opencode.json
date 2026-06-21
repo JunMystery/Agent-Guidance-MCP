@@ -1,0 +1,16 @@
+{
+  "mcp": {
+    "agent-guidance-mcp": {
+      "type": "local",
+      "command": [
+        "E:\\Github\\Agent-Guidance-MCP\\.venv\\Scripts\\python.exe",
+        "-m",
+        "agent_guidance_mcp"
+      ],
+      "enabled": true,
+      "environment": {
+        "PYTHONPATH": "E:\\Github\\Agent-Guidance-MCP\\src"
+      }
+    }
+  }
+}

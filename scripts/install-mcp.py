@@ -82,6 +82,11 @@ def main():
     continue_workspace_path = repo_root / ".continue" / "mcpServers" / "config.json"
     targets.append(("Continue (Workspace)", continue_workspace_path, True))
 
+    # OpenCode Workspace config
+    opencode_workspace_path = repo_root / "opencode.json"
+    targets.append(("OpenCode", opencode_workspace_path, True))
+
+
     # Cline & Roo-Code for VS Code and Cursor
     extensions = [
         ("VS Code Cline", code_path / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"),
@@ -107,9 +112,13 @@ def main():
             except Exception as e:
                 print(f"    Warning: Failed to read existing config: {e}. Starting fresh.")
                 
-        # VS Code native configuration (both user and workspace mcp.json) uses "servers".
         is_vscode_native = "VS Code Native" in name
-        config_key = "servers" if is_vscode_native else "mcpServers"
+        is_opencode = "OpenCode" in name
+        
+        if is_opencode:
+            config_key = "mcp"
+        else:
+            config_key = "servers" if is_vscode_native else "mcpServers"
 
         if config_key not in config:
             config[config_key] = {}
@@ -122,13 +131,24 @@ def main():
             python_exe_str = str(python_exe)
             pythonpath_str = str(repo_root / "src")
 
-        config[config_key][SERVER_ID] = {
-            "command": python_exe_str,
-            "args": ["-m", MODULE_NAME],
-            "env": {
-                "PYTHONPATH": pythonpath_str
+        if is_opencode:
+            config[config_key][SERVER_ID] = {
+                "type": "local",
+                "command": [python_exe_str, "-m", MODULE_NAME],
+                "enabled": True,
+                "environment": {
+                    "PYTHONPATH": pythonpath_str
+                }
             }
-        }
+        else:
+            config[config_key][SERVER_ID] = {
+                "command": python_exe_str,
+                "args": ["-m", MODULE_NAME],
+                "env": {
+                    "PYTHONPATH": pythonpath_str
+                }
+            }
+
         
         # Write back config
         try:

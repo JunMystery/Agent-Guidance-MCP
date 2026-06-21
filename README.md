@@ -1,6 +1,6 @@
-# Agent Guidance MCP (v3.2.2)
+# Agent Guidance MCP (v3.2.3)
 
-![Version](https://img.shields.io/badge/version-3.2.2-blue)
+![Version](https://img.shields.io/badge/version-3.2.3-blue)
 ![Status](https://img.shields.io/badge/status-stable-brightgreen)
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
