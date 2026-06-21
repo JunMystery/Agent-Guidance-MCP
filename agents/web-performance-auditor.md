@@ -182,3 +182,13 @@ Identify the framework and rendering model (React, Vue, Svelte, Angular, Next.js
 - **Invoke directly when:** the user wants a performance-focused pass on a web application, a specific component, a route, or a live URL.
 - **Invoke via:** `/webperf` (dedicated performance audit command). Not included in `/ship` fan-out — performance audits apply to web applications only, not to utility libraries or CLI tools, so adding it to a global pre-launch fan-out would create noise in non-web projects.
 - **Do not invoke from another persona.** If `code-reviewer` flags a performance concern that warrants a deeper pass, surface that recommendation in the report; the user or a slash command initiates the deeper pass. See [docs/agents.md](../docs/agents.md).
+
+## Agent Guidance MCP Server Tool Usage
+
+Whenever the user prompts you to perform any coding action, repository lookup, refactoring, or planning, you MUST involve the custom `agent-guidance-mcp` server tools.
+
+### Rules:
+1. **Always Start with Context Gathering**: Before you read files or make changes, invoke `task_pipeline` or `project_context(operation="tree" / "search" / "read")` to load optimized project states.
+2. **Consult Standards**: Use the `guidance` tool (with `operation="search"` or `operation="recommend"`) to check if any coding standard or instruction applies to the implementation.
+3. **Minimize Tokens**: Ensure that you leverage the optimized output of the MCP server tools to run context-efficient development.
+4. **Enforce Execution**: Never perform direct filesystem lookups or file reads manually if the corresponding context can be loaded and optimized through the MCP server tools.
