@@ -37,6 +37,9 @@ class CatalogEntry:
     kind: str
     category: str
     description: str = ""
+    triggers: tuple[str, ...] = ()
+    anchors: tuple[str, ...] = ()
+    dependencies: tuple[str, ...] = ()
 
     @property
     def uri(self) -> str:
@@ -44,7 +47,7 @@ class CatalogEntry:
             return f"standards://skill/{self.identifier}"
         return f"standards://document/{self.identifier}"
 
-    def to_dict(self) -> dict[str, str]:
+    def to_dict(self) -> dict[str, object]:
         return {
             "identifier": self.identifier,
             "title": self.title,
@@ -53,6 +56,9 @@ class CatalogEntry:
             "category": self.category,
             "description": self.description,
             "uri": self.uri,
+            "triggers": list(self.triggers),
+            "anchors": list(self.anchors),
+            "dependencies": list(self.dependencies),
         }
 
 
@@ -63,9 +69,29 @@ class StandardsCatalog:
         self._by_identifier = {entry.identifier: entry for entry in self.entries}
         self._by_path = {entry.path.replace("\\", "/").lower(): entry for entry in self.entries}
 
+        # Initialize and populate task anchors dynamically
+        self.task_anchors: dict[str, list[str]] = {k: list(v) for k, v in TASK_ANCHORS.items()}
+        for entry in self.entries:
+            for anchor in entry.anchors:
+                anchor_lower = anchor.lower()
+                if anchor_lower not in self.task_anchors:
+                    self.task_anchors[anchor_lower] = []
+                if entry.path not in self.task_anchors[anchor_lower]:
+                    self.task_anchors[anchor_lower].append(entry.path)
+
+        # Expose custom triggers mapping
+        self.custom_triggers: dict[str, set[str]] = {}
+        for entry in self.entries:
+            if entry.triggers:
+                # Group triggers under their respective entry categories/anchors
+                label = entry.identifier
+                if label not in self.custom_triggers:
+                    self.custom_triggers[label] = set()
+                self.custom_triggers[label].update(entry.triggers)
+
     def list_entries(
         self, category: str | None = None, kind: str | None = None
-    ) -> list[dict[str, str]]:
+    ) -> list[dict[str, object]]:
         entries = self.entries
         if category:
             category_key = category.lower()
@@ -142,10 +168,19 @@ class StandardsCatalog:
                 continue
 
             content = self.read_path(entry.path)
-            haystack = " ".join(
-                [entry.title, entry.description, entry.category, entry.path, content]
-            ).lower()
-            score = sum(haystack.count(term) for term in terms)
+            title_lower = entry.title.lower()
+            desc_lower = entry.description.lower()
+            path_lower = entry.path.lower()
+            content_lower = content.lower()
+
+            # Location-weighted scoring (Title: 10x, Description: 5x, Path: 3x, Content: 1x)
+            score = 0
+            for term in terms:
+                score += title_lower.count(term) * 10
+                score += desc_lower.count(term) * 5
+                score += path_lower.count(term) * 3
+                score += content_lower.count(term) * 1
+
             if score:
                 results.append((score, entry, make_snippet(content, terms)))
 
@@ -160,7 +195,7 @@ class StandardsCatalog:
         ]
 
     def recommend_context(self, task: str, limit: int = 8) -> dict[str, object]:
-        keywords = infer_task_keywords(task)
+        keywords = infer_task_keywords(task, self.custom_triggers)
         weighted_query = " ".join([task, *keywords, *keywords])
         results = self.search_entries(weighted_query, limit=max(limit * 2, limit))
 
@@ -187,7 +222,7 @@ class StandardsCatalog:
             add_recommendation(identifier, "Core operating context")
 
         for keyword in keywords:
-            for identifier in TASK_ANCHORS.get(keyword, ()):
+            for identifier in self.task_anchors.get(keyword, ()):
                 if add_recommendation(identifier, f"Task-specific {keyword} reference"):
                     break
             if len(selected) >= limit:
@@ -229,6 +264,7 @@ def build_catalog(root: str | Path | None = None) -> StandardsCatalog:
 
 
 def make_entry(root: Path, relative_path: str) -> CatalogEntry | None:
+    from .text import parse_frontmatter
     path = root / relative_path
     content = path.read_text(encoding="utf-8")
     title = extract_title(content) or title_from_path(relative_path)
@@ -236,4 +272,41 @@ def make_entry(root: Path, relative_path: str) -> CatalogEntry | None:
     kind = infer_kind(relative_path)
     category = infer_category(relative_path)
     identifier = identifier_for(relative_path, kind)
-    return CatalogEntry(identifier, title, relative_path, kind, category, description)
+    
+    frontmatter = parse_frontmatter(content)
+    
+    triggers_val = frontmatter.get("triggers", [])
+    if isinstance(triggers_val, list):
+        triggers = tuple(str(t).lower() for t in triggers_val)
+    elif isinstance(triggers_val, str):
+        triggers = tuple(t.strip().lower() for t in triggers_val.split(",") if t.strip())
+    else:
+        triggers = ()
+        
+    anchors_val = frontmatter.get("anchors", [])
+    if isinstance(anchors_val, list):
+        anchors = tuple(str(a).lower() for a in anchors_val)
+    elif isinstance(anchors_val, str):
+        anchors = tuple(a.strip().lower() for a in anchors_val.split(",") if a.strip())
+    else:
+        anchors = ()
+
+    dependencies_val = frontmatter.get("dependencies", [])
+    if isinstance(dependencies_val, list):
+        dependencies = tuple(str(d).lower() for d in dependencies_val)
+    elif isinstance(dependencies_val, str):
+        dependencies = tuple(d.strip().lower() for d in dependencies_val.split(",") if d.strip())
+    else:
+        dependencies = ()
+
+    return CatalogEntry(
+        identifier,
+        title,
+        relative_path,
+        kind,
+        category,
+        description,
+        triggers,
+        anchors,
+        dependencies,
+    )

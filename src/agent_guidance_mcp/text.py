@@ -215,10 +215,41 @@ def strip_markdown(value: str) -> str:
     return value.strip()
 
 
-def infer_task_keywords(task: str) -> list[str]:
+def parse_frontmatter(content: str) -> dict[str, object]:
+    lines = [line.strip() for line in content.splitlines()]
+    in_frontmatter = lines[:1] == ["---"]
+    data: dict[str, object] = {}
+    if in_frontmatter:
+        for line in lines[1:]:
+            if line == "---":
+                break
+            if ":" in line:
+                key, val = line.split(":", 1)
+                key = key.strip().lower()
+                val = val.strip().strip('"').strip("'")
+                if val.startswith("[") and val.endswith("]"):
+                    items = [item.strip().strip('"').strip("'") for item in val[1:-1].split(",")]
+                    data[key] = [i for i in items if i]
+                else:
+                    data[key] = val
+    return data
+
+
+def infer_task_keywords(task: str, custom_triggers: dict[str, set[str]] | None = None) -> list[str]:
     task_terms = set(tokenize(task))
     keywords: list[str] = []
-    for label, triggers in TASK_KEYWORD_TRIGGERS.items():
+    
+    # Merge custom triggers if provided
+    merged_triggers = {label: set(triggers) for label, triggers in TASK_KEYWORD_TRIGGERS.items()}
+    if custom_triggers:
+        for label, triggers in custom_triggers.items():
+            label_key = label.lower()
+            if label_key in merged_triggers:
+                merged_triggers[label_key] = merged_triggers[label_key] | triggers
+            else:
+                merged_triggers[label_key] = triggers
+                
+    for label, triggers in merged_triggers.items():
         if task_terms & triggers:
             keywords.extend([label, *sorted(triggers & task_terms)])
 
@@ -230,3 +261,11 @@ def make_recommendation_reason(result: dict[str, object], keywords: list[str]) -
     if matched:
         return f"Matches task signal: {', '.join(matched[:3])}"
     return "Keyword match in standards corpus"
+
+
+def extract_code_terms(task: str) -> str | None:
+    pattern = r"[a-zA-Z0-9]+[a-z0-9]+[A-Z0-9]+[a-zA-Z0-9]*|[a-zA-Z0-9]+_[a-zA-Z0-9_]+|[a-zA-Z0-9]+\.[a-zA-Z0-9]{2,4}|[a-zA-Z0-9]+/[a-zA-Z0-9_/]+"
+    matches = re.findall(pattern, task)
+    if matches:
+        return " ".join(dict.fromkeys(matches))
+    return None
