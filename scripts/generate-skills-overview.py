@@ -79,31 +79,23 @@ def main():
                 if parsed:
                     skills.append(parsed)
 
-    # Generate SKILLS_OVERVIEW.md
+    # Generate SKILLS_OVERVIEW.md — compact index
     output_path = docs_dir / "SKILLS_OVERVIEW.md"
     
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("# Skills Overview\n\n")
-        f.write(f"This document provides a comprehensive directory of the **{len(skills)}** local skills packaged with the Agent Guidance MCP Server.\n\n")
-        
-        f.write("| Skill / Tool Name | Description | When to Use |\n")
-        f.write("| :--- | :--- | :--- |\n")
+        f.write(f"A compact index of the **{len(skills)}** local skills. Use `guidance(operation=\"list\", kind=\"skill\")` via the MCP server for full details.\n\n")
+        f.write("| Skill | Description |\n")
+        f.write("| :--- | :--- |\n")
         
         for s in skills:
             name_link = f"[`{s['name']}`](../skills/{s['id']}/SKILL.md)"
-            desc = s['description'].replace("|", "\\|")
-            if len(desc) > 180:
-                desc = desc[:177] + "..."
+            desc = s['description'].replace("|", "\\|").strip()
+            if len(desc) > 100:
+                desc = desc[:97] + "..."
+            f.write(f"| {name_link} | {desc} |\n")
             
-            use_cases = " / ".join(s['when_to_use'])
-            if len(use_cases) > 180:
-                use_cases = use_cases[:177] + "..."
-            if not use_cases:
-                use_cases = "General workflow enhancement."
-                
-            f.write(f"| {name_link} | {desc} | {use_cases} |\n")
-            
-    print(f"Successfully generated {output_path} with {len(skills)} skills.")
+    print(f"Successfully generated {output_path} with {len(skills)} skills (compact).")
 
 if __name__ == "__main__":
     main()
