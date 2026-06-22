@@ -2,6 +2,13 @@
 
 Track versions and updates for the AI Agent Coding Standards framework.
 
+## [3.3.0] - 2026-06-22
+
+### Added
+- **Topological Dependency Resolution:** Added DFS-based dependency sorting inside the `guidance` get resource handler, exposing flat topologically sorted execution sequences under the `dependency_execution_order` key.
+- **Zero-Config Framework Detection:** Integrated manifest-based project stack detection in `task_pipeline` to dynamically load framework-specific rules/skills.
+- **Standardized Pytest Configuration:** Configured default pytest options to automatically define the base temp directory for testing.
+
 ## [3.2.3] - 2026-06-21
 
 ### Added
@@ -269,6 +276,7 @@ Track versions and updates for the AI Agent Coding Standards framework.
 
 | Version | Date | Changes | Status |
 |---------|------|---------|--------|
+| 3.3.0 | 2026-06-22 | Topological dependency sorting, framework detection, standardized testing configs | Released |
 | 3.2.3 | 2026-06-21 | OpenCode MCP config integration in installation script | Released |
 | 3.2.2 | 2026-06-21 | Codebase consolidation, global/workspace rule auto-installation, unit tests | Released |
 | 3.1.1 | 2026-06-12 | Project-context MCP tools, doc set split, README cleanup, version synchronization | Released |
