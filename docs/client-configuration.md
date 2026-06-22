@@ -71,12 +71,25 @@ The bundled `scripts/install-mcp.py` attempts to configure several common client
 
 ## Environment Variables
 
-Use `AGENT_GUIDANCE_ROOT` only when the standards corpus is outside this repository:
+You can customize the MCP server behavior, including path configuration and token optimization thresholds, using environment variables:
 
-```bash
-AGENT_GUIDANCE_ROOT=/path/to/Agent-Guidance
-```
+### Core Configuration
+* **`AGENT_GUIDANCE_ROOT`**: Use this only when the standards corpus is located outside of this repository workspace path.
+  ```bash
+  AGENT_GUIDANCE_ROOT=/path/to/Agent-Guidance
+  ```
 
+### Token Optimization & Compression
+Configure these variables in your MCP client's `"env"` settings block (e.g. inside `mcp.json` or `config.json`):
+
+* **`AGENT_GUIDANCE_TOKEN_OPT`**: Set to `0` to disable all token optimization, compression, and analytics tracking. (Default is `1` / enabled).
+* **`AGENT_GUIDANCE_FILTER_LEVEL`**: Determines comment and docstring stripping depth for project source code.
+  * `none`: No code filter/compression.
+  * `minimal` (Default): Strips block headers and whitespaces, but preserves inline explanatory comments and code details.
+  * `aggressive`: Strips all docstrings and comments for maximum compression.
+* **`AGENT_GUIDANCE_DOC_MAX_TOKENS`**: Maximum token cap allowed for standard documents (Default: `4000`).
+* **`AGENT_GUIDANCE_SKILL_MAX_TOKENS`**: Maximum token cap allowed for skill guides (Default: `6000`).
+* **`AGENT_GUIDANCE_TRACK_SAVINGS`**: Set to `0` to disable session-level token analytics recording. (Default is `1` / enabled).
 
 Project-context tools should receive an explicit `project_path` argument. Avoid relying on the MCP process current working directory when scanning a user project.
 
