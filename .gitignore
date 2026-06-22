@@ -24,6 +24,9 @@ tests/
 # Local editor/agent config
 .codex/
 .vscode/
+.gemini/
+.opencode/
+.claude-plugin/
 
 rtk/
 rtk-implementing/
