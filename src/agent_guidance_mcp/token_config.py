@@ -15,8 +15,8 @@ class TokenOptimizationConfig:
     source_filter_level: str = "minimal"
     markdown_filter_level: str = "minimal"
 
-    document_max_tokens: int = 4_000
-    skill_max_tokens: int = 6_000
+    document_max_tokens: int = 8_000
+    skill_max_tokens: int = 8_000
     workflow_max_tokens: int = 8_000
     source_file_max_tokens: int = 3_000
     snapshot_total_max_tokens: int = 50_000

@@ -74,22 +74,80 @@ The bundled `scripts/install-mcp.py` attempts to configure several common client
 You can customize the MCP server behavior, including path configuration and token optimization thresholds, using environment variables:
 
 ### Core Configuration
-* **`AGENT_GUIDANCE_ROOT`**: Use this only when the standards corpus is located outside of this repository workspace path.
-  ```bash
-  AGENT_GUIDANCE_ROOT=/path/to/Agent-Guidance
-  ```
+
+| Variable | Default | Description |
+|---|---|---|
+| `PYTHONPATH` | *(required)* | Path to `src/` directory so the `agent_guidance_mcp` package can be found |
+| `AGENT_GUIDANCE_ROOT` | auto | Override path to standards corpus when it is outside this repo workspace |
+
+```json
+"env": {
+  "PYTHONPATH": "/path/to/repo/src",
+  "AGENT_GUIDANCE_ROOT": "/path/to/Agent-Guidance"
+}
+```
 
 ### Token Optimization & Compression
+
 Configure these variables in your MCP client's `"env"` settings block (e.g. inside `mcp.json` or `config.json`):
 
-* **`AGENT_GUIDANCE_TOKEN_OPT`**: Set to `0` to disable all token optimization, compression, and analytics tracking. (Default is `1` / enabled).
-* **`AGENT_GUIDANCE_FILTER_LEVEL`**: Determines comment and docstring stripping depth for project source code.
-  * `none`: No code filter/compression.
-  * `minimal` (Default): Strips block headers and whitespaces, but preserves inline explanatory comments and code details.
-  * `aggressive`: Strips all docstrings and comments for maximum compression.
-* **`AGENT_GUIDANCE_DOC_MAX_TOKENS`**: Maximum token cap allowed for standard documents (Default: `4000`).
-* **`AGENT_GUIDANCE_SKILL_MAX_TOKENS`**: Maximum token cap allowed for skill guides (Default: `6000`).
-* **`AGENT_GUIDANCE_TRACK_SAVINGS`**: Set to `0` to disable session-level token analytics recording. (Default is `1` / enabled).
+| Variable | Default | Description |
+|---|---|---|
+| `AGENT_GUIDANCE_TOKEN_OPT` | `1` | `0` = disable all optimization, compression & analytics |
+| `AGENT_GUIDANCE_FILTER_LEVEL` | `minimal` | `none` / `minimal` / `aggressive` — comment/docstring stripping depth |
+| `AGENT_GUIDANCE_DOC_MAX_TOKENS` | `8000` | Max token cap for standard documents |
+| `AGENT_GUIDANCE_SKILL_MAX_TOKENS` | `8000` | Max token cap for skill guides |
+| `AGENT_GUIDANCE_TRACK_SAVINGS` | `1` | `0` = disable session-level token analytics |
+
+**`AGENT_GUIDANCE_FILTER_LEVEL` details:**
+
+| Value | Effect |
+|---|---|
+| `none` | No code filter or compression |
+| `minimal` (default) | Strips block headers and whitespace, preserves inline comments |
+| `aggressive` | Strips all docstrings and comments for maximum compression |
+
+### CLI Arguments
+
+Pass these in the `"args"` array. They take precedence over environment variables.
+
+| Flag | Effect |
+|---|---|
+| `--root <path>` | Override standards corpus path (overrides `AGENT_GUIDANCE_ROOT`) |
+| `--no-optimize` | Disable all token optimization & tracking |
+
+```json
+"args": ["-m", "agent_guidance_mcp", "--root", "/custom/path", "--no-optimize"]
+```
+
+### Programmatic-Only Configuration
+
+These `TokenOptimizationConfig` fields in `src/agent_guidance_mcp/token_config.py` are not exposed via environment variables — modify the source to change them.
+
+| Field | Default | Description |
+|---|---|---|
+| `workflow_max_tokens` | `8000` | Max token cap for workflow prompts |
+| `source_file_max_tokens` | `3000` | Max tokens per source file |
+| `snapshot_total_max_tokens` | `50000` | Total token budget for project snapshots |
+| `snapshot_per_file_max_tokens` | `2000` | Per-file token cap in snapshots |
+| `task_pipeline_max_tokens` | `12000` | Max token cap for `task_pipeline` output |
+| `guidance_content_max_tokens` | `4000` | Max token cap for guidance response content |
+| `strip_comments` | `true` | Strip comments during optimization |
+| `collapse_whitespace` | `true` | Collapse redundant whitespace |
+| `deduplicate_lines` | `true` | Deduplicate repeated lines |
+| `strip_html_comments` | `true` | Strip `<!-- -->` HTML comments |
+| `strip_badge_images` | `true` | Strip shield.io badge images |
+
+### Predefined Profiles
+
+Available programmatically via `TokenOptimizationConfig`:
+
+| Profile | Effect |
+|---|---|
+| `TokenOptimizationConfig.disabled()` | `enabled=False`, `track_savings=False` — disables all optimization and tracking |
+| `TokenOptimizationConfig.aggressive()` | `source_filter_level="aggressive"`, budgets halved |
+
+### Project Context
 
 Project-context tools should receive an explicit `project_path` argument. Avoid relying on the MCP process current working directory when scanning a user project.
 
