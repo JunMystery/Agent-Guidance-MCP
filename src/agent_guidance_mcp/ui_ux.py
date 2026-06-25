@@ -329,12 +329,12 @@ class BM25:
         self.doc_freqs: dict[str, int] = defaultdict(int)
         self.n = 0
 
-    def tokenize(self, text: str) -> list[str]:
+    def _tokenize_bm25(self, text: str) -> list[str]:
         cleaned = re.sub(r"[^\w\s]", " ", str(text).lower())
         return [word for word in cleaned.split() if len(word) > 2]
 
     def fit(self, documents: Iterable[str]) -> None:
-        self.corpus = [self.tokenize(document) for document in documents]
+        self.corpus = [self._tokenize_bm25(document) for document in documents]
         self.n = len(self.corpus)
         if self.n == 0:
             return
@@ -349,7 +349,9 @@ class BM25:
             self.idf[word] = log((self.n - frequency + 0.5) / (frequency + 0.5) + 1)
 
     def score(self, query: str) -> list[tuple[int, float]]:
-        query_tokens = self.tokenize(query)
+        if not self.corpus or self.avgdl == 0:
+            return []
+        query_tokens = self._tokenize_bm25(query)
         scores: list[tuple[int, float]] = []
         for index, document in enumerate(self.corpus):
             document_score = 0.0
@@ -734,10 +736,10 @@ def _format_design_system_markdown(recommendation: dict[str, object]) -> str:
     style = recommendation["style"]
     colors = recommendation["colors"]
     typography = recommendation["typography"]
-    assert isinstance(pattern, dict)
-    assert isinstance(style, dict)
-    assert isinstance(colors, dict)
-    assert isinstance(typography, dict)
+    if not isinstance(pattern, dict): raise TypeError("'pattern' must be a dict")
+    if not isinstance(style, dict): raise TypeError("'style' must be a dict")
+    if not isinstance(colors, dict): raise TypeError("'colors' must be a dict")
+    if not isinstance(typography, dict): raise TypeError("'typography' must be a dict")
 
     lines = [
         f"## Design System: {recommendation['project_name']}",
@@ -812,9 +814,9 @@ def _format_design_system_ascii(recommendation: dict[str, object]) -> str:
     style = recommendation["style"]
     colors = recommendation["colors"]
     typography = recommendation["typography"]
-    assert isinstance(style, dict)
-    assert isinstance(colors, dict)
-    assert isinstance(typography, dict)
+    if not isinstance(style, dict): raise TypeError("'style' must be a dict")
+    if not isinstance(colors, dict): raise TypeError("'colors' must be a dict")
+    if not isinstance(typography, dict): raise TypeError("'typography' must be a dict")
 
     return "\n".join(
         [

@@ -1,6 +1,7 @@
 ---
 name: docs-research-hub
 description: Use for documentation lookup, technical research, deep research, article or content creation, SEO, market research, scientific lookup, and database-backed source discovery tasks. Routes to focused research skills so agents can start with one domain call.
+dependencies: [research-core, scientific-research, content-core, media-doc-processing, market-research, investor-materials, investor-outreach, architecture-decision-records]
 ---
 
 # Docs Research Hub
