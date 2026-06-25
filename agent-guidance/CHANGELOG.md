@@ -2,6 +2,11 @@
 
 Track versions and updates for the AI Agent Coding Standards framework.
 
+## [3.4.0] - 2026-06-25
+
+### Added
+- **Version synchronization** - Updated framework and package release surfaces to v3.4.0 across all configuration, documentation, and multi-agent files.
+
 ## [3.3.0] - 2026-06-22
 
 ### Added
@@ -276,6 +281,7 @@ Track versions and updates for the AI Agent Coding Standards framework.
 
 | Version | Date | Changes | Status |
 |---------|------|---------|--------|
+| 3.4.0 | 2026-06-25 | Version synchronization across all config, docs, and multi-agent files | Released |
 | 3.3.0 | 2026-06-22 | Topological dependency sorting, framework detection, standardized testing configs | Released |
 | 3.2.3 | 2026-06-21 | OpenCode MCP config integration in installation script | Released |
 | 3.2.2 | 2026-06-21 | Codebase consolidation, global/workspace rule auto-installation, unit tests | Released |
