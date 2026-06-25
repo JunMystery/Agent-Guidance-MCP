@@ -18,7 +18,6 @@ def find_standards_root(root: str | Path | None = None) -> Path:
         candidates.append(Path(os.environ["AGENT_GUIDANCE_ROOT"]))
 
     here = Path(__file__).resolve()
-    candidates.append(here.parent / "bundled")
     candidates.extend(parent for parent in here.parents)
     candidates.extend(parent.parent for parent in here.parents if parent.parent != parent)
 
@@ -56,6 +55,8 @@ def iter_content_files(root: Path) -> Iterable[str]:
             if path.suffix.lower() not in TEXT_SUFFIXES:
                 continue
             if any(part in SKIP_PARTS for part in path.parts):
+                continue
+            if directory == "skills" and path.name != "SKILL.md":
                 continue
             yield path.relative_to(root).as_posix()
 

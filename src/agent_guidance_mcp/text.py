@@ -266,6 +266,15 @@ def make_recommendation_reason(result: dict[str, object], keywords: list[str]) -
 def extract_code_terms(task: str) -> str | None:
     pattern = r"[a-zA-Z0-9]+[a-z0-9]+[A-Z0-9]+[a-zA-Z0-9]*|[a-zA-Z0-9]+_[a-zA-Z0-9_]+|[a-zA-Z0-9]+\.[a-zA-Z0-9]{2,4}|[a-zA-Z0-9]+/[a-zA-Z0-9_/]+"
     matches = re.findall(pattern, task)
+    vowels = set("aeiou")
+    for term in tokenize(task):
+        if (
+            len(term) >= 6
+            and term.islower()
+            and sum(1 for ch in term if ch in vowels) <= 1
+            and not any(term != m and term in m for m in matches)
+        ):
+            matches.append(term)
     if matches:
         return " ".join(dict.fromkeys(matches))
     return None

@@ -75,6 +75,7 @@ def guidance(
                 deps_dict: dict[str, dict[str, object]] = {}
                 resolved: set[str] = {entry.identifier}
                 order: list[str] = []
+                missing: list[str] = []
 
                 def visit(dep_id: str) -> None:
                     if dep_id in resolved:
@@ -82,6 +83,7 @@ def guidance(
                     try:
                         dep_entry = catalog.get_entry(dep_id)
                     except KeyError:
+                        missing.append(dep_id)
                         return
                     resolved.add(dep_id)
                     for child_id in dep_entry.dependencies:
@@ -98,6 +100,8 @@ def guidance(
                 if deps_dict:
                     result["resolved_dependencies"] = deps_dict
                     result["dependency_execution_order"] = order
+                if missing:
+                    result["missing_dependencies"] = missing
         return result
 
     if not query:
@@ -419,7 +423,11 @@ def task_pipeline(
 
 
 def _is_ui_task(value: str) -> bool:
-    terms = {term.strip(".,:;()[]{}").lower() for term in value.split()}
+    terms = set()
+    for t in value.split():
+        cleaned = t.strip(".,:;()[]{}").lower()
+        terms.add(cleaned)
+        terms.update(cleaned.split("-"))
     return bool(terms & UI_TASK_TERMS)
 
 

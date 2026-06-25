@@ -1,6 +1,7 @@
 ---
 name: backend-hub
 description: Use for backend, API, database, server-side architecture, framework patterns, service boundaries, migrations, and Python, Django, FastAPI, Java/Spring/Quarkus, Node/Nest, Laravel, Go, Rust, .NET, or database tasks. Routes to focused backend skills so agents can start with one domain call.
+dependencies: [backend-core, backend-frameworks, data-platforms, api-integrations, android-clean-architecture, django-celery, jpa-patterns, kotlin-coroutines-flows, kotlin-exposed-patterns, swift-actor-persistence, swift-concurrency-6-2]
 ---
 
 # Backend Hub

@@ -1,6 +1,7 @@
 ---
 name: security-hub
 description: Use for security review, vulnerability scanning, auth, secrets, OWASP, framework security, DeFi AMM security, LLM trading-agent security, and compliance-sensitive implementation tasks. Routes to focused security skills so agents can start with one domain call.
+dependencies: [security-and-hardening, framework-security, regulated-security]
 ---
 
 # Security Hub

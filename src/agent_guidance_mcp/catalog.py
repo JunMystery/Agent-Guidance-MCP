@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+import re
 from .constants import TASK_ANCHORS
 from .paths import (
     find_standards_root,
@@ -179,7 +180,7 @@ class StandardsCatalog:
                 score += title_lower.count(term) * 10
                 score += desc_lower.count(term) * 5
                 score += path_lower.count(term) * 3
-                score += content_lower.count(term) * 1
+                score += len(re.findall(rf'\b{re.escape(term)}\b', content_lower)) * 1
 
             if score:
                 results.append((score, entry, make_snippet(content, terms)))

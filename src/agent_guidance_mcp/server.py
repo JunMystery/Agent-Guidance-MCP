@@ -7,6 +7,7 @@ from typing import Any
 
 from .catalog import StandardsCatalog, build_catalog
 from . import pipelines
+from . import project_context as project_context_helpers
 from .response_optimizer import TokenBudget, estimate_tokens, optimize_markdown
 from .token_analytics import TokenTracker
 from .token_config import TokenOptimizationConfig, load_config_from_env
@@ -103,7 +104,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         include_ui: bool = True,
         limit: int = 8,
     ) -> dict[str, object]:
-        """Prepare task recommendations, project context, and optional UI guidance in one call."""
+        """Prepare task recommendations, project context, and optional UI guidance in one call. Parameters: task (str, required) — description of the work; project_path (str) — root of the project to scan; focus (str) — domain focus like 'general', 'frontend', 'backend'; code_query (str|None) — optional code search override; include_tree (bool) — include project directory tree; include_ui (bool) — attach UI/UX guidance when task signals UI intent; limit (int) — max recommendations (default 8)."""
         return pipelines.task_pipeline(
             catalog=catalog,
             task=task,
@@ -127,7 +128,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         limit: int = 10,
         include_content: bool = False,
     ) -> dict[str, object] | list[dict[str, object]]:
-        """Grouped standards catalog operations: list, get, search, recommend."""
+        """Grouped standards catalog operations: list (list entries), get (fetch by identifier with dependency resolution), search (query with ranking and snippets), recommend (task-context-aware). Parameters: operation (str, required) — one of list/get/search/recommend; query (str) — search/recommend query string; identifier (str) — entry identifier for get; category (str) — filter by category; kind (str) — filter by kind (skill/doc/principle/etc.); limit (int) — max results (default 10); include_content (bool) — include full body in get response (default False)."""
         return pipelines.guidance(
             catalog=catalog,
             operation=operation,
@@ -148,14 +149,14 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         query: str | None = None,
         relative_path: str | None = None,
         start_line: int = 1,
-        max_lines: int = 300,
-        max_depth: int = 3,
-        output_path: str = ".agent-context/code-snapshot.json",
-        max_file_bytes: int = 200000,
-        max_total_bytes: int = 2000000,
+        max_lines: int = project_context_helpers.DEFAULT_MAX_READ_LINES,
+        max_depth: int = project_context_helpers.DEFAULT_MAX_DEPTH,
+        output_path: str = project_context_helpers.DEFAULT_SNAPSHOT_PATH,
+        max_file_bytes: int = project_context_helpers.DEFAULT_MAX_FILE_BYTES,
+        max_total_bytes: int = project_context_helpers.DEFAULT_MAX_TOTAL_BYTES,
         limit: int = 20,
     ) -> dict[str, object]:
-        """Grouped project context operations: tree, search, read, snapshot."""
+        """Grouped project context operations: tree (directory tree), search (grep file contents), read (read file by path with line range), snapshot (export project snapshot). Parameters: operation (str, required) — one of tree/search/read/snapshot; project_path (str) — root of the project; query (str) — search query for grep; relative_path (str) — file path for read; start_line (int) — line offset for read (default 1); max_lines (int) — max lines to read (default 300); max_depth (int) — directory tree depth (default 8); output_path (str) — snapshot output path; max_file_bytes (int) — per-file cap for snapshot; max_total_bytes (int) — total cap for snapshot; limit (int) — max search results (default 20)."""
         return pipelines.project_context(
             operation=operation,
             project_path=project_path,
@@ -182,7 +183,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         output_format: str = "markdown",
         limit: int = 3,
     ) -> dict[str, object]:
-        """Grouped UI/UX Pro Max operations: search, design_system, slides."""
+        """Grouped UI/UX Pro Max operations: search (query guidance data by domain/stack), design_system (generate compact design system recommendation), slides (search slide strategy/layout/copy/chart). Parameters: operation (str, required) — one of search/design_system/slides; query (str, required) — search query; domain (str) — UI domain filter (style/color/chart/landing/product/ux/typography/icons/react/web); stack (str) — framework stack filter (react/nextjs/vue/svelte/astro/etc.); project_name (str) — project name for design_system; output_format (str) — markdown or ascii (default markdown); limit (int) — max results (default 3)."""
         return pipelines.ui_ux(
             catalog=catalog,
             operation=operation,
@@ -198,13 +199,13 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
 
     @mcp.tool()
     def token_stats() -> dict[str, object]:
-        """Return token optimization statistics for this session."""
+        """Return token optimization statistics for this session. No parameters."""
         return get_tracker().summary()
 
 
     @mcp.prompt()
     def workflow_prompt(mode: str = "plan", subject: str = "", target: str = "") -> str:
-        """Load a workflow prompt by mode."""
+        """Load a workflow prompt by mode. Parameters: mode (str) — workflow mode key: init/plan/design/visualize/code/run/test/deploy/debug/refactor/audit/rollback/recap/review/next/help/readme/customize/brainstorm/save_brain (default 'plan'); subject (str) — optional subject to contextualize the prompt; target (str) — optional target description."""
         workflow_references = {
             "init": "skills/workflow-modes/references/workflow-init.md",
             "plan": "skills/workflow-modes/references/workflow-plan.md",
