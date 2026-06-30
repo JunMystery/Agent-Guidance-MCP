@@ -1,6 +1,6 @@
 # Project-Specific Agent Guidance
 
-This file contains standards, conventions, and rules specific to this project. AI Agents MUST adhere to the rules herein, in parallel with the core standards (like `GEMINI.md`, `CLAUDE.md`).
+This file contains standards, conventions, and rules specific to this project. AI Agents MUST follow the 6 core standards for every single action, in parallel with the rules herein.
 
 > **💡 Instructions:**
 > - **Independent operation:** Simply create/edit this file, and the AI Agent will automatically detect it.
