@@ -49,10 +49,10 @@ Platform notes and client-specific setup are covered in [Installation](docs/inst
 
 ## Quick Start
 
-Run the server through an MCP client, or verify it locally with MCP Inspector:
+Run the server through an MCP client, or verify it locally with MCP Inspector (using `DANGEROUSLY_OMIT_AUTH=true` to allow local connection handshake without token blocks):
 
 ```bash
-npx @modelcontextprotocol/inspector .venv/bin/python -m agent_guidance_mcp
+DANGEROUSLY_OMIT_AUTH=true npx @modelcontextprotocol/inspector .venv/bin/python -m agent_guidance_mcp
 ```
 
 Then call `task_pipeline(...)` to load task guidance and bounded project context before editing. See [Usage Guide](docs/usage.md) for practical workflows.
