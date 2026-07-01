@@ -281,6 +281,9 @@ def configure_workspace_rules(repo_root):
         "2. **Consult Standards**: Use the `guidance` tool (with `operation=\"search\"` or `operation=\"recommend\"`) to check if any coding standard or instruction applies to the implementation.\n"
         "3. **Minimize Tokens**: Ensure that you leverage the optimized output of the MCP server tools to run context-efficient development.\n"
         "4. **Enforce Execution**: Never perform direct filesystem lookups or file reads manually if the corresponding context can be loaded and optimized through the MCP server tools.\n"
+        "5. **Grounding & Planning**: Always find related files, functions, and symbols (using `project_context(operation=\"search\")` or `task_pipeline`) and formulate an implementation plan before proposing changes. Even if the user prompt does not mention specific files/code directly, or references a function name without its location, AI Agents MUST NOT guess anything; they must verify via search first.\n"
+        "6. **Max 300 LOC Files**: Keep code files focused and split them when they exceed 300 lines of code (LOC). Avoid monolithic files and dumping grounds.\n\n"
+        "**CRITICAL**: All 6 rules MUST be evaluated and executed for every single coding action, repository lookup, refactoring, or planning phase without exception.\n"
     )
     for name, path in targets:
         try:
@@ -316,6 +319,9 @@ def configure_supporting_agents(repo_root):
         "2. **Consult Standards**: Use the `guidance` tool (with `operation=\"search\"` or `operation=\"recommend\"`) to check if any coding standard or instruction applies to the implementation.\n"
         "3. **Minimize Tokens**: Ensure that you leverage the optimized output of the MCP server tools to run context-efficient development.\n"
         "4. **Enforce Execution**: Never perform direct filesystem lookups or file reads manually if the corresponding context can be loaded and optimized through the MCP server tools.\n"
+        "5. **Grounding & Planning**: Always find related files, functions, and symbols (using `project_context(operation=\"search\")` or `task_pipeline`) and formulate an implementation plan before proposing changes. Even if the user prompt does not mention specific files/code directly, or references a function name without its location, AI Agents MUST NOT guess anything; they must verify via search first.\n"
+        "6. **Max 300 LOC Files**: Keep code files focused and split them when they exceed 300 lines of code (LOC). Avoid monolithic files and dumping grounds.\n\n"
+        "**CRITICAL**: All 6 rules MUST be evaluated and executed for every single coding action, repository lookup, refactoring, or planning phase without exception.\n"
     )
     for agent_file in agents_dir.glob("*.md"):
         try:
@@ -344,6 +350,9 @@ def configure_global_agents_rules():
         "2. **Consult Standards**: Use the `guidance` tool (with `operation=\"search\"` or `operation=\"recommend\"`) to check if any coding standard or instruction applies to the implementation.\n"
         "3. **Minimize Tokens**: Ensure that you leverage the optimized output of the MCP server tools to run context-efficient development.\n"
         "4. **Enforce Execution**: Never perform direct filesystem lookups or file reads manually if the corresponding context can be loaded and optimized through the MCP server tools.\n"
+        "5. **Grounding & Planning**: Always find related files, functions, and symbols (using `project_context(operation=\"search\")` or `task_pipeline`) and formulate an implementation plan before proposing changes. Even if the user prompt does not mention specific files/code directly, or references a function name without its location, AI Agents MUST NOT guess anything; they must verify via search first.\n"
+        "6. **Max 300 LOC Files**: Keep code files focused and split them when they exceed 300 lines of code (LOC). Avoid monolithic files and dumping grounds.\n\n"
+        "**CRITICAL**: All 6 rules MUST be evaluated and executed for every single coding action, repository lookup, refactoring, or planning phase without exception.\n"
     )
     try:
         global_agents_md.parent.mkdir(parents=True, exist_ok=True)

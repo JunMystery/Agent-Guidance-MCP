@@ -136,6 +136,25 @@ These questions affect the implementation approach."
 
 **Why:** Implementation details depend on context. Guessing = rework.
 
+#### 1d. Grounding & Planning (No Guessing)
+
+**What it means:** Locate the relevant codebase files, functions, and symbols using search tools, and formulate an implementation plan before suggesting or writing any code. Never guess code structure, paths, or names blindly—even if they are not explicitly mentioned in the user prompt.
+
+**Example:**
+
+```
+❌ WRONG: Writing a script or editing files assuming that the Auth API functions are located in a guessed path like `src/auth.py` or naming functions blindly.
+✅ RIGHT:
+"I will first search the codebase to identify the exact files and functions related to the Auth API.
+[Runs project_context(operation="search", query="Auth")] -> Finds functions in `src/auth/service.py`.
+Based on this, here is my proposed implementation plan before I start coding:
+1. Modify `src/auth/service.py` to add role validation.
+2. Update tests in `tests/test_auth.py`.
+Does this plan look correct?"
+```
+
+**Why:** Guessing file names, paths, or function APIs leads to broken code, compilation errors, and major integration rework.
+
 ### How to Apply in Practice
 
 **When writing a prompt for AI:**
