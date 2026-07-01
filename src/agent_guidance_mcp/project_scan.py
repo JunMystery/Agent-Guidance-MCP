@@ -143,6 +143,8 @@ def iter_project_files(
 
 
 def resolve_project_root(project_path: str) -> Path:
+    if project_path == "." and os.environ.get("AGENT_PROJECT_ROOT"):
+        project_path = os.environ["AGENT_PROJECT_ROOT"]
     root = Path(project_path).expanduser().resolve()
     if not root.is_dir():
         raise NotADirectoryError(f"Project path is not a directory: {project_path!r}")
