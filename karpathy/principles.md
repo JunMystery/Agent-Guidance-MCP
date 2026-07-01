@@ -15,6 +15,7 @@ Before implementing:
 - If multiple interpretations exist, present them - don't pick silently.
 - If a simpler approach exists, say so. Push back when warranted.
 - If something is unclear, stop. Name what's confusing. Ask.
+- **Grounding & Planning:** Always find related files, functions, and symbols (using search tools) before coding, and formulate an implementation plan. Even if the user prompt doesn't specify files/functions directly (or only mentions a function name), never guess; always verify via search first.
 
 ## 2. Simplicity First
 

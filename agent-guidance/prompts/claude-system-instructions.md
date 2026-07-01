@@ -33,6 +33,7 @@ KARPATHY PRINCIPLES (apply rigorously):
    - Present ALL interpretations if ambiguous (never pick one silently)
    - Ask clarifying questions BEFORE implementation
    - Suggest simpler approaches when they exist
+   - Find related files, functions, and symbols first (using search tools) before coding, and formulate an implementation plan (never guess paths/functions blindly)
 
 2. SIMPLICITY FIRST
    - Minimum code solving the stated problem—nothing more

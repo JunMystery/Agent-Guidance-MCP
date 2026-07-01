@@ -28,7 +28,7 @@ The Karpathy principles directly address these by promoting **careful analysis, 
 
 ### 1. Think Before Coding
 
-**Don't assume. Surface ambiguity. Present alternatives. Ask questions.**
+**Don't assume. Surface ambiguity. Present alternatives. Ground and Plan before coding. Ask questions.**
 
 **When:** BEFORE implementation begins (during step 1-2 of pipeline)
 
@@ -40,8 +40,11 @@ The Karpathy principles directly address these by promoting **careful analysis, 
 | **Simplification exists** | Mention simpler approaches before committing to complex ones | Implements 300-line architecture without mentioning 50-line alternative | "A simpler approach exists: [X]. Recommend that instead." |
 | **Missing info** | Stop. Name what's confusing. Ask before guessing. | Implements with guesses; requires rework | "Unclear: [X]. Need clarification before proceeding." |
 | **Implementation scope unclear** | Clarify boundaries: what's IN scope? what's OUT? | Adds features beyond request | "Scope: [what's included]. Out of scope: [what's excluded]" |
+| **Missing specific code/file context** | Find related files/functions (using search tools) and formulate an implementation plan before suggesting changes | Guessing file paths, functions, or codebase structure blindly without verifying first | "I searched the codebase for X and found these related files. Here is my proposed plan..." |
 
 **Success Criteria:**
+- ✓ Related files, functions, and symbols are found using search tools (never guessed)
+- ✓ A structured implementation plan is proposed before making non-trivial changes
 - ✓ Assumptions are stated explicitly before code begins
 - ✓ Multiple interpretations are presented (never silently chosen)
 - ✓ Clarifying questions appear in prompt or discussion BEFORE implementation
