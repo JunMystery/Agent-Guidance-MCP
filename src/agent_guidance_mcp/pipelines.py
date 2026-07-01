@@ -238,9 +238,10 @@ def ui_ux(
 def _detect_frameworks(project_path: str) -> list[str]:
     import json
     from pathlib import Path
+    from .project_scan import resolve_project_root
     
     detected = []
-    base_path = Path(project_path)
+    base_path = resolve_project_root(project_path)
     
     # 1. Node/JS frameworks via package.json
     pkg_json = base_path / "package.json"

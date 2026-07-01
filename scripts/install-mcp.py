@@ -127,9 +127,11 @@ def main():
         if name == "VS Code Native (Workspace)":
             python_exe_str = "${workspaceFolder}/.venv/Scripts/python.exe" if os.name == "nt" else "${workspaceFolder}/.venv/bin/python"
             pythonpath_str = "${workspaceFolder}/src"
+            project_root_str = "${workspaceFolder}"
         else:
             python_exe_str = str(python_exe)
             pythonpath_str = str(repo_root / "src")
+            project_root_str = str(repo_root)
 
         if is_opencode:
             config[config_key][SERVER_ID] = {
@@ -137,7 +139,8 @@ def main():
                 "command": [python_exe_str, "-m", MODULE_NAME],
                 "enabled": True,
                 "environment": {
-                    "PYTHONPATH": pythonpath_str
+                    "PYTHONPATH": pythonpath_str,
+                    "AGENT_PROJECT_ROOT": project_root_str
                 }
             }
             # Add instructions so OpenCode loads AGENTS.md as system prompt
@@ -151,7 +154,8 @@ def main():
                 "command": python_exe_str,
                 "args": ["-m", MODULE_NAME],
                 "env": {
-                    "PYTHONPATH": pythonpath_str
+                    "PYTHONPATH": pythonpath_str,
+                    "AGENT_PROJECT_ROOT": project_root_str
                 }
             }
 
@@ -250,7 +254,8 @@ def configure_opencode_global(python_exe, repo_root):
         "command": [python_exe_str, "-m", MODULE_NAME],
         "enabled": True,
         "environment": {
-            "PYTHONPATH": pythonpath_str
+            "PYTHONPATH": pythonpath_str,
+            "AGENT_PROJECT_ROOT": str(repo_root)
         }
     }
 
@@ -380,6 +385,7 @@ def configure_codex(python_exe, repo_root):
     
     python_exe_str = str(python_exe).replace("\\", "\\\\")
     pythonpath_str = str(repo_root / "src").replace("\\", "\\\\")
+    project_root_str = str(repo_root).replace("\\", "\\\\")
     
     new_block = [
         f"[mcp_servers.{SERVER_ID}]",
@@ -388,6 +394,7 @@ def configure_codex(python_exe, repo_root):
         "",
         f"[mcp_servers.{SERVER_ID}.env]",
         f'PYTHONPATH = "{pythonpath_str}"',
+        f'AGENT_PROJECT_ROOT = "{project_root_str}"',
         ""
     ]
     
