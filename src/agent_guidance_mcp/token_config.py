@@ -37,9 +37,16 @@ class TokenOptimizationConfig:
     def from_dict(cls, data: dict[str, object]) -> "TokenOptimizationConfig":
         """Create config from a dictionary, ignoring unknown keys and invalid values."""
         valid_fields = {field.name: field.type for field in fields(cls)}
+        bool_fields = {field.name for field in fields(cls) if field.type is bool}
         filtered: dict[str, object] = {}
         for key, value in data.items():
             if key not in valid_fields:
+                continue
+            if key in bool_fields:
+                if isinstance(value, str):
+                    filtered[key] = value.lower() not in {"0", "false", "no", "off", ""}
+                else:
+                    filtered[key] = bool(value)
                 continue
             expected_type = valid_fields[key]
             try:

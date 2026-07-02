@@ -126,7 +126,10 @@ class StandardsCatalog:
         config: TokenOptimizationConfig | None = None,
     ) -> str:
         entry = self.get_entry(identifier)
-        content = self.read_path(entry.path)
+        if not optimize and entry._content is not None:
+            content = entry._content
+        else:
+            content = self.read_path(entry.path)
         config = config or load_config_from_env()
         if optimize and config.enabled:
             from .response_optimizer import TokenBudget, optimize_markdown
@@ -213,7 +216,7 @@ class StandardsCatalog:
         essentials = [
             "karpathy-principles",
             "skill-reference",
-            "repo-map-for-agents",
+            "docs-repo-map-for-agents",
         ]
         selected: list[dict[str, object]] = []
         seen: set[str] = set()

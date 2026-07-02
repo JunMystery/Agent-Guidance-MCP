@@ -92,6 +92,12 @@ def truncate_to_budget(content: str, max_tokens: int) -> str:
         return content
 
     sections = _split_markdown_sections(content)
+    if not sections or (len(sections) == 1 and not sections[0][0] and not sections[0][1]):
+        # No headers or empty content — truncate by estimated token count
+        budget_tokens = max(1, max_tokens)
+        target_chars = budget_tokens * 4
+        truncated = content[:target_chars]
+        return truncated.strip() + "\n" + _truncation_notice(estimate_tokens(content), max_tokens)
     result_lines: list[str] = []
     remaining_tokens = max_tokens
     notice_tokens = estimate_tokens(_truncation_notice(estimate_tokens(content), max_tokens))

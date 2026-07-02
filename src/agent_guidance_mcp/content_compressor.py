@@ -343,7 +343,11 @@ def _is_constant_line(trimmed: str) -> bool:
 
 
 def _starts_python_docstring(trimmed: str) -> bool:
-    return trimmed.startswith('"""') or trimmed.startswith("'''")
+    if not (trimmed.startswith('"""') or trimmed.startswith("'''")):
+        return False
+    # Exclude assignments and expressions: result = """..."""
+    before = trimmed.lstrip().split('"""')[0] if '"""' in trimmed else trimmed.lstrip().split("'''")[0]
+    return not before or before.rstrip().endswith((":", "("))
 
 
 def _ends_python_docstring(trimmed: str) -> bool:

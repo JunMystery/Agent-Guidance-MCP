@@ -131,7 +131,9 @@ def guidance(
         _record_savings(tracker, "guidance", operation_key, results, optimized["results"])
         return optimized["results"]  # type: ignore[return-value]
 
-    return catalog.recommend_context(task=query, limit=limit)
+    return optimize_response(
+        catalog.recommend_context(task=query, limit=limit), config=config
+    )
 
 
 def project_context(
@@ -183,14 +185,17 @@ def project_context(
             tracker=tracker,
         )
 
-    return project_context_helpers.export_project_snapshot(
-        project_path=project_path,
-        output_path=output_path,
-        max_file_bytes=max_file_bytes,
-        max_total_bytes=max_total_bytes,
-        config=config,
-        tracker=tracker,
-    )
+    try:
+        return project_context_helpers.export_project_snapshot(
+            project_path=project_path,
+            output_path=output_path,
+            max_file_bytes=max_file_bytes,
+            max_total_bytes=max_total_bytes,
+            config=config,
+            tracker=tracker,
+        )
+    except (PermissionError, OSError) as exc:
+        return {"error": f"Failed to write snapshot: {exc}", "output_path": output_path}
 
 
 def ui_ux(
@@ -248,7 +253,7 @@ def ui_ux(
             project_name=project_name,
             output_format=output_format,
         )
-    except ValueError as exc:
+    except (ValueError, FileNotFoundError, KeyError) as exc:
         return {"error": str(exc), "supported_formats": ["markdown", "ascii"]}
     result = {
         "operation": operation_key,
@@ -442,11 +447,11 @@ def task_pipeline(
         "planning-and-task-breakdown",
         "intent-driven-development",
         "api-design",
-        "frontend-hub",
-        "backend-hub",
+        "frontend-patterns",
+        "backend-patterns",
         "incremental-implementation",
-        "test-driven-development",
-        "framework-testing",
+        "tdd-workflow",
+        "verification-loop",
         "browser-qa",
         "code-review-and-quality",
         "shipping-and-launch",

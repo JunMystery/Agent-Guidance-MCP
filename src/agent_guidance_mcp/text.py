@@ -269,11 +269,13 @@ def _extract_frontmatter_block(content: str) -> dict[str, object] | None:
     lines = content.splitlines()
     if not lines or lines[0].strip() != "---":
         return None
-    end_idx = 1
+    end_idx = None
     for i in range(1, len(lines)):
-        end_idx = i
         if lines[i].strip() == "---":
+            end_idx = i
             break
+    if end_idx is None:
+        return None
     yaml_text = "\n".join(lines[1:end_idx])
     if not yaml_text.strip():
         return None

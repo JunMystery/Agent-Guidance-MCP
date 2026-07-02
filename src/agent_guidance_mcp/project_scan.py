@@ -132,7 +132,7 @@ _SYSTEM_DIR_PARTS = frozenset({"etc", "proc", "sys", "var", "Windows", "System32
 
 
 def _is_project_path_allowed(root: Path) -> bool:
-    allowed = os.environ.get("AGENT_PROJECT_ALLOWED_ROOTS")
+    allowed = os.environ.get("AGENT_PROJECT_ALLOWED_ROOTS", "").strip()
     if allowed:
         allowed_paths = [Path(p.strip()).expanduser().resolve() for p in allowed.split(",") if p.strip()]
         for allowed_root in allowed_paths:
@@ -201,8 +201,11 @@ def read_bounded_text(path: Path, max_bytes: int) -> tuple[str | None, bool]:
 def is_binary_file(path: Path) -> bool:
     if path.suffix.lower() in BINARY_SUFFIXES:
         return True
-    with path.open("rb") as file:
-        return looks_binary(file.read(4096))
+    try:
+        with path.open("rb") as file:
+            return looks_binary(file.read(4096))
+    except (PermissionError, OSError):
+        return True
 
 
 def looks_binary(data: bytes) -> bool:

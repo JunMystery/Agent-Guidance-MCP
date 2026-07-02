@@ -128,8 +128,11 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
     def document(identifier: str) -> str:
         """Return a standards document by slug."""
         config = get_config()
-        raw = catalog.read_entry(identifier, optimize=False)
-        optimized = catalog.read_entry(identifier, config=config)
+        try:
+            raw = catalog.read_entry(identifier, optimize=False)
+            optimized = catalog.read_entry(identifier, config=config)
+        except KeyError as exc:
+            return f"Document not found: {exc}"
         _record_savings("resource", "document", raw, optimized)
         return optimized
 
@@ -137,8 +140,11 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
     def skill(name: str) -> str:
         """Return a local on-demand skill capsule by name."""
         config = get_config()
-        raw = catalog.read_entry(name, optimize=False)
-        optimized = catalog.read_entry(name, config=config)
+        try:
+            raw = catalog.read_entry(name, optimize=False)
+            optimized = catalog.read_entry(name, config=config)
+        except KeyError as exc:
+            return f"Skill not found: {exc}"
         _record_savings("resource", "skill", raw, optimized)
         return optimized
 
