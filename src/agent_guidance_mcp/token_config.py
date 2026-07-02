@@ -35,9 +35,17 @@ class TokenOptimizationConfig:
 
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> "TokenOptimizationConfig":
-        """Create config from a dictionary, ignoring unknown keys."""
-        valid_fields = {field.name for field in fields(cls)}
-        filtered = {key: value for key, value in data.items() if key in valid_fields}
+        """Create config from a dictionary, ignoring unknown keys and invalid values."""
+        valid_fields = {field.name: field.type for field in fields(cls)}
+        filtered: dict[str, object] = {}
+        for key, value in data.items():
+            if key not in valid_fields:
+                continue
+            expected_type = valid_fields[key]
+            try:
+                filtered[key] = expected_type(value)
+            except (ValueError, TypeError):
+                continue
         return cls(**filtered)
 
     @classmethod

@@ -286,8 +286,14 @@ def _aggressive_brace_filter(content: str) -> str:
     in_impl_body = False
     brace_depth = 0
     placeholder_added = False
+    max_lines = 50000
+    processed_lines = 0
 
     for line in content.splitlines():
+        processed_lines += 1
+        if processed_lines > max_lines:
+            result.append("    # ... truncated (file too large)")
+            break
         trimmed = line.strip()
         if not trimmed:
             continue
@@ -298,7 +304,7 @@ def _aggressive_brace_filter(content: str) -> str:
         if _FUNC_SIGNATURE.match(trimmed):
             result.append(line)
             in_impl_body = "{" in trimmed or trimmed.endswith(";") is False
-            brace_depth = trimmed.count("{") - trimmed.count("}")
+            brace_depth = max(0, trimmed.count("{") - trimmed.count("}"))
             placeholder_added = False
             continue
         if _is_constant_line(trimmed):
@@ -307,6 +313,7 @@ def _aggressive_brace_filter(content: str) -> str:
 
         if in_impl_body:
             brace_depth += trimmed.count("{") - trimmed.count("}")
+            brace_depth = max(0, brace_depth)
             if trimmed in {"{", "}"}:
                 result.append(line)
             elif not placeholder_added:

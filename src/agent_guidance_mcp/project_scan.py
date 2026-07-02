@@ -128,12 +128,34 @@ def iter_project_files(
             yield path
 
 
+_SYSTEM_DIR_PARTS = frozenset({"etc", "proc", "sys", "var", "Windows", "System32", ".ssh", ".gnupg", ".config"})
+
+
+def _is_project_path_allowed(root: Path) -> bool:
+    allowed = os.environ.get("AGENT_PROJECT_ALLOWED_ROOTS")
+    if allowed:
+        allowed_paths = [Path(p.strip()).expanduser().resolve() for p in allowed.split(",") if p.strip()]
+        for allowed_root in allowed_paths:
+            try:
+                root.relative_to(allowed_root)
+                return True
+            except ValueError:
+                continue
+        return False
+    parts = set(root.resolve().parts)
+    if parts & _SYSTEM_DIR_PARTS and not any(p.startswith("home") or p.startswith("Users") for p in parts):
+        return False
+    return True
+
+
 def resolve_project_root(project_path: str) -> Path:
     if project_path == "." and os.environ.get("AGENT_PROJECT_ROOT"):
         project_path = os.environ["AGENT_PROJECT_ROOT"]
     root = Path(project_path).expanduser().resolve()
     if not root.is_dir():
         raise NotADirectoryError(f"Project path is not a directory: {project_path!r}")
+    if not _is_project_path_allowed(root):
+        raise ValueError(f"Project path is not allowed: {project_path!r}. Set AGENT_PROJECT_ALLOWED_ROOTS to whitelist directories.")
     return root
 
 
@@ -158,6 +180,8 @@ def ensure_project_file_allowed(root: Path, path: Path) -> None:
 
 
 def read_bounded_text(path: Path, max_bytes: int) -> tuple[str | None, bool]:
+    if path.suffix.lower() in BINARY_SUFFIXES:
+        return None, False
     size = path.stat().st_size
     with path.open("rb") as file:
         data = file.read(max_bytes + 1)

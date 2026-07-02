@@ -38,11 +38,16 @@ def find_standards_root(root: str | Path | None = None) -> Path:
 
 
 def is_standards_root(path: Path) -> bool:
-    return (
-        (path / "karpathy" / "principles.md").is_file()
-        and (path / "SKILL-REFERENCE.md").is_file()
-        and (path / "agent-guidance" / "INDEX.md").is_file()
-    )
+    markers = [
+        "karpathy/principles.md",
+        "SKILL-REFERENCE.md",
+        "agent-guidance/INDEX.md",
+    ]
+    missing = [m for m in markers if not (path / m).is_file()]
+    if missing:
+        import sys as _sys
+        print(f"Note: standards root not found at {path}. Missing markers: {', '.join(missing)}", file=_sys.stderr)
+    return len(missing) == 0
 
 
 def iter_content_files(root: Path) -> Iterable[str]:
@@ -56,13 +61,15 @@ def iter_content_files(root: Path) -> Iterable[str]:
         if not base.is_dir():
             continue
         for path in sorted(base.rglob("*")):
+            if path.is_symlink():
+                continue
             if not path.is_file():
                 continue
             if path.suffix.lower() not in TEXT_SUFFIXES:
                 continue
             if any(part in SKIP_PARTS for part in path.parts):
                 continue
-            if directory == "skills" and path.name != "SKILL.md":
+            if directory == "skills" and path.suffix.lower() == ".md" and path.name != "SKILL.md" and path.parent.name == path.parent.parent.name:
                 continue
             yield path.relative_to(root).as_posix()
 
@@ -81,6 +88,8 @@ def infer_kind(relative_path: str) -> str:
         return "reference"
     if parts and parts[0] == "agents":
         return "agent"
+    import sys as _sys
+    print(f"Note: unknown content directory {parts[0]!r} in {relative_path!r}, classifying as 'root'", file=_sys.stderr)
     return "root"
 
 
@@ -88,8 +97,8 @@ def infer_category(relative_path: str) -> str:
     parts = Path(relative_path).parts
     if not parts:
         return "root"
-    if parts[0] == "agent-guidance" and len(parts) > 1:
-        return parts[1]
+    if parts[0] == "agent-guidance":
+        return "agent-guidance"
     if parts[0] == "skills" and len(parts) > 1:
         return "skills"
     if parts[0] in {"karpathy", "docs", "references", "agents"}:
@@ -100,6 +109,8 @@ def infer_category(relative_path: str) -> str:
 def identifier_for(relative_path: str, kind: str) -> str:
     path = Path(relative_path)
     if kind == "skill" and len(path.parts) >= 2:
+        if len(path.parts) > 2 and path.parts[0] == "skills":
+            return normalize_identifier("-".join(path.parts[1:])).removesuffix("-skill-md")
         return normalize_identifier(path.parts[1])
 
     stem_path = relative_path

@@ -149,7 +149,7 @@ def read_project_file(
                 break
             selected.append(line.rstrip("\n"))
 
-    end_line = start_line + len(selected) - 1 if selected else start_line - 1
+    end_line = start_line + len(selected) - 1 if selected else min(start_line - 1, line_number)
     content = "\n".join(selected)
     if config.enabled:
         optimized, token_stats = optimize_source_content(
@@ -199,7 +199,11 @@ def search_project_code(
         return {"project_root": str(root), "query": query, "matches": []}
 
     matches: list[tuple[int, dict[str, object]]] = []
+    seen_files = 0
     for path in iter_project_files(root, excluded_paths={DEFAULT_SNAPSHOT_PATH}):
+        seen_files += 1
+        if seen_files > 2000:
+            break
         content, _ = read_bounded_text(path, DEFAULT_MAX_FILE_BYTES)
         if content is None:
             continue

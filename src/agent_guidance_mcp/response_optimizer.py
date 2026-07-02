@@ -41,7 +41,12 @@ class TokenBudget:
 
 
 def estimate_tokens(text: str) -> int:
-    """Estimate token count using RTK's chars/4 heuristic."""
+    """Estimate token count using chars/4 heuristic.
+
+    This is a rough approximation. For English prose, ~4 chars/token is reasonable,
+    but for code with many operators and punctuation the ratio is closer to 2-3 chars/token.
+    Consider this a lower-bound estimate for planning purposes.
+    """
     return math.ceil(len(text) / 4)
 
 
@@ -155,7 +160,7 @@ def optimize_response(
 ) -> dict[str, object]:
     """Recursively optimize string values in a response dictionary."""
     if _depth > 50:
-        return {"_truncated": str(response)[:500]}
+        return {"_error": "max recursion depth exceeded during response optimization", "depth": _depth}
     if config and not config.enabled:
         return dict(response)
     result: dict[str, object] = {}
@@ -267,9 +272,15 @@ def _split_markdown_sections(content: str) -> list[tuple[str, list[str]]]:
     sections: list[tuple[str, list[str]]] = []
     current_header = ""
     current_lines: list[str] = []
+    in_fence = False
 
     for line in content.splitlines():
-        if line.startswith("#"):
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            in_fence = not in_fence
+            current_lines.append(line)
+            continue
+        if not in_fence and line.startswith("# "):
             if current_header or current_lines:
                 sections.append((current_header, current_lines))
             current_header = line

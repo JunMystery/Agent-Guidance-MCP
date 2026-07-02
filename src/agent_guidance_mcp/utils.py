@@ -18,8 +18,18 @@ def record_savings(
     """Record token savings if tracker is active."""
     if tracker is None:
         return
-    original_text = original if isinstance(original, str) else json.dumps(original, default=str)
-    optimized_text = optimized if isinstance(optimized, str) else json.dumps(optimized, default=str)
+    if isinstance(original, str):
+        original_text = original
+    elif isinstance(original, (list, dict)):
+        original_text = json.dumps(original, default=str)
+    else:
+        original_text = str(original)
+    if isinstance(optimized, str):
+        optimized_text = optimized
+    elif isinstance(optimized, (list, dict)):
+        optimized_text = json.dumps(optimized, default=str)
+    else:
+        optimized_text = str(optimized)
     tracker.record(
         tool_name=tool_name,
         operation=operation,

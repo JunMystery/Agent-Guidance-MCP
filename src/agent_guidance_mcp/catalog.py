@@ -73,6 +73,11 @@ class StandardsCatalog:
 
         # Initialize and populate task anchors dynamically
         self.task_anchors: dict[str, list[str]] = {k: list(v) for k, v in TASK_ANCHORS.items()}
+        # Validate built-in task anchors point to real entries
+        for anchor_key, paths in self.task_anchors.items():
+            for p in paths:
+                if p.replace("\\", "/").lower() not in self._by_path:
+                    print(f"Warning: task anchor '{anchor_key}' references missing file: {p}", file=sys.stderr)
         for entry in self.entries:
             for anchor in entry.anchors:
                 anchor_lower = anchor.lower()
@@ -137,9 +142,6 @@ class StandardsCatalog:
     def read_path(self, relative_path: str) -> str:
         path = resolve_inside_root(self.root, relative_path)
         content = path.read_text(encoding="utf-8")
-        path_key = relative_path.replace("\\", "/").lower()
-        if path_key in self._by_path:
-            self._by_path[path_key]._content = content
         return content
 
     def manifest(self) -> dict[str, object]:
@@ -169,11 +171,14 @@ class StandardsCatalog:
             return []
 
         results: list[tuple[int, CatalogEntry, str]] = []
+        compiled_terms = [re.compile(rf'\b{re.escape(term)}\b') for term in terms]
         for entry in self.entries:
             if kind and entry.kind.lower() != kind.lower():
                 continue
 
-            content = entry._content or self.read_path(entry.path)
+            content = entry._content
+            if content is None:
+                continue
             title_lower = entry.title.lower()
             desc_lower = entry.description.lower()
             path_lower = entry.path.lower()
@@ -181,11 +186,11 @@ class StandardsCatalog:
 
             # Location-weighted scoring (Title: 10x, Description: 5x, Path: 3x, Content: 1x)
             score = 0
-            for term in terms:
+            for i, term in enumerate(terms):
                 score += title_lower.count(term) * 10
                 score += desc_lower.count(term) * 5
                 score += path_lower.count(term) * 3
-                score += len(re.findall(rf'\b{re.escape(term)}\b', content_lower)) * 1
+                score += len(compiled_terms[i].findall(content_lower)) * 1
 
             if score:
                 results.append((score, entry, make_snippet(content, terms)))
@@ -227,6 +232,8 @@ class StandardsCatalog:
         for identifier in essentials:
             add_recommendation(identifier, "Core operating context")
 
+        # Dynamic task anchors from file frontmatter take precedence
+        # Pre-compute anchor entries for fast lookup (O(1) vs O(N) per call)
         for keyword in keywords:
             for identifier in self.task_anchors.get(keyword, ()):
                 if add_recommendation(identifier, f"Task-specific {keyword} reference"):
@@ -319,4 +326,5 @@ def make_entry(root: Path, relative_path: str) -> CatalogEntry | None:
         triggers,
         anchors,
         dependencies,
+        content,
     )

@@ -4,6 +4,12 @@
 import re
 from pathlib import Path
 
+try:
+    import yaml
+    _HAS_YAML = True
+except ImportError:
+    _HAS_YAML = False
+
 
 TASK_KEYWORD_TRIGGERS = {
     "tests": {
@@ -159,6 +165,16 @@ def extract_title(content: str) -> str | None:
 
 
 def extract_description(content: str) -> str:
+    if _HAS_YAML:
+        try:
+            fm = _extract_frontmatter_block(content)
+            if fm and "description" in fm:
+                desc = fm["description"]
+                if isinstance(desc, str) and desc.strip() and desc.strip() not in ("|", ">"):
+                    return desc.strip()
+        except Exception:
+            pass
+
     lines = [line.strip() for line in content.splitlines()]
     in_frontmatter = lines[:1] == ["---"]
     description = ""
@@ -210,11 +226,20 @@ def make_snippet(content: str, terms: list[str], radius: int = 140) -> str:
 def strip_markdown(value: str) -> str:
     value = re.sub(r"`([^`]+)`", r"\1", value)
     value = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", value)
-    value = value.replace("*", "").replace("_", "")
+    value = re.sub(r"\*{1,2}([^*]+)\*{1,2}", r"\1", value)
+    value = re.sub(r"_{1,2}([^_]+)_{1,2}", r"\1", value)
     return value.strip()
 
 
 def parse_frontmatter(content: str) -> dict[str, object]:
+    if _HAS_YAML:
+        try:
+            fm = _extract_frontmatter_block(content)
+            if fm:
+                return {k: v for k, v in fm.items() if isinstance(k, str)}
+        except Exception:
+            pass
+
     import json as _json
     lines = [line.strip() for line in content.splitlines()]
     in_frontmatter = bool(lines) and lines[0].lstrip("\ufeff").strip() == "---"
@@ -236,6 +261,23 @@ def parse_frontmatter(content: str) -> dict[str, object]:
                 else:
                     data[key] = val
     return data
+
+
+def _extract_frontmatter_block(content: str) -> dict[str, object] | None:
+    if not _HAS_YAML:
+        return None
+    lines = content.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None
+    end_idx = 1
+    for i in range(1, len(lines)):
+        end_idx = i
+        if lines[i].strip() == "---":
+            break
+    yaml_text = "\n".join(lines[1:end_idx])
+    if not yaml_text.strip():
+        return None
+    return yaml.safe_load(yaml_text)
 
 
 def infer_task_keywords(task: str, custom_triggers: dict[str, set[str]] | None = None) -> list[str]:

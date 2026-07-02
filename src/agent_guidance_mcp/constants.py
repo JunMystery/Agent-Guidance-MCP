@@ -1,6 +1,6 @@
 """Static catalog configuration."""
 
-TEXT_SUFFIXES = {".md", ".mdc", ".txt", ".yaml", ".yml", ".json"}
+TEXT_SUFFIXES = {".md", ".markdown", ".mdc", ".txt", ".yaml", ".yml", ".json"}
 SKIP_PARTS = {".git", "__pycache__", ".pytest_cache", ".venv", "venv", "node_modules"}
 DEFAULT_INCLUDE_DIRS = ("karpathy", "agent-guidance", "skills", "docs", "references", "agents")
 

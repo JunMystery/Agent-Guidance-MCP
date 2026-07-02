@@ -2,6 +2,7 @@
 
 
 from pathlib import Path
+import threading
 from typing import Any
 
 from .catalog import StandardsCatalog, build_catalog
@@ -45,34 +46,38 @@ else:
 
 _global_config: TokenOptimizationConfig | None = None
 _global_tracker: TokenTracker | None = None
+_config_lock = threading.Lock()
 
 
 def get_config() -> TokenOptimizationConfig:
     """Return the process-level token optimization config."""
     global _global_config
-    if _global_config is None:
-        _global_config = load_config_from_env()
-    return _global_config
+    with _config_lock:
+        if _global_config is None:
+            _global_config = load_config_from_env()
+        return _global_config
 
 
 def set_config(config: TokenOptimizationConfig | None) -> None:
     """Set the process-level token optimization config."""
     global _global_config, _global_tracker
-    _global_config = config
-    _global_tracker = None
+    with _config_lock:
+        _global_config = config
+        _global_tracker = None
 
 
 def get_tracker() -> TokenTracker:
     """Return the process-level token savings tracker."""
     global _global_tracker
-    if _global_tracker is None:
-        config = get_config()
-        _global_tracker = TokenTracker(
-            enabled=config.enabled and config.track_savings,
-            max_records=config.tracker_max_records,
-            trim_to=config.tracker_trim_to,
-        )
-    return _global_tracker
+    with _config_lock:
+        if _global_tracker is None:
+            config = get_config()
+            _global_tracker = TokenTracker(
+                enabled=config.enabled and config.track_savings,
+                max_records=config.tracker_max_records,
+                trim_to=config.tracker_trim_to,
+            )
+        return _global_tracker
 
 
 def reset_tracker() -> None:
@@ -80,9 +85,12 @@ def reset_tracker() -> None:
     get_tracker().reset()
 
 
+_CONFIG_UNSET = object()
+
+
 def create_server(
     root: str | Path | None = None,
-    config: TokenOptimizationConfig | None = None,
+    config: TokenOptimizationConfig | None = _CONFIG_UNSET,
 ) -> Any:
     if FastMCP is None:
         raise RuntimeError(
@@ -90,7 +98,10 @@ def create_server(
             "'pip install -e .', or 'pip install mcp'."
         ) from MCP_IMPORT_ERROR
 
-    set_config(config or load_config_from_env())
+    if config is _CONFIG_UNSET:
+        set_config(load_config_from_env())
+    else:
+        set_config(config)
     catalog = build_catalog(root)
     mcp = FastMCP("Agent Guidance MCP", json_response=True)
     register_handlers(mcp, catalog)
@@ -261,9 +272,9 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         config = get_config()
         try:
             raw_content = catalog.read_path(WORKFLOW_MODE_MAP[mode_key])
-        except FileNotFoundError:
+        except (FileNotFoundError, UnicodeDecodeError, PermissionError, IsADirectoryError, OSError) as exc:
             return (
-                f"Workflow prompt '{mode}' is referenced but its file could not be found. "
+                f"Workflow prompt '{mode}' could not be loaded: {exc}. "
                 "Please verify your Agent Guidance installation."
             )
         if config.enabled:

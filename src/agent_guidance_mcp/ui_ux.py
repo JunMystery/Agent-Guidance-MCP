@@ -337,7 +337,7 @@ class BM25:
 
     def _tokenize_bm25(self, text: str) -> list[str]:
         cleaned = re.sub(r"[^\w\s]", " ", str(text).lower())
-        return [word for word in cleaned.split() if len(word) > 2]
+        return [word for word in cleaned.split() if len(word) >= 2]
 
     def fit(self, documents: Iterable[str]) -> None:
         self.corpus = [self._tokenize_bm25(document) for document in documents]
@@ -556,13 +556,28 @@ def _search_csv(
         if score <= 0:
             continue
         row = rows[index]
-        results.append({column: row.get(column, "") for column in output_cols if column in row})
+        safe_row: dict[str, str] = {}
+        for column in output_cols:
+            if column in row:
+                val = row.get(column, "")
+                if val and val[0] in "=+-@\t\r":
+                    val = "'" + val
+                safe_row[column] = val
+        results.append(safe_row)
     return results
 
 
+_MAX_CSV_BYTES = 50_000_000
+
+
 def _load_csv(filepath: Path) -> list[dict[str, str]]:
-    with filepath.open("r", encoding="utf-8") as handle:
-        return list(csv.DictReader(handle))
+    if filepath.stat().st_size > _MAX_CSV_BYTES:
+        return []
+    try:
+        with filepath.open("r", encoding="utf-8-sig") as handle:
+            return list(csv.DictReader(handle))
+    except (UnicodeDecodeError, csv.Error):
+        return []
 
 
 def _bounded_limit(limit: int) -> int:

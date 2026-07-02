@@ -15,7 +15,10 @@ GUIDANCE_OPERATIONS = ("list", "get", "search", "recommend")
 PROJECT_CONTEXT_OPERATIONS = ("tree", "search", "read", "snapshot")
 UI_UX_OPERATIONS = ("search", "design_system", "slides")
 
-_FRAMEWORK_CACHE: dict[tuple[str, float], list[str]] = {}
+from collections import OrderedDict
+
+_FRAMEWORK_CACHE_MAX = 10
+_FRAMEWORK_CACHE: OrderedDict[tuple[str, float], list[str]] = OrderedDict()
 
 UI_TASK_TERMS = {
     "a11y",
@@ -50,6 +53,8 @@ def guidance(
     tracker: TokenTracker | None = None,
 ) -> dict[str, object]:
     """Dispatch standards catalog guidance operations."""
+    if operation is None:
+        return _missing_argument("operation", "guidance")
     config = config or load_config_from_env()
     operation_key = operation.lower()
     if operation_key not in GUIDANCE_OPERATIONS:
@@ -77,7 +82,7 @@ def guidance(
             if entry.dependencies:
                 deps_dict: dict[str, dict[str, object]] = {}
                 resolved: set[str] = set()
-                visiting: set[str] = {entry.identifier}
+                visiting: set[str] = set()
                 order: list[str] = []
                 missing: list[str] = []
                 cycle_warnings: list[str] = []
@@ -92,14 +97,15 @@ def guidance(
                         dep_entry = catalog.get_entry(dep_id)
                     except KeyError:
                         missing.append(dep_id)
+                        resolved.add(dep_id)
                         return
                     visiting.add(dep_id)
-                    resolved.add(dep_id)
                     for child_id in dep_entry.dependencies:
                         visit(child_id)
                     visiting.discard(dep_id)
+                    resolved.add(dep_id)
                     order.append(dep_id)
-                    
+
                     dep_dict_entry = dep_entry.to_dict()
                     dep_dict_entry["content"] = catalog.read_entry(dep_entry.identifier, config=config)
                     deps_dict[dep_id] = dep_dict_entry
@@ -144,6 +150,8 @@ def project_context(
     tracker: TokenTracker | None = None,
 ) -> dict[str, object]:
     """Dispatch bounded project-context operations."""
+    if operation is None:
+        return _missing_argument("operation", "project_context")
     config = config or load_config_from_env()
     operation_key = operation.lower()
     if operation_key not in PROJECT_CONTEXT_OPERATIONS:
@@ -198,6 +206,8 @@ def ui_ux(
     tracker: TokenTracker | None = None,
 ) -> dict[str, object]:
     """Dispatch UI/UX Pro Max operations."""
+    if operation is None:
+        return _missing_argument("operation", "ui_ux")
     config = config or load_config_from_env()
     operation_key = operation.lower()
     if operation_key not in UI_UX_OPERATIONS:
@@ -264,12 +274,13 @@ def _detect_frameworks(project_path: str) -> list[str]:
     mtime = pkg_json.stat().st_mtime if pkg_json.is_file() else base_path.stat().st_mtime
     cache_key = (key, mtime)
     if cache_key in _FRAMEWORK_CACHE:
-        return list(_FRAMEWORK_CACHE[cache_key])
+        # Move to end for LRU ordering
+        val = _FRAMEWORK_CACHE.pop(cache_key)
+        _FRAMEWORK_CACHE[cache_key] = val
+        return list(val)
     
-    if len(_FRAMEWORK_CACHE) > 10:
-        half = max(1, len(_FRAMEWORK_CACHE) // 2)
-        for old_key in list(_FRAMEWORK_CACHE)[:half]:
-            del _FRAMEWORK_CACHE[old_key]
+    while len(_FRAMEWORK_CACHE) >= _FRAMEWORK_CACHE_MAX:
+        _FRAMEWORK_CACHE.popitem(last=False)
     
     detected: list[str] = []
     
@@ -381,7 +392,10 @@ def task_pipeline(
     limit = max(1, min(limit, 100))
     task = task[:10000]
     
-    detected_tags = _detect_frameworks(project_path)
+    try:
+        detected_tags = _detect_frameworks(project_path)
+    except (FileNotFoundError, NotADirectoryError, PermissionError):
+        detected_tags = []
     ecosystem_str = " ".join(detected_tags)
     weighted_task = f"{focus} {ecosystem_str} {task}".strip()
     recommendations_payload = catalog.recommend_context(task=weighted_task, limit=limit)
