@@ -69,7 +69,7 @@ def iter_content_files(root: Path) -> Iterable[str]:
                 continue
             if any(part in SKIP_PARTS for part in path.parts):
                 continue
-            if directory == "skills" and path.suffix.lower() == ".md" and path.name != "SKILL.md" and path.parent.name == path.parent.parent.name:
+            if directory == "skills" and path.name != "SKILL.md":
                 continue
             yield path.relative_to(root).as_posix()
 
@@ -109,8 +109,8 @@ def infer_category(relative_path: str) -> str:
 def identifier_for(relative_path: str, kind: str) -> str:
     path = Path(relative_path)
     if kind == "skill" and len(path.parts) >= 2:
-        if len(path.parts) > 2 and path.parts[0] == "skills":
-            return normalize_identifier("-".join(path.parts[1:])).removesuffix("-skill-md")
+        if len(path.parts) > 3 and path.parts[0] == "skills":
+            return normalize_identifier("-".join(path.parts[1:-1]))
         return normalize_identifier(path.parts[1])
 
     stem_path = relative_path
