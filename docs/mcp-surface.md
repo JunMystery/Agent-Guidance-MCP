@@ -64,22 +64,14 @@ For most coding tasks, start with:
 2. `project_context(operation="search", project_path=..., query=...)` when more code context is needed.
 3. `project_context(operation="read", project_path=..., relative_path=...)` before editing a target file.
 4. `ui_ux(operation="search" | "design_system" | "slides", query=...)` for frontend, brand, dashboard, landing page, or presentation work.
-5. Edit only the files needed.
-6. Run targeted verification.
+5. `health_check()` for server status verification.
+6. `token_stats()` for session token optimization statistics.
+7. Edit only the files needed.
+8. Run targeted verification.
 
-## Skill Hubs
+## Skill Recommendations
 
-Recommendations prefer domain hubs first:
-
-- `frontend-hub`
-- `testing-hub`
-- `security-hub`
-- `docs-research-hub`
-- `workflow-hub`
-- `backend-hub`
-
-Specialized skills remain directly loadable by identifier for deeper references.
-Load a hub first, then load deep skills only as needed. See [Skill Grouping Audit](skill-grouping-audit.md) for the current grouping map.
+`task_pipeline` is the recommended first call. It auto-discovers relevant skills from the 168-skill catalog using task-keyword matching and TASK_ANCHORS. Individual skills are directly loadable by identifier via `guidance(operation="get", identifier=...)` or via the `standards://skill/{name}` resource.
 
 ## Related Docs
 

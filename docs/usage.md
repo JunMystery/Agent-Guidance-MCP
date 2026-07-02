@@ -18,7 +18,7 @@ Open the printed URL, usually `http://localhost:5173`, and inspect the registere
 
 At the start of a coding session:
 
-1. Call `task_pipeline(task, project_path)` to load relevant standards, hub skills, and an initial project tree.
+1. Call `task_pipeline(task, project_path)` to load relevant standards, skill recommendations, and an initial project tree.
 2. For large refactors, upgrades, audits, or unfamiliar code, also use `project_context(operation="search", project_path=..., query=...)` and `project_context(operation="snapshot", project_path=...)` when a reusable overview is useful.
 3. Before editing any file, inspect the current target file with `project_context(operation="read", project_path=..., relative_path=...)` or an equivalent file-read tool.
 4. Use `ui_ux(operation=...)` for frontend, design-system, branding, landing page, dashboard, or slide guidance.

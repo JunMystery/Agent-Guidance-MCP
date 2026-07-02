@@ -1,7 +1,8 @@
 # Local Skills
 
-This directory contains on-demand skill capsules. Each skill is a standalone
-Markdown file (SKILL.md) that should be loaded only when the task matches its trigger.
+This directory contains 168 on-demand skill capsules sourced from [ECC v2.0.0](https://github.com/affaan-m/ECC) and community contributions. Each skill is a standalone Markdown file (SKILL.md) loaded on-demand by the catalog.
+
+For the full searchable catalog, use `guidance(operation="list", kind="skill")` or `guidance(operation="search", query="your task")`.
 
 ## Implemented Skills
 
@@ -9,15 +10,11 @@ Markdown file (SKILL.md) that should be loaded only when the task matches its tr
 - `adaptive-language`
 - `agent-sort`
 - `agent-workflow-ops`
-- `ai-first-engineering`
 - `android-clean-architecture`
 - `api-design`
-- `api-integrations`
 - `architecture-decision-records`
 - `automation-audit-ops`
-- `backend-core`
-- `backend-frameworks`
-- `backend-hub`
+- `backend-patterns`
 - `blender-motion-state-inspection`
 - `blueprint`
 - `browser-qa`
@@ -29,43 +26,52 @@ Markdown file (SKILL.md) that should be loaded only when the task matches its tr
 - `claude-devfleet`
 - `code-review-and-quality`
 - `code-simplification`
+- `codebase-onboarding`
 - `codehealth-mcp`
 - `codex-vscode`
 - `coding-standards`
 - `compose-multiplatform-patterns`
-- `configure-mcp`
+- `configure-ecc`
 - `connections-optimizer`
-- `content-core`
-- `context-engineering`
+- `context-budget`
 - `continuous-learning-v2`
 - `cost-aware-llm-pipeline`
 - `cost-tracking`
 - `council`
+- `cpp-coding-standards`
+- `cpp-testing`
 - `customer-billing-ops`
 - `customs-trade-compliance`
-- `data-platforms`
 - `data-scraper-agent`
+- `database-migrations`
 - `debugging-and-error-recovery`
+- `deep-research`
+- `deployment-patterns`
 - `deprecation-and-migration`
 - `design-system`
 - `django-celery`
+- `django-patterns`
+- `django-security`
+- `django-tdd`
+- `django-verification`
 - `dmux-workflows`
 - `docker-patterns`
-- `docs-research-hub`
+- `documentation-lookup`
 - `doubt-driven-development`
+- `e2e-testing`
 - `energy-procurement`
+- `error-handling`
+- `eval-harness`
+- `fastapi-patterns`
 - `finance-billing-ops`
 - `foundation-models-on-device`
-- `framework-security`
-- `framework-testing`
 - `frontend-a11y`
-- `frontend-core`
-- `frontend-frameworks`
-- `frontend-hub`
-- `frontend-ui-engineering`
+- `frontend-patterns`
 - `gan-style-harness`
 - `git-workflow`
 - `github-ops`
+- `golang-patterns`
+- `golang-testing`
 - `google-workspace-ops`
 - `healthcare-emr-patterns`
 - `healthcare-eval-harness`
@@ -86,11 +92,13 @@ Markdown file (SKILL.md) that should be loaded only when the task matches its tr
 - `ios-icon-gen`
 - `iterative-retrieval`
 - `ito-prediction-market-ops`
+- `java-coding-standards`
 - `jira-integration`
 - `jpa-patterns`
 - `knowledge-ops`
 - `kotlin-coroutines-flows`
 - `kotlin-exposed-patterns`
+- `kotlin-patterns`
 - `kubernetes-patterns`
 - `laravel-plugin-discovery`
 - `large-file-refactor`
@@ -98,6 +106,7 @@ Markdown file (SKILL.md) that should be loaded only when the task matches its tr
 - `liquid-glass-design`
 - `logistics-exception-management`
 - `market-research`
+- `mcp-server-patterns`
 - `media-doc-processing`
 - `messages-ops`
 - `mle-workflow`
@@ -119,20 +128,25 @@ Markdown file (SKILL.md) that should be loaded only when the task matches its tr
 - `production-scheduling`
 - `project-flow-ops`
 - `prompt-optimizer`
+- `python-patterns`
+- `python-testing`
 - `pytorch-patterns`
 - `quality-nonconformance`
 - `ralphinho-rfc-pipeline`
+- `react-patterns`
+- `react-performance`
+- `react-testing`
 - `recsys-pipeline-architect`
 - `recursive-decision-ledger`
 - `regex-vs-llm-structured-text`
-- `regulated-security`
-- `research-core`
 - `returns-reverse-logistics`
 - `rules-distill`
+- `rust-patterns`
+- `rust-testing`
 - `santa-method`
 - `scientific-research`
-- `security-and-hardening`
-- `security-hub`
+- `search-first`
+- `security-review`
 - `session-context-ops`
 - `shipping-and-launch`
 - `skill-comply`
@@ -140,20 +154,25 @@ Markdown file (SKILL.md) that should be loaded only when the task matches its tr
 - `skill-stocktake`
 - `source-driven-development`
 - `spec-driven-development`
+- `springboot-patterns`
+- `springboot-security`
+- `springboot-tdd`
+- `springboot-verification`
 - `standards-guide`
+- `strategic-compact`
 - `swift-actor-persistence`
 - `swift-concurrency-6-2`
+- `tdd-workflow`
 - `team-builder`
 - `terminal-ops`
-- `test-driven-development`
-- `testing-hub`
 - `tools-cost-audit`
 - `ui-ux-pro-max`
 - `uncloud`
 - `unified-notifications-ops`
 - `using-agent-skills`
-- `workflow-hub`
+- `verification-loop`
+- `vue-patterns`
 - `workflow-modes`
 - `workspace-surface-audit`
 
-_Total: 150 skills_
+_Total: 168 skills_

@@ -4,12 +4,13 @@
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP Version](https://img.shields.io/badge/mcp-%3E%3D1.0.0-green)](https://modelcontextprotocol.io/)
-[![Tests](https://img.shields.io/badge/tests-passing-brightgreen)](#development)
 ![GitHub license](https://img.shields.io/github/license/JunMystery/Agent-Guidance-MCP)
 ![GitHub repo size](https://img.shields.io/github/repo-size/JunMystery/Agent-Guidance-MCP)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?logo=ko-fi&logoColor=white)](https://ko-fi.com/JunMystery)
 
-MCP server serving AI agent guidance through the bundled guidance corpus, skill set, prompts, and bounded project-code context tools over **Stdio** transport.
+MCP server serving AI agent guidance through a **168-skill catalog**, bundled guidance corpus, workflow prompts, and bounded project-code context tools over **Stdio** transport.
+
+Skills are sourced from [Everything Claude Code (ECC) v2.0.0](https://github.com/affaan-m/ECC) and community contributions, covering backend, frontend, testing, security, DevOps, data, research, and 12+ language ecosystems.
 
 ![Agent Guidance MCP Architecture Flowchart](docs/images/architecture-flowchart.png)
 
@@ -48,7 +49,7 @@ Platform notes and client-specific setup are covered in [Installation](docs/inst
 
 ## Quick Start
 
-Run the server through an MCP client, or verify it locally with MCP Inspector (using `DANGEROUSLY_OMIT_AUTH=true` to allow local connection handshake without token blocks):
+Run the server through an MCP client, or verify it locally with MCP Inspector:
 
 ```bash
 DANGEROUSLY_OMIT_AUTH=true npx @modelcontextprotocol/inspector .venv/bin/python -m agent_guidance_mcp
@@ -63,22 +64,30 @@ Then call `task_pipeline(...)` to load task guidance and bounded project context
 - [Usage Guide](docs/usage.md) - quick checks, recommended agent workflows, and examples.
 - [MCP Surface Reference](docs/mcp-surface.md) - all tools, prompts, and resources.
 - [Project Context Tools](docs/project-context-tools.md) - grouped tree, search, file read, snapshot export, token guidance, and freshness rules.
-- [Skill Grouping Audit](docs/skill-grouping-audit.md) - hub-first grouping map, unassigned skills, and future merge candidates.
 - [Development Guide](docs/development.md) - tests, project structure, and maintainer notes.
 - [Repo Map For Agents](docs/repo-map-for-agents.md) - existing repository orientation notes.
-- [Rules Generation](docs/rules-generation.md) - existing rules-generation documentation.
-- [Skills Overview](docs/SKILLS_OVERVIEW.md) - generated index of packaged skills.
 
 ## MCP Surface
 
-Grouped tools:
+Tools:
 
-- `task_pipeline(task, project_path, focus, code_query, include_tree, include_ui, limit)`
-- `guidance(operation, query, identifier, category, kind, limit, include_content)`
-- `project_context(operation, project_path, query, relative_path, start_line, max_lines, max_depth, output_path, max_file_bytes, max_total_bytes, limit)`
-- `ui_ux(operation, query, domain, stack, project_name, output_format, limit)`
+- `task_pipeline(task, project_path, focus, code_query, include_tree, include_ui, limit)` — **Recommended first call.** Prepares task recommendations, project context, and optional UI guidance.
+- `guidance(operation, query, identifier, category, kind, limit, include_content)` — Standards catalog operations: list, get, search, recommend.
+- `project_context(operation, project_path, query, relative_path, start_line, max_lines, max_depth, output_path, max_file_bytes, max_total_bytes, limit)` — Bounded project-code context: tree, search, read, snapshot.
+- `ui_ux(operation, query, domain, stack, project_name, output_format, limit)` — UI/UX Pro Max: search, design system, slides.
+- `health_check()` — Server health status and metadata.
+- `token_stats()` — Token optimization statistics for the session.
 
-`task_pipeline` is the recommended first call. Skill recommendations prefer domain hubs first; load a hub first, then load deep skills only as needed. `ui_ux` is backed by the repo-owned `ui-ux-pro-max` skill and its internal references. `workflow_prompt(mode, subject, target)` replaces the individual workflow prompts. Full details are in [MCP Surface Reference](docs/mcp-surface.md).
+Resources:
+
+- `standards://manifest` — Indexed standards manifest (JSON)
+- `standards://skill/{name}` — On-demand skill capsule (Markdown)
+- `standards://document/{identifier}` — Standards document by slug (Markdown)
+- `standards://version` — Server version info (JSON)
+
+Prompt:
+
+- `workflow_prompt(mode, subject, target)` — Load a workflow prompt by mode (plan, test, deploy, debug, etc.)
 
 ## Development
 

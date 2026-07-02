@@ -23,39 +23,67 @@ Manual `@reference` is only required if you are using a standard web chatbot (wi
 
 The root instruction file for each agent should still be the primary entrypoint; these references are task-specific additions, not a shared instruction surface.
 
+The MCP server provides `guidance(operation="search", query="your task")` to auto-discover relevant skills from the 168-skill catalog.
+
 ## Local Skills Implemented Here
 
-The following on-demand skill capsules are available in [skills/](./skills/). Load a hub first, then load deep skills only as needed. See [Skill Grouping Audit](./docs/skill-grouping-audit.md) for the current grouping map.
+The following on-demand skill capsules are available in [skills/](./skills/). The catalog auto-discovers all 168 skills — use `guidance(operation="search", query="your task")` to find relevant ones. Key skills by category:
 
-- [coding-standards](./skills/coding-standards/SKILL.md)
-- [frontend-hub](./skills/frontend-hub/SKILL.md)
-- [testing-hub](./skills/testing-hub/SKILL.md)
-- [security-hub](./skills/security-hub/SKILL.md)
-- [docs-research-hub](./skills/docs-research-hub/SKILL.md)
-- [workflow-hub](./skills/workflow-hub/SKILL.md)
-- [backend-hub](./skills/backend-hub/SKILL.md)
-- [tdd-workflow](./skills/tdd-workflow/SKILL.md)
-- [verification-loop](./skills/verification-loop/SKILL.md)
-- [security-review](./skills/security-review/SKILL.md)
-- [codebase-onboarding](./skills/codebase-onboarding/SKILL.md)
-- [context-budget](./skills/context-budget/SKILL.md)
-- [documentation-lookup](./skills/documentation-lookup/SKILL.md)
-- [browser-qa](./skills/browser-qa/SKILL.md)
-- [prompt-optimizer](./skills/prompt-optimizer/SKILL.md)
-- [skill-scout](./skills/skill-scout/SKILL.md)
-- [ui-ux-pro-max](./skills/ui-ux-pro-max/SKILL.md)
-- [codex-vscode](./skills/codex-vscode/SKILL.md)
-- [large-file-refactor](./skills/large-file-refactor/SKILL.md)
-- [accessibility](./skills/accessibility/SKILL.md)
+### Backend & API
+- [backend-patterns](./skills/backend-patterns/SKILL.md)
 - [api-design](./skills/api-design/SKILL.md)
-- [architecture-decision-records](./skills/architecture-decision-records/SKILL.md)
+- [deployment-patterns](./skills/deployment-patterns/SKILL.md)
+- [docker-patterns](./skills/docker-patterns/SKILL.md)
 - [database-migrations](./skills/database-migrations/SKILL.md)
 - [error-handling](./skills/error-handling/SKILL.md)
-- [git-workflow](./skills/git-workflow/SKILL.md)
-- [production-audit](./skills/production-audit/SKILL.md)
+- [mcp-server-patterns](./skills/mcp-server-patterns/SKILL.md)
+
+### Languages & Frameworks
+- [python-patterns](./skills/python-patterns/SKILL.md) / [python-testing](./skills/python-testing/SKILL.md)
+- [golang-patterns](./skills/golang-patterns/SKILL.md) / [golang-testing](./skills/golang-testing/SKILL.md)
+- [rust-patterns](./skills/rust-patterns/SKILL.md) / [rust-testing](./skills/rust-testing/SKILL.md)
+- [java-coding-standards](./skills/java-coding-standards/SKILL.md)
+- [kotlin-patterns](./skills/kotlin-patterns/SKILL.md)
+- [cpp-coding-standards](./skills/cpp-coding-standards/SKILL.md) / [cpp-testing](./skills/cpp-testing/SKILL.md)
+- [django-patterns](./skills/django-patterns/SKILL.md) / [django-tdd](./skills/django-tdd/SKILL.md)
+- [springboot-patterns](./skills/springboot-patterns/SKILL.md) / [springboot-tdd](./skills/springboot-tdd/SKILL.md)
+- [fastapi-patterns](./skills/fastapi-patterns/SKILL.md)
+
+### Frontend & UI
+- [frontend-patterns](./skills/frontend-patterns/SKILL.md)
+- [react-patterns](./skills/react-patterns/SKILL.md) / [react-testing](./skills/react-testing/SKILL.md) / [react-performance](./skills/react-performance/SKILL.md)
+- [vue-patterns](./skills/vue-patterns/SKILL.md)
+- [ui-ux-pro-max](./skills/ui-ux-pro-max/SKILL.md)
+- [accessibility](./skills/accessibility/SKILL.md)
+
+### Testing & Quality
+- [tdd-workflow](./skills/tdd-workflow/SKILL.md)
+- [e2e-testing](./skills/e2e-testing/SKILL.md)
+- [verification-loop](./skills/verification-loop/SKILL.md)
+- [code-review-and-quality](./skills/code-review-and-quality/SKILL.md)
+- [browser-qa](./skills/browser-qa/SKILL.md)
+- [eval-harness](./skills/eval-harness/SKILL.md)
+
+### Security
+- [security-review](./skills/security-review/SKILL.md)
+- [django-security](./skills/django-security/SKILL.md)
+- [springboot-security](./skills/springboot-security/SKILL.md)
+
+### Research & Docs
+- [deep-research](./skills/deep-research/SKILL.md)
+- [documentation-lookup](./skills/documentation-lookup/SKILL.md)
+- [codebase-onboarding](./skills/codebase-onboarding/SKILL.md)
 - [search-first](./skills/search-first/SKILL.md)
-- [skill-stocktake](./skills/skill-stocktake/SKILL.md)
-- [rules-distill](./skills/rules-distill/SKILL.md)
+
+### Workflow & Context
+- [coding-standards](./skills/coding-standards/SKILL.md)
+- [strategic-compact](./skills/strategic-compact/SKILL.md)
+- [context-budget](./skills/context-budget/SKILL.md)
+- [git-workflow](./skills/git-workflow/SKILL.md)
+- [humanizer](./skills/humanizer/SKILL.md)
+
+Full catalog (168 skills): `guidance(operation="list", kind="skill")`
+
 
 ---
 

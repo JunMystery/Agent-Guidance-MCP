@@ -4,7 +4,7 @@ This file provides guidance to AI coding agents (Claude Code, Cursor, Copilot, A
 
 ## Repository Overview
 
-A collection of skills for Claude.ai and Claude Code for senior software engineers. Skills are packaged instructions and scripts that extend Claude and your coding agents capabilities.
+A collection of 168 skills sourced from [ECC v2.0.0](https://github.com/affaan-m/ECC) and community contributions, covering backend, frontend, testing, security, DevOps, data, research, and 12+ language ecosystems. Skills are packaged instructions that extend AI coding agents' capabilities through the MCP catalog.
 
 ## OpenCode Integration
 
