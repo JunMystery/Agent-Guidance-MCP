@@ -4,6 +4,26 @@ TEXT_SUFFIXES = {".md", ".mdc", ".txt", ".yaml", ".yml", ".json"}
 SKIP_PARTS = {".git", "__pycache__", ".pytest_cache", ".venv", "venv", "node_modules"}
 DEFAULT_INCLUDE_DIRS = ("karpathy", "agent-guidance", "skills", "docs", "references", "agents")
 
+# PROJECT_IGNORED_PARTS is the comprehensive skip-list for arbitrary project
+# scanning (used by project_scan.py). It includes more entries than SKIP_PARTS
+# because arbitrary projects may contain additional tooling/cache directories.
+# SKIP_PARTS is for catalog content scanning (used by paths.py) within known
+# directory structures and needs fewer exclusions.
+PROJECT_IGNORED_PARTS = frozenset({
+    ".git",
+    ".hg",
+    ".svn",
+    ".venv",
+    "venv",
+    "node_modules",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".cache",
+    ".tox",
+})
+
 TASK_ANCHORS = {
     "security": (
         "skills/security-hub/SKILL.md",

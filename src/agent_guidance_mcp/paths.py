@@ -1,6 +1,5 @@
 """Repository discovery and content-path helpers."""
 
-from __future__ import annotations
 
 import os
 from pathlib import Path
@@ -18,8 +17,15 @@ def find_standards_root(root: str | Path | None = None) -> Path:
         candidates.append(Path(os.environ["AGENT_GUIDANCE_ROOT"]))
 
     here = Path(__file__).resolve()
-    candidates.extend(parent for parent in here.parents)
-    candidates.extend(parent.parent for parent in here.parents if parent.parent != parent)
+    for depth, parent in enumerate(here.parents):
+        if depth > 4:
+            break
+        candidates.append(parent)
+    for depth, parent in enumerate(Path.cwd().parents):
+        if depth > 4:
+            break
+        if parent not in candidates:
+            candidates.append(parent)
 
     for candidate in candidates:
         resolved = candidate.resolve()

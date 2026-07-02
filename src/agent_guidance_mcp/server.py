@@ -1,6 +1,5 @@
 """MCP registration for Agent Guidance MCP."""
 
-from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
@@ -8,9 +7,33 @@ from typing import Any
 from .catalog import StandardsCatalog, build_catalog
 from . import pipelines
 from . import project_context as project_context_helpers
+from . import __version__
 from .response_optimizer import TokenBudget, estimate_tokens, optimize_markdown
 from .token_analytics import TokenTracker
 from .token_config import TokenOptimizationConfig, load_config_from_env
+
+WORKFLOW_MODE_MAP: dict[str, str] = {
+    "init": "skills/workflow-modes/references/workflow-init.md",
+    "plan": "skills/workflow-modes/references/workflow-plan.md",
+    "design": "skills/workflow-modes/references/workflow-design.md",
+    "visualize": "skills/workflow-modes/references/workflow-visualize.md",
+    "code": "skills/workflow-modes/references/workflow-code.md",
+    "run": "skills/workflow-modes/references/workflow-run.md",
+    "test": "skills/workflow-modes/references/workflow-test.md",
+    "deploy": "skills/workflow-modes/references/workflow-deploy.md",
+    "debug": "skills/workflow-modes/references/workflow-debug.md",
+    "refactor": "skills/workflow-modes/references/workflow-refactor.md",
+    "audit": "skills/workflow-modes/references/workflow-audit.md",
+    "rollback": "skills/workflow-modes/references/workflow-rollback.md",
+    "recap": "skills/workflow-modes/references/workflow-recap.md",
+    "review": "skills/workflow-modes/references/workflow-review.md",
+    "next": "skills/workflow-modes/references/workflow-next.md",
+    "help": "skills/workflow-modes/references/workflow-help.md",
+    "readme": "skills/workflow-modes/references/workflow-readme.md",
+    "customize": "skills/workflow-modes/references/workflow-customize.md",
+    "brainstorm": "skills/workflow-modes/references/workflow-brainstorm.md",
+    "save_brain": "skills/workflow-modes/references/workflow-save_brain.md",
+}
 
 try:
     from mcp.server.fastmcp import FastMCP
@@ -44,7 +67,11 @@ def get_tracker() -> TokenTracker:
     global _global_tracker
     if _global_tracker is None:
         config = get_config()
-        _global_tracker = TokenTracker(enabled=config.enabled and config.track_savings)
+        _global_tracker = TokenTracker(
+            enabled=config.enabled and config.track_savings,
+            max_records=config.tracker_max_records,
+            trim_to=config.tracker_trim_to,
+        )
     return _global_tracker
 
 
@@ -75,6 +102,16 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
     def manifest() -> str:
         """Return the indexed standards manifest."""
         return catalog.manifest_json()
+
+    @mcp.resource("standards://version", mime_type="application/json")
+    def version() -> str:
+        """Return server version information."""
+        import json
+        return json.dumps({
+            "server": "agent-guidance-mcp",
+            "version": __version__,
+            "mcp_protocol": "2024-11-05",
+        })
 
     @mcp.resource("standards://document/{identifier}", mime_type="text/markdown")
     def document(identifier: str) -> str:
@@ -202,39 +239,33 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         """Return token optimization statistics for this session. No parameters."""
         return get_tracker().summary()
 
+    @mcp.tool()
+    def health_check() -> dict[str, object]:
+        """Return server health status and basic metadata. No parameters."""
+        return {
+            "status": "ok",
+            "server": "agent-guidance-mcp",
+            "version": __version__,
+            "entries": catalog.manifest()["entry_count"],
+        }
+
 
     @mcp.prompt()
     def workflow_prompt(mode: str = "plan", subject: str = "", target: str = "") -> str:
         """Load a workflow prompt by mode. Parameters: mode (str) — workflow mode key: init/plan/design/visualize/code/run/test/deploy/debug/refactor/audit/rollback/recap/review/next/help/readme/customize/brainstorm/save_brain (default 'plan'); subject (str) — optional subject to contextualize the prompt; target (str) — optional target description."""
-        workflow_references = {
-            "init": "skills/workflow-modes/references/workflow-init.md",
-            "plan": "skills/workflow-modes/references/workflow-plan.md",
-            "design": "skills/workflow-modes/references/workflow-design.md",
-            "visualize": "skills/workflow-modes/references/workflow-visualize.md",
-            "code": "skills/workflow-modes/references/workflow-code.md",
-            "run": "skills/workflow-modes/references/workflow-run.md",
-            "test": "skills/workflow-modes/references/workflow-test.md",
-            "deploy": "skills/workflow-modes/references/workflow-deploy.md",
-            "debug": "skills/workflow-modes/references/workflow-debug.md",
-            "refactor": "skills/workflow-modes/references/workflow-refactor.md",
-            "audit": "skills/workflow-modes/references/workflow-audit.md",
-            "rollback": "skills/workflow-modes/references/workflow-rollback.md",
-            "recap": "skills/workflow-modes/references/workflow-recap.md",
-            "review": "skills/workflow-modes/references/workflow-review.md",
-            "next": "skills/workflow-modes/references/workflow-next.md",
-            "help": "skills/workflow-modes/references/workflow-help.md",
-            "readme": "skills/workflow-modes/references/workflow-readme.md",
-            "customize": "skills/workflow-modes/references/workflow-customize.md",
-            "brainstorm": "skills/workflow-modes/references/workflow-brainstorm.md",
-            "save_brain": "skills/workflow-modes/references/workflow-save_brain.md",
-        }
         mode_key = mode.lower().replace("-", "_")
-        if mode_key not in workflow_references:
-            supported = ", ".join(sorted(workflow_references))
+        if mode_key not in WORKFLOW_MODE_MAP:
+            supported = ", ".join(sorted(WORKFLOW_MODE_MAP))
             return f"Unsupported workflow mode: {mode}. Supported modes: {supported}."
 
         config = get_config()
-        raw_content = catalog.read_path(workflow_references[mode_key])
+        try:
+            raw_content = catalog.read_path(WORKFLOW_MODE_MAP[mode_key])
+        except FileNotFoundError:
+            return (
+                f"Workflow prompt '{mode}' is referenced but its file could not be found. "
+                "Please verify your Agent Guidance installation."
+            )
         if config.enabled:
             content = optimize_markdown(
                 raw_content,

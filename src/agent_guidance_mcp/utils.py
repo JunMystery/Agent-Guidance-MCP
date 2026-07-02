@@ -1,6 +1,5 @@
 """Shared helper utilities for Agent Guidance MCP."""
 
-from __future__ import annotations
 
 import json
 from typing import Any

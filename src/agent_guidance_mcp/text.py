@@ -1,6 +1,5 @@
 """Text extraction, normalization, and task keyword helpers."""
 
-from __future__ import annotations
 
 import re
 from pathlib import Path
@@ -216,20 +215,24 @@ def strip_markdown(value: str) -> str:
 
 
 def parse_frontmatter(content: str) -> dict[str, object]:
+    import json as _json
     lines = [line.strip() for line in content.splitlines()]
-    in_frontmatter = lines[:1] == ["---"]
+    in_frontmatter = bool(lines) and lines[0].lstrip("\ufeff").strip() == "---"
     data: dict[str, object] = {}
     if in_frontmatter:
         for line in lines[1:]:
-            if line == "---":
+            if line.strip() == "---":
                 break
             if ":" in line:
                 key, val = line.split(":", 1)
                 key = key.strip().lower()
                 val = val.strip().strip('"').strip("'")
                 if val.startswith("[") and val.endswith("]"):
-                    items = [item.strip().strip('"').strip("'") for item in val[1:-1].split(",")]
-                    data[key] = [i for i in items if i]
+                    try:
+                        data[key] = _json.loads(val)
+                    except (_json.JSONDecodeError, ValueError):
+                        items = [item.strip().strip('"').strip("'") for item in val[1:-1].split(",")]
+                        data[key] = [i for i in items if i]
                 else:
                     data[key] = val
     return data

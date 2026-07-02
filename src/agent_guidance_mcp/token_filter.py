@@ -1,6 +1,5 @@
 """Pure text filtering pipeline used by token optimization phases."""
 
-from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field

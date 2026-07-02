@@ -1,6 +1,5 @@
 """In-memory token savings analytics."""
 
-from __future__ import annotations
 
 import threading
 from dataclasses import asdict, dataclass
@@ -21,15 +20,22 @@ class TokenSavingsRecord:
 
 
 class TokenTracker:
-    """Thread-safe in-memory token savings tracker."""
+    """Thread-safe in-memory token savings tracker.
 
-    def __init__(self, enabled: bool = True) -> None:
+    Maintains a sliding window of recent records. When total records exceed
+    `max_records`, the list is trimmed to keep only the most recent `trim_to`
+    entries to bound memory usage.
+    """
+
+    def __init__(self, enabled: bool = True, max_records: int = 1000, trim_to: int = 500) -> None:
         self._enabled = enabled
         self._records: list[TokenSavingsRecord] = []
         self._lock = threading.Lock()
         self._total_original = 0
         self._total_optimized = 0
         self._call_count = 0
+        self._max_records = max(1, max_records)
+        self._trim_to = max(1, min(trim_to, self._max_records))
 
     def record(
         self,
@@ -59,8 +65,8 @@ class TokenTracker:
             self._total_original += original_tokens
             self._total_optimized += optimized_tokens
             self._call_count += 1
-            if len(self._records) > 1000:
-                self._records = self._records[-500:]
+            if len(self._records) > self._max_records:
+                self._records = self._records[-self._trim_to:]
 
         return record
 

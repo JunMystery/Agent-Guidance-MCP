@@ -1,6 +1,5 @@
 """Bounded project code context helpers for MCP agents."""
 
-from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
@@ -46,6 +45,10 @@ def export_project_snapshot(
     root = resolve_project_root(project_path)
     output = resolve_inside_project(root, output_path)
     output_relative = output.relative_to(root).as_posix()
+    if not output_relative.startswith(".agent-context/"):
+        raise ValueError(
+            f"output_path must be within .agent-context/ directory, got {output_relative!r}"
+        )
     max_file_bytes = max(1, max_file_bytes)
     max_total_bytes = max(1, max_total_bytes)
 
@@ -108,7 +111,10 @@ def get_project_tree(
     project_path: str = ".", max_depth: int = DEFAULT_MAX_DEPTH
 ) -> dict[str, object]:
     """Return a bounded source tree for a project."""
-    root = resolve_project_root(project_path)
+    try:
+        root = resolve_project_root(project_path)
+    except (NotADirectoryError, FileNotFoundError) as e:
+        return {"error": str(e), "project_path": project_path}
     return build_project_tree(root, max(1, max_depth), excluded_paths={DEFAULT_SNAPSHOT_PATH})
 
 

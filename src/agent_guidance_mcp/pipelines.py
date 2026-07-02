@@ -1,6 +1,5 @@
 """Grouped MCP pipeline dispatchers."""
 
-from __future__ import annotations
 
 import json
 from typing import Any
@@ -15,6 +14,8 @@ from .token_config import TokenOptimizationConfig, load_config_from_env
 GUIDANCE_OPERATIONS = ("list", "get", "search", "recommend")
 PROJECT_CONTEXT_OPERATIONS = ("tree", "search", "read", "snapshot")
 UI_UX_OPERATIONS = ("search", "design_system", "slides")
+
+_FRAMEWORK_CACHE: dict[tuple[str, float], list[str]] = {}
 
 UI_TASK_TERMS = {
     "a11y",
@@ -47,15 +48,17 @@ def guidance(
     include_content: bool = False,
     config: TokenOptimizationConfig | None = None,
     tracker: TokenTracker | None = None,
-) -> dict[str, object] | list[dict[str, object]]:
+) -> dict[str, object]:
     """Dispatch standards catalog guidance operations."""
     config = config or load_config_from_env()
     operation_key = operation.lower()
     if operation_key not in GUIDANCE_OPERATIONS:
         return _unsupported_operation(operation, GUIDANCE_OPERATIONS)
 
+    limit = max(1, min(limit, 100))
+
     if operation_key == "list":
-        return catalog.list_entries(category=category, kind=kind)
+        return {"operation": "list", "entries": catalog.list_entries(category=category, kind=kind)}
 
     if operation_key == "get":
         if not identifier:
@@ -73,21 +76,28 @@ def guidance(
             # Recursive dependency injection with topological sorting
             if entry.dependencies:
                 deps_dict: dict[str, dict[str, object]] = {}
-                resolved: set[str] = {entry.identifier}
+                resolved: set[str] = set()
+                visiting: set[str] = {entry.identifier}
                 order: list[str] = []
                 missing: list[str] = []
+                cycle_warnings: list[str] = []
 
                 def visit(dep_id: str) -> None:
                     if dep_id in resolved:
+                        return
+                    if dep_id in visiting:
+                        cycle_warnings.append(dep_id)
                         return
                     try:
                         dep_entry = catalog.get_entry(dep_id)
                     except KeyError:
                         missing.append(dep_id)
                         return
+                    visiting.add(dep_id)
                     resolved.add(dep_id)
                     for child_id in dep_entry.dependencies:
                         visit(child_id)
+                    visiting.discard(dep_id)
                     order.append(dep_id)
                     
                     dep_dict_entry = dep_entry.to_dict()
@@ -102,6 +112,8 @@ def guidance(
                     result["dependency_execution_order"] = order
                 if missing:
                     result["missing_dependencies"] = missing
+                if cycle_warnings:
+                    result["dependency_cycles_detected"] = cycle_warnings
         return result
 
     if not query:
@@ -136,6 +148,8 @@ def project_context(
     operation_key = operation.lower()
     if operation_key not in PROJECT_CONTEXT_OPERATIONS:
         return _unsupported_operation(operation, PROJECT_CONTEXT_OPERATIONS)
+
+    limit = max(1, min(limit, 100))
 
     if operation_key == "tree":
         return project_context_helpers.get_project_tree(
@@ -188,6 +202,9 @@ def ui_ux(
     operation_key = operation.lower()
     if operation_key not in UI_UX_OPERATIONS:
         return _unsupported_operation(operation, UI_UX_OPERATIONS)
+
+    limit = max(1, min(limit, 100))
+
     if not query:
         return _missing_argument("query", operation_key)
 
@@ -240,8 +257,21 @@ def _detect_frameworks(project_path: str) -> list[str]:
     from pathlib import Path
     from .project_scan import resolve_project_root
     
-    detected = []
     base_path = resolve_project_root(project_path)
+    key = str(base_path.resolve())
+    
+    pkg_json = base_path / "package.json"
+    mtime = pkg_json.stat().st_mtime if pkg_json.is_file() else base_path.stat().st_mtime
+    cache_key = (key, mtime)
+    if cache_key in _FRAMEWORK_CACHE:
+        return list(_FRAMEWORK_CACHE[cache_key])
+    
+    if len(_FRAMEWORK_CACHE) > 10:
+        half = max(1, len(_FRAMEWORK_CACHE) // 2)
+        for old_key in list(_FRAMEWORK_CACHE)[:half]:
+            del _FRAMEWORK_CACHE[old_key]
+    
+    detected: list[str] = []
     
     # 1. Node/JS frameworks via package.json
     pkg_json = base_path / "package.json"
@@ -268,7 +298,7 @@ def _detect_frameworks(project_path: str) -> list[str]:
             for dep_key, tag in js_frameworks.items():
                 if dep_key in all_deps or any(dep_key in str(k) for k in all_deps):
                     detected.append(tag)
-        except Exception:
+        except (OSError, json.JSONDecodeError):
             pass
 
     # 2. Python frameworks via pyproject.toml, requirements.txt
@@ -278,12 +308,12 @@ def _detect_frameworks(project_path: str) -> list[str]:
     if pyproject.is_file():
         try:
             py_content += pyproject.read_text(encoding="utf-8")
-        except Exception:
+        except (OSError, json.JSONDecodeError):
             pass
     if req_txt.is_file():
         try:
             py_content += req_txt.read_text(encoding="utf-8")
-        except Exception:
+        except (OSError, json.JSONDecodeError):
             pass
             
     if py_content:
@@ -314,7 +344,7 @@ def _detect_frameworks(project_path: str) -> list[str]:
             for dep_key, tag in rust_frameworks.items():
                 if dep_key in content:
                     detected.append(tag)
-        except Exception:
+        except (OSError, json.JSONDecodeError):
             pass
 
     # 4. Ruby frameworks via Gemfile
@@ -326,10 +356,12 @@ def _detect_frameworks(project_path: str) -> list[str]:
                 detected.append("rails")
             if "sinatra" in content:
                 detected.append("sinatra")
-        except Exception:
+        except (OSError, json.JSONDecodeError):
             pass
 
-    return list(dict.fromkeys(detected))
+    result = list(dict.fromkeys(detected))
+    _FRAMEWORK_CACHE[cache_key] = list(result)
+    return result
 
 def task_pipeline(
     catalog: StandardsCatalog,
@@ -346,6 +378,8 @@ def task_pipeline(
     """Prepare task recommendations, project context, and optional UI guidance in one call."""
     from .text import extract_code_terms
     config = config or load_config_from_env()
+    limit = max(1, min(limit, 100))
+    task = task[:10000]
     
     detected_tags = _detect_frameworks(project_path)
     ecosystem_str = " ".join(detected_tags)

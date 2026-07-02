@@ -1,32 +1,18 @@
 """Project source scanning internals."""
 
-from __future__ import annotations
 
 import os
 import re
 from pathlib import Path
 from typing import Iterable
 
+from .constants import PROJECT_IGNORED_PARTS
+
 DEFAULT_SNAPSHOT_PATH = ".agent-context/code-snapshot.json"
 DEFAULT_MAX_FILE_BYTES = 200_000
 DEFAULT_MAX_TOTAL_BYTES = 2_000_000
 DEFAULT_MAX_DEPTH = 8
 DEFAULT_MAX_READ_LINES = 300
-
-IGNORED_PARTS = {
-    ".git",
-    ".hg",
-    ".svn",
-    ".venv",
-    "venv",
-    "node_modules",
-    "__pycache__",
-    ".pytest_cache",
-    ".mypy_cache",
-    ".ruff_cache",
-    ".cache",
-    ".tox",
-}
 
 BINARY_SUFFIXES = set(
     """
@@ -201,7 +187,7 @@ def looks_binary(data: bytes) -> bool:
 
 def should_skip_relative_path(relative: str, excluded_paths: set[str]) -> bool:
     parts = Path(relative).parts
-    return any(part in IGNORED_PARTS for part in parts) or relative in excluded_paths
+    return any(part in PROJECT_IGNORED_PARTS for part in parts) or relative in excluded_paths
 
 
 def normalize_excluded_paths(excluded_paths: Iterable[str] | None) -> set[str]:

@@ -1,6 +1,5 @@
 """Response-level token optimization helpers."""
 
-from __future__ import annotations
 
 import math
 import re
@@ -152,8 +151,11 @@ def optimize_response(
     response: dict[str, object],
     max_content_tokens: int = TokenBudget.GUIDANCE_CONTENT_MAX,
     config: TokenOptimizationConfig | None = None,
+    _depth: int = 0,
 ) -> dict[str, object]:
     """Recursively optimize string values in a response dictionary."""
+    if _depth > 50:
+        return {"_truncated": str(response)[:500]}
     if config and not config.enabled:
         return dict(response)
     result: dict[str, object] = {}
@@ -167,10 +169,10 @@ def optimize_response(
         elif key == "snippet":
             result[key] = value
         elif isinstance(value, dict):
-            result[key] = optimize_response(value, max_content_tokens, config=config)
+            result[key] = optimize_response(value, max_content_tokens, config=config, _depth=_depth + 1)
         elif isinstance(value, list):
             result[key] = [
-                optimize_response(item, max_content_tokens, config=config)
+                optimize_response(item, max_content_tokens, config=config, _depth=_depth + 1)
                 if isinstance(item, dict)
                 else item
                 for item in value

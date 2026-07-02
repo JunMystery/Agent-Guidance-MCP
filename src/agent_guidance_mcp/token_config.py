@@ -1,6 +1,5 @@
 """Token optimization configuration."""
 
-from __future__ import annotations
 
 import os
 from dataclasses import dataclass, fields
@@ -25,6 +24,8 @@ class TokenOptimizationConfig:
     guidance_content_max_tokens: int = 4_000
 
     track_savings: bool = True
+    tracker_max_records: int = 1000
+    tracker_trim_to: int = 500
 
     strip_comments: bool = True
     collapse_whitespace: bool = True
@@ -67,6 +68,8 @@ def load_config_from_env() -> TokenOptimizationConfig:
         "AGENT_GUIDANCE_DOC_MAX_TOKENS": ("document_max_tokens", int),
         "AGENT_GUIDANCE_SKILL_MAX_TOKENS": ("skill_max_tokens", int),
         "AGENT_GUIDANCE_TRACK_SAVINGS": ("track_savings", _env_bool),
+        "AGENT_GUIDANCE_TRACKER_MAX_RECORDS": ("tracker_max_records", int),
+        "AGENT_GUIDANCE_TRACKER_TRIM_TO": ("tracker_trim_to", int),
     }
 
     for env_key, (field_name, converter) in env_mapping.items():

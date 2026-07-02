@@ -1,5 +1,7 @@
 """MCP server package for Agent Guidance MCP."""
 
+__version__ = "3.4.0"
+
 from .catalog import CatalogEntry, StandardsCatalog, build_catalog, find_standards_root
 from .content_compressor import Language
 from .response_optimizer import TokenBudget, estimate_tokens, optimize_response
@@ -9,6 +11,7 @@ from .token_config import TokenOptimizationConfig
 from .token_filter import FilterLevel
 
 __all__ = [
+    "__version__",
     "CatalogEntry",
     "FilterLevel",
     "Language",

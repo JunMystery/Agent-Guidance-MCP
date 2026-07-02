@@ -1,6 +1,5 @@
 """Command-line entry point for the Agent Guidance MCP server."""
 
-from __future__ import annotations
 
 import argparse
 import sys

@@ -1,6 +1,5 @@
 """UI/UX Pro Max search and recommendation helpers."""
 
-from __future__ import annotations
 
 import csv
 import json
@@ -13,6 +12,13 @@ from typing import Iterable
 
 DATA_RELATIVE_PATH = Path("skills") / "ui-ux-pro-max" / "data"
 MAX_RESULTS = 3
+
+_BM25_CACHE: dict[str, tuple[BM25, list[dict[str, str]]]] = {}
+
+
+def clear_bm25_cache() -> None:
+    """Clear the BM25 index cache (useful for testing)."""
+    _BM25_CACHE.clear()
 
 CSV_CONFIG = {
     "style": {
@@ -530,14 +536,22 @@ def _search_csv(
     if not filepath.is_file():
         return []
 
-    rows = _load_csv(filepath)
     search_cols = list(config["search_cols"])  # type: ignore[index]
-    output_cols = list(config["output_cols"])  # type: ignore[index]
-    documents = [" ".join(str(row.get(column, "")) for column in search_cols) for row in rows]
+    cache_key = f"{filepath}:{','.join(search_cols)}"
+    if cache_key in _BM25_CACHE:
+        bm25, rows = _BM25_CACHE[cache_key]
+    else:
+        try:
+            rows = _load_csv(filepath)
+        except (FileNotFoundError, OSError):
+            return []
+        documents = [" ".join(str(row.get(column, "")) for column in search_cols) for row in rows]
+        bm25 = BM25()
+        bm25.fit(documents)
+        _BM25_CACHE[cache_key] = (bm25, rows)
 
-    bm25 = BM25()
-    bm25.fit(documents)
     results: list[dict[str, str]] = []
+    output_cols = list(config["output_cols"])  # type: ignore[index]
     for index, score in bm25.score(query)[:max_results]:
         if score <= 0:
             continue
@@ -672,8 +686,13 @@ def _apply_reasoning(root: Path, category: str) -> dict[str, object]:
     if not reasoning_file.is_file():
         return default
 
+    try:
+        rules = _load_csv(reasoning_file)
+    except (FileNotFoundError, OSError):
+        return default
+
     category_lower = category.lower()
-    for rule in _load_csv(reasoning_file):
+    for rule in rules:
         rule_category = rule.get("UI_Category", "").lower()
         if (
             rule_category == category_lower

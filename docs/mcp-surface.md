@@ -9,6 +9,7 @@ This page lists the public MCP resources, grouped tools, and prompt exposed by t
 | Resource | Description |
 |---|---|
 | `standards://manifest` | JSON manifest for indexed standards, docs, skills, and root reference files. |
+| `standards://version` | JSON object with server name, version, and MCP protocol version. |
 | `standards://document/{identifier}` | Markdown content for a standards document by slug or identifier. |
 | `standards://skill/{name}` | Markdown content for a local on-demand skill capsule by name. |
 
@@ -20,6 +21,8 @@ This page lists the public MCP resources, grouped tools, and prompt exposed by t
 | `guidance(operation, query=None, identifier=None, category=None, kind=None, limit=10, include_content=False)` | Grouped standards catalog operations. |
 | `project_context(operation, project_path=".", query=None, relative_path=None, start_line=1, max_lines=300, max_depth=3, output_path=".agent-context/code-snapshot.json", max_file_bytes=200000, max_total_bytes=2000000, limit=20)` | Grouped project tree, search, read, and snapshot operations. |
 | `ui_ux(operation, query, domain=None, stack=None, project_name=None, output_format="markdown", limit=3)` | Grouped UI/UX Pro Max search, design-system, and slide guidance operations. |
+| `token_stats()` | Return token optimization statistics for this session. No parameters. |
+| `health_check()` | Return server health status and basic metadata. No parameters. |
 
 ## Tool Operations
 

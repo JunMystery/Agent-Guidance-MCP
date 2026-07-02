@@ -1,9 +1,9 @@
 """Catalog and search logic for AI Agent Coding Standards content."""
 
-from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
 
@@ -30,7 +30,7 @@ from .text import (
 from .token_config import TokenOptimizationConfig, load_config_from_env
 
 
-@dataclass(frozen=True)
+@dataclass
 class CatalogEntry:
     identifier: str
     title: str
@@ -41,6 +41,7 @@ class CatalogEntry:
     triggers: tuple[str, ...] = ()
     anchors: tuple[str, ...] = ()
     dependencies: tuple[str, ...] = ()
+    _content: str | None = field(default=None, compare=False, repr=False)
 
     @property
     def uri(self) -> str:
@@ -135,7 +136,11 @@ class StandardsCatalog:
 
     def read_path(self, relative_path: str) -> str:
         path = resolve_inside_root(self.root, relative_path)
-        return path.read_text(encoding="utf-8")
+        content = path.read_text(encoding="utf-8")
+        path_key = relative_path.replace("\\", "/").lower()
+        if path_key in self._by_path:
+            self._by_path[path_key]._content = content
+        return content
 
     def manifest(self) -> dict[str, object]:
         kinds: dict[str, int] = {}
@@ -168,7 +173,7 @@ class StandardsCatalog:
             if kind and entry.kind.lower() != kind.lower():
                 continue
 
-            content = self.read_path(entry.path)
+            content = entry._content or self.read_path(entry.path)
             title_lower = entry.title.lower()
             desc_lower = entry.description.lower()
             path_lower = entry.path.lower()
@@ -267,7 +272,11 @@ def build_catalog(root: str | Path | None = None) -> StandardsCatalog:
 def make_entry(root: Path, relative_path: str) -> CatalogEntry | None:
     from .text import parse_frontmatter
     path = root / relative_path
-    content = path.read_text(encoding="utf-8")
+    try:
+        content = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        print(f"Warning: skipping unreadable file {relative_path}: {exc}", file=sys.stderr)
+        return None
     title = extract_title(content) or title_from_path(relative_path)
     description = extract_description(content)
     kind = infer_kind(relative_path)
