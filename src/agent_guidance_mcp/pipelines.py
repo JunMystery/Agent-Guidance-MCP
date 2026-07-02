@@ -77,49 +77,6 @@ def guidance(
             raw_content = catalog.read_entry(entry.identifier, optimize=False)
             result["content"] = catalog.read_entry(entry.identifier, config=config)
             _record_savings(tracker, "guidance", operation_key, raw_content, str(result["content"]))
-            
-            # Recursive dependency injection with topological sorting
-            if entry.dependencies:
-                deps_dict: dict[str, dict[str, object]] = {}
-                resolved: set[str] = set()
-                visiting: set[str] = set()
-                order: list[str] = []
-                missing: list[str] = []
-                cycle_warnings: list[str] = []
-
-                def visit(dep_id: str) -> None:
-                    if dep_id in resolved:
-                        return
-                    if dep_id in visiting:
-                        cycle_warnings.append(dep_id)
-                        return
-                    try:
-                        dep_entry = catalog.get_entry(dep_id)
-                    except KeyError:
-                        missing.append(dep_id)
-                        resolved.add(dep_id)
-                        return
-                    visiting.add(dep_id)
-                    for child_id in dep_entry.dependencies:
-                        visit(child_id)
-                    visiting.discard(dep_id)
-                    resolved.add(dep_id)
-                    order.append(dep_id)
-
-                    dep_dict_entry = dep_entry.to_dict()
-                    dep_dict_entry["content"] = catalog.read_entry(dep_entry.identifier, config=config)
-                    deps_dict[dep_id] = dep_dict_entry
-
-                for dep_id in entry.dependencies:
-                    visit(dep_id)
-
-                if deps_dict:
-                    result["resolved_dependencies"] = deps_dict
-                    result["dependency_execution_order"] = order
-                if missing:
-                    result["missing_dependencies"] = missing
-                if cycle_warnings:
-                    result["dependency_cycles_detected"] = cycle_warnings
         return result
 
     if not query:
