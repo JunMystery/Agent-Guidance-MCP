@@ -26,51 +26,51 @@ PROJECT_IGNORED_PARTS = frozenset({
 
 TASK_ANCHORS = {
     "security": (
-        "skills/security-hub/SKILL.md",
+        "skills/security-review/SKILL.md",
         "agent-guidance/risk-management/security-constraints.md",
     ),
     "api": (
-        "skills/backend-hub/SKILL.md",
+        "skills/api-design/SKILL.md",
         "agent-guidance/prompts/sample-use-cases/create-api-with-rate-limiting.md",
     ),
     "tests": (
-        "skills/testing-hub/SKILL.md",
+        "skills/tdd-workflow/SKILL.md",
         "agent-guidance/engineering-practices/TESTING_STANDARDS.md",
     ),
     "docs": (
-        "skills/docs-research-hub/SKILL.md",
+        "skills/deep-research/SKILL.md",
         "agent-guidance/engineering-practices/DOCUMENTATION_STANDARDS.md",
     ),
     "accessibility": (
-        "skills/frontend-hub/SKILL.md",
+        "skills/accessibility/SKILL.md",
         "agent-guidance/compliance/A11Y_CHECKLIST.md",
     ),
     "performance": (
-        "skills/backend-hub/SKILL.md",
+        "skills/backend-patterns/SKILL.md",
         "agent-guidance/engineering-practices/NON_FUNCTIONAL_REQUIREMENTS.md",
     ),
     "release": (
-        "skills/workflow-hub/SKILL.md",
+        "skills/deployment-patterns/SKILL.md",
         "agent-guidance/engineering-practices/RELEASE_PROCESS.md",
     ),
     "skills": (
-        "skills/workflow-hub/SKILL.md",
+        "skills/skill-scout/SKILL.md",
         "SKILL-REFERENCE.md",
     ),
     "review": (
-        "skills/workflow-hub/SKILL.md",
+        "skills/code-review-and-quality/SKILL.md",
         "agent-guidance/quality-control/code-review-checklist.md",
     ),
     "ui": (
-        "skills/frontend-hub/SKILL.md",
+        "skills/frontend-patterns/SKILL.md",
         "skills/ui-ux-pro-max/SKILL.md",
     ),
     "workflow": (
-        "skills/workflow-hub/SKILL.md",
+        "skills/verification-loop/SKILL.md",
         "skills/verification-loop/SKILL.md",
     ),
     "backend": (
-        "skills/backend-hub/SKILL.md",
+        "skills/backend-patterns/SKILL.md",
         "skills/api-design/SKILL.md",
     ),
 }

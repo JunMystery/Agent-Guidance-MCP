@@ -375,7 +375,7 @@ Contains rarely changing information:
 
 ```json
 {
-  "meta": { "schema_version": "1.1.0", "framework_version": "3.4.0" },
+  "meta": { "schema_version": "1.1.0", "framework_version": "1.0.0" },
   "project": { "name": "...", "type": "...", "status": "..." },
   "tech_stack": { "frontend": {...}, "backend": {...}, "database": {...} },
   "database_schema": { "tables": [...], "relationships": [...] },

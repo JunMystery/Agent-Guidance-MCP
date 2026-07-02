@@ -241,4 +241,4 @@ At any time, ask your agent:
 > **"What coding standards are you following?"** or type **`/standards`**
 
 Expected:
-> [OK] AI-Coding-Standards v3.4.0 with 6 Core Principles active.
+> [OK] AI-Coding-Standards with 6 Core Principles active.

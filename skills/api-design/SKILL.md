@@ -1,294 +1,524 @@
 ---
 name: api-design
-description: Guides stable API and interface design. Use when designing APIs, module boundaries, or any public interface. Use when creating REST or GraphQL endpoints, defining type contracts between modules, or establishing boundaries between frontend and backend.
+description: REST API design patterns including resource naming, status codes, pagination, filtering, error responses, versioning, and rate limiting for production APIs.
+metadata:
+  origin: ECC
 ---
 
-# API and Interface Design
+# API Design Patterns
 
-## Overview
+Conventions and best practices for designing consistent, developer-friendly REST APIs.
 
-Design stable, well-documented interfaces that are hard to misuse. Good interfaces make the right thing easy and the wrong thing hard. This applies to REST APIs, GraphQL schemas, module boundaries, component props, and any surface where one piece of code talks to another.
-
-## When to Use
+## When to Activate
 
 - Designing new API endpoints
-- Defining module boundaries or contracts between teams
-- Creating component prop interfaces
-- Establishing database schema that informs API shape
-- Changing existing public interfaces
+- Reviewing existing API contracts
+- Adding pagination, filtering, or sorting
+- Implementing error handling for APIs
+- Planning API versioning strategy
+- Building public or partner-facing APIs
 
-## Core Principles
+## Resource Design
 
-### Hyrum's Law
+### URL Structure
 
-> With a sufficient number of users of an API, all observable behaviors of your system will be depended on by somebody, regardless of what you promise in the contract.
+```
+# Resources are nouns, plural, lowercase, kebab-case
+GET    /api/v1/users
+GET    /api/v1/users/:id
+POST   /api/v1/users
+PUT    /api/v1/users/:id
+PATCH  /api/v1/users/:id
+DELETE /api/v1/users/:id
 
-This means: every public behavior — including undocumented quirks, error message text, timing, and ordering — becomes a de facto contract once users depend on it. Design implications:
+# Sub-resources for relationships
+GET    /api/v1/users/:id/orders
+POST   /api/v1/users/:id/orders
 
-- **Be intentional about what you expose.** Every observable behavior is a potential commitment.
-- **Don't leak implementation details.** If users can observe it, they will depend on it.
-- **Plan for deprecation at design time.** See `deprecation-and-migration` for how to safely remove things users depend on.
-- **Tests are not enough.** Even with perfect contract tests, Hyrum's Law means "safe" changes can break real users who depend on undocumented behavior.
+# Actions that don't map to CRUD (use verbs sparingly)
+POST   /api/v1/orders/:id/cancel
+POST   /api/v1/auth/login
+POST   /api/v1/auth/refresh
+```
 
-### The One-Version Rule
+### Naming Rules
 
-Avoid forcing consumers to choose between multiple versions of the same dependency or API. Diamond dependency problems arise when different consumers need different versions of the same thing. Design for a world where only one version exists at a time — extend rather than fork.
+```
+# GOOD
+/api/v1/team-members          # kebab-case for multi-word resources
+/api/v1/orders?status=active  # query params for filtering
+/api/v1/users/123/orders      # nested resources for ownership
 
-### 1. Contract First
+# BAD
+/api/v1/getUsers              # verb in URL
+/api/v1/user                  # singular (use plural)
+/api/v1/team_members          # snake_case in URLs
+/api/v1/users/123/getOrders   # verb in nested resource
+```
 
-Define the interface before implementing it. The contract is the spec — implementation follows.
+## HTTP Methods and Status Codes
 
-```typescript
-// Define the contract first
-interface TaskAPI {
-  // Creates a task and returns the created task with server-generated fields
-  createTask(input: CreateTaskInput): Promise<Task>;
+### Method Semantics
 
-  // Returns paginated tasks matching filters
-  listTasks(params: ListTasksParams): Promise<PaginatedResult<Task>>;
+| Method | Idempotent | Safe | Use For |
+|--------|-----------|------|---------|
+| GET | Yes | Yes | Retrieve resources |
+| POST | No | No | Create resources, trigger actions |
+| PUT | Yes | No | Full replacement of a resource |
+| PATCH | No* | No | Partial update of a resource |
+| DELETE | Yes | No | Remove a resource |
 
-  // Returns a single task or throws NotFoundError
-  getTask(id: string): Promise<Task>;
+*PATCH can be made idempotent with proper implementation
 
-  // Partial update — only provided fields change
-  updateTask(id: string, input: UpdateTaskInput): Promise<Task>;
+### Status Code Reference
 
-  // Idempotent delete — succeeds even if already deleted
-  deleteTask(id: string): Promise<void>;
+```
+# Success
+200 OK                    — GET, PUT, PATCH (with response body)
+201 Created               — POST (include Location header)
+204 No Content            — DELETE, PUT (no response body)
+
+# Client Errors
+400 Bad Request           — Validation failure, malformed JSON
+401 Unauthorized          — Missing or invalid authentication
+403 Forbidden             — Authenticated but not authorized
+404 Not Found             — Resource doesn't exist
+409 Conflict              — Duplicate entry, state conflict
+422 Unprocessable Entity  — Semantically invalid (valid JSON, bad data)
+429 Too Many Requests     — Rate limit exceeded
+
+# Server Errors
+500 Internal Server Error — Unexpected failure (never expose details)
+502 Bad Gateway           — Upstream service failed
+503 Service Unavailable   — Temporary overload, include Retry-After
+```
+
+### Common Mistakes
+
+```
+# BAD: 200 for everything
+{ "status": 200, "success": false, "error": "Not found" }
+
+# GOOD: Use HTTP status codes semantically
+HTTP/1.1 404 Not Found
+{ "error": { "code": "not_found", "message": "User not found" } }
+
+# BAD: 500 for validation errors
+# GOOD: 400 or 422 with field-level details
+
+# BAD: 200 for created resources
+# GOOD: 201 with Location header
+HTTP/1.1 201 Created
+Location: /api/v1/users/abc-123
+```
+
+## Response Format
+
+### Success Response
+
+```json
+{
+  "data": {
+    "id": "abc-123",
+    "email": "alice@example.com",
+    "name": "Alice",
+    "created_at": "2025-01-15T10:30:00Z"
+  }
 }
 ```
 
-### 2. Consistent Error Semantics
+### Collection Response (with Pagination)
 
-Pick one error strategy and use it everywhere:
+```json
+{
+  "data": [
+    { "id": "abc-123", "name": "Alice" },
+    { "id": "def-456", "name": "Bob" }
+  ],
+  "meta": {
+    "total": 142,
+    "page": 1,
+    "per_page": 20,
+    "total_pages": 8
+  },
+  "links": {
+    "self": "/api/v1/users?page=1&per_page=20",
+    "next": "/api/v1/users?page=2&per_page=20",
+    "last": "/api/v1/users?page=8&per_page=20"
+  }
+}
+```
+
+### Error Response
+
+```json
+{
+  "error": {
+    "code": "validation_error",
+    "message": "Request validation failed",
+    "details": [
+      {
+        "field": "email",
+        "message": "Must be a valid email address",
+        "code": "invalid_format"
+      },
+      {
+        "field": "age",
+        "message": "Must be between 0 and 150",
+        "code": "out_of_range"
+      }
+    ]
+  }
+}
+```
+
+### Response Envelope Variants
 
 ```typescript
-// REST: HTTP status codes + structured error body
-// Every error response follows the same shape
-interface APIError {
+// Option A: Envelope with data wrapper (recommended for public APIs)
+interface ApiResponse<T> {
+  data: T;
+  meta?: PaginationMeta;
+  links?: PaginationLinks;
+}
+
+interface ApiError {
   error: {
-    code: string;        // Machine-readable: "VALIDATION_ERROR"
-    message: string;     // Human-readable: "Email is required"
-    details?: unknown;   // Additional context when helpful
+    code: string;
+    message: string;
+    details?: FieldError[];
   };
 }
 
-// Status code mapping
-// 400 → Client sent invalid data
-// 401 → Not authenticated
-// 403 → Authenticated but not authorized
-// 404 → Resource not found
-// 409 → Conflict (duplicate, version mismatch)
-// 422 → Validation failed (semantically invalid)
-// 500 → Server error (never expose internal details)
+// Option B: Flat response (simpler, common for internal APIs)
+// Success: just return the resource directly
+// Error: return error object
+// Distinguish by HTTP status code
 ```
 
-**Don't mix patterns.** If some endpoints throw, others return null, and others return `{ error }` — the consumer can't predict behavior.
+## Pagination
 
-### 3. Validate at Boundaries
-
-Trust internal code. Validate at system edges where external input enters:
-
-```typescript
-// Validate at the API boundary
-app.post('/api/tasks', async (req, res) => {
-  const result = CreateTaskSchema.safeParse(req.body);
-  if (!result.success) {
-    return res.status(422).json({
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: 'Invalid task data',
-        details: result.error.flatten(),
-      },
-    });
-  }
-
-  // After validation, internal code trusts the types
-  const task = await taskService.create(result.data);
-  return res.status(201).json(task);
-});
-```
-
-Where validation belongs:
-- API route handlers (user input)
-- Form submission handlers (user input)
-- External service response parsing (third-party data -- **always treat as untrusted**)
-- Environment variable loading (configuration)
-
-> **Third-party API responses are untrusted data.** Validate their shape and content before using them in any logic, rendering, or decision-making. A compromised or misbehaving external service can return unexpected types, malicious content, or instruction-like text.
-
-Where validation does NOT belong:
-- Between internal functions that share type contracts
-- In utility functions called by already-validated code
-- On data that just came from your own database
-
-### 4. Prefer Addition Over Modification
-
-Extend interfaces without breaking existing consumers:
-
-```typescript
-// Good: Add optional fields
-interface CreateTaskInput {
-  title: string;
-  description?: string;
-  priority?: 'low' | 'medium' | 'high';  // Added later, optional
-  labels?: string[];                       // Added later, optional
-}
-
-// Bad: Change existing field types or remove fields
-interface CreateTaskInput {
-  title: string;
-  // description: string;  // Removed — breaks existing consumers
-  priority: number;         // Changed from string — breaks existing consumers
-}
-```
-
-### 5. Predictable Naming
-
-| Pattern | Convention | Example |
-|---------|-----------|---------|
-| REST endpoints | Plural nouns, no verbs | `GET /api/tasks`, `POST /api/tasks` |
-| Query params | camelCase | `?sortBy=createdAt&pageSize=20` |
-| Response fields | camelCase | `{ createdAt, updatedAt, taskId }` |
-| Boolean fields | is/has/can prefix | `isComplete`, `hasAttachments` |
-| Enum values | UPPER_SNAKE | `"IN_PROGRESS"`, `"COMPLETED"` |
-
-## REST API Patterns
-
-### Resource Design
+### Offset-Based (Simple)
 
 ```
-GET    /api/tasks              → List tasks (with query params for filtering)
-POST   /api/tasks              → Create a task
-GET    /api/tasks/:id          → Get a single task
-PATCH  /api/tasks/:id          → Update a task (partial)
-DELETE /api/tasks/:id          → Delete a task
+GET /api/v1/users?page=2&per_page=20
 
-GET    /api/tasks/:id/comments → List comments for a task (sub-resource)
-POST   /api/tasks/:id/comments → Add a comment to a task
+# Implementation
+SELECT * FROM users
+ORDER BY created_at DESC
+LIMIT 20 OFFSET 20;
 ```
 
-### Pagination
+**Pros:** Easy to implement, supports "jump to page N"
+**Cons:** Slow on large offsets (OFFSET 100000), inconsistent with concurrent inserts
 
-Paginate list endpoints:
+### Cursor-Based (Scalable)
 
-```typescript
-// Request
-GET /api/tasks?page=1&pageSize=20&sortBy=createdAt&sortOrder=desc
+```
+GET /api/v1/users?cursor=eyJpZCI6MTIzfQ&limit=20
 
-// Response
+# Implementation
+SELECT * FROM users
+WHERE id > :cursor_id
+ORDER BY id ASC
+LIMIT 21;  -- fetch one extra to determine has_next
+```
+
+```json
 {
   "data": [...],
-  "pagination": {
-    "page": 1,
-    "pageSize": 20,
-    "totalItems": 142,
-    "totalPages": 8
+  "meta": {
+    "has_next": true,
+    "next_cursor": "eyJpZCI6MTQzfQ"
   }
 }
 ```
+
+**Pros:** Consistent performance regardless of position, stable with concurrent inserts
+**Cons:** Cannot jump to arbitrary page, cursor is opaque
+
+### When to Use Which
+
+| Use Case | Pagination Type |
+|----------|----------------|
+| Admin dashboards, small datasets (<10K) | Offset |
+| Infinite scroll, feeds, large datasets | Cursor |
+| Public APIs | Cursor (default) with offset (optional) |
+| Search results | Offset (users expect page numbers) |
+
+## Filtering, Sorting, and Search
 
 ### Filtering
 
-Use query parameters for filters:
+```
+# Simple equality
+GET /api/v1/orders?status=active&customer_id=abc-123
+
+# Comparison operators (use bracket notation)
+GET /api/v1/products?price[gte]=10&price[lte]=100
+GET /api/v1/orders?created_at[after]=2025-01-01
+
+# Multiple values (comma-separated)
+GET /api/v1/products?category=electronics,clothing
+
+# Nested fields (dot notation)
+GET /api/v1/orders?customer.country=US
+```
+
+### Sorting
 
 ```
-GET /api/tasks?status=in_progress&assignee=user123&createdAfter=2025-01-01
+# Single field (prefix - for descending)
+GET /api/v1/products?sort=-created_at
+
+# Multiple fields (comma-separated)
+GET /api/v1/products?sort=-featured,price,-created_at
 ```
 
-### Partial Updates (PATCH)
+### Full-Text Search
 
-Accept partial objects — only update what's provided:
+```
+# Search query parameter
+GET /api/v1/products?q=wireless+headphones
+
+# Field-specific search
+GET /api/v1/users?email=alice
+```
+
+### Sparse Fieldsets
+
+```
+# Return only specified fields (reduces payload)
+GET /api/v1/users?fields=id,name,email
+GET /api/v1/orders?fields=id,total,status&include=customer.name
+```
+
+## Authentication and Authorization
+
+### Token-Based Auth
+
+```
+# Bearer token in Authorization header
+GET /api/v1/users
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+
+# API key (for server-to-server)
+GET /api/v1/data
+X-API-Key: sk_live_abc123
+```
+
+### Authorization Patterns
 
 ```typescript
-// Only title changes, everything else preserved
-PATCH /api/tasks/123
-{ "title": "Updated title" }
+// Resource-level: check ownership
+app.get("/api/v1/orders/:id", async (req, res) => {
+  const order = await Order.findById(req.params.id);
+  if (!order) return res.status(404).json({ error: { code: "not_found" } });
+  if (order.userId !== req.user.id) return res.status(403).json({ error: { code: "forbidden" } });
+  return res.json({ data: order });
+});
+
+// Role-based: check permissions
+app.delete("/api/v1/users/:id", requireRole("admin"), async (req, res) => {
+  await User.delete(req.params.id);
+  return res.status(204).send();
+});
 ```
 
-## TypeScript Interface Patterns
+## Rate Limiting
 
-### Use Discriminated Unions for Variants
+### Headers
 
-```typescript
-// Good: Each variant is explicit
-type TaskStatus =
-  | { type: 'pending' }
-  | { type: 'in_progress'; assignee: string; startedAt: Date }
-  | { type: 'completed'; completedAt: Date; completedBy: string }
-  | { type: 'cancelled'; reason: string; cancelledAt: Date };
+```
+HTTP/1.1 200 OK
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1640000000
 
-// Consumer gets type narrowing
-function getStatusLabel(status: TaskStatus): string {
-  switch (status.type) {
-    case 'pending': return 'Pending';
-    case 'in_progress': return `In progress (${status.assignee})`;
-    case 'completed': return `Done on ${status.completedAt}`;
-    case 'cancelled': return `Cancelled: ${status.reason}`;
+# When exceeded
+HTTP/1.1 429 Too Many Requests
+Retry-After: 60
+{
+  "error": {
+    "code": "rate_limit_exceeded",
+    "message": "Rate limit exceeded. Try again in 60 seconds."
   }
 }
 ```
 
-### Input/Output Separation
+### Rate Limit Tiers
+
+| Tier | Limit | Window | Use Case |
+|------|-------|--------|----------|
+| Anonymous | 30/min | Per IP | Public endpoints |
+| Authenticated | 100/min | Per user | Standard API access |
+| Premium | 1000/min | Per API key | Paid API plans |
+| Internal | 10000/min | Per service | Service-to-service |
+
+## Versioning
+
+### URL Path Versioning (Recommended)
+
+```
+/api/v1/users
+/api/v2/users
+```
+
+**Pros:** Explicit, easy to route, cacheable
+**Cons:** URL changes between versions
+
+### Header Versioning
+
+```
+GET /api/users
+Accept: application/vnd.myapp.v2+json
+```
+
+**Pros:** Clean URLs
+**Cons:** Harder to test, easy to forget
+
+### Versioning Strategy
+
+```
+1. Start with /api/v1/ — don't version until you need to
+2. Maintain at most 2 active versions (current + previous)
+3. Deprecation timeline:
+   - Announce deprecation (6 months notice for public APIs)
+   - Add Sunset header: Sunset: Sat, 01 Jan 2026 00:00:00 GMT
+   - Return 410 Gone after sunset date
+4. Non-breaking changes don't need a new version:
+   - Adding new fields to responses
+   - Adding new optional query parameters
+   - Adding new endpoints
+5. Breaking changes require a new version:
+   - Removing or renaming fields
+   - Changing field types
+   - Changing URL structure
+   - Changing authentication method
+```
+
+## Implementation Patterns
+
+### TypeScript (Next.js API Route)
 
 ```typescript
-// Input: what the caller provides
-interface CreateTaskInput {
-  title: string;
-  description?: string;
-}
+import { z } from "zod";
+import { NextRequest, NextResponse } from "next/server";
 
-// Output: what the system returns (includes server-generated fields)
-interface Task {
-  id: string;
-  title: string;
-  description: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-  createdBy: string;
+const createUserSchema = z.object({
+  email: z.string().email(),
+  name: z.string().min(1).max(100),
+});
+
+export async function POST(req: NextRequest) {
+  const body = await req.json();
+  const parsed = createUserSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return NextResponse.json({
+      error: {
+        code: "validation_error",
+        message: "Request validation failed",
+        details: parsed.error.issues.map(i => ({
+          field: i.path.join("."),
+          message: i.message,
+          code: i.code,
+        })),
+      },
+    }, { status: 422 });
+  }
+
+  const user = await createUser(parsed.data);
+
+  return NextResponse.json(
+    { data: user },
+    {
+      status: 201,
+      headers: { Location: `/api/v1/users/${user.id}` },
+    },
+  );
 }
 ```
 
-### Use Branded Types for IDs
+### Python (Django REST Framework)
 
-```typescript
-type TaskId = string & { readonly __brand: 'TaskId' };
-type UserId = string & { readonly __brand: 'UserId' };
+```python
+from rest_framework import serializers, viewsets, status
+from rest_framework.response import Response
 
-// Prevents accidentally passing a UserId where a TaskId is expected
-function getTask(id: TaskId): Promise<Task> { ... }
+class CreateUserSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    name = serializers.CharField(max_length=100)
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["id", "email", "name", "created_at"]
+
+class UserViewSet(viewsets.ModelViewSet):
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return CreateUserSerializer
+        return UserSerializer
+
+    def create(self, request):
+        serializer = CreateUserSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = UserService.create(**serializer.validated_data)
+        return Response(
+            {"data": UserSerializer(user).data},
+            status=status.HTTP_201_CREATED,
+            headers={"Location": f"/api/v1/users/{user.id}"},
+        )
 ```
 
-## Common Rationalizations
+### Go (net/http)
 
-| Rationalization | Reality |
-|---|---|
-| "We'll document the API later" | The types ARE the documentation. Define them first. |
-| "We don't need pagination for now" | You will the moment someone has 100+ items. Add it from the start. |
-| "PATCH is complicated, let's just use PUT" | PUT requires the full object every time. PATCH is what clients actually want. |
-| "We'll version the API when we need to" | Breaking changes without versioning break consumers. Design for extension from the start. |
-| "Nobody uses that undocumented behavior" | Hyrum's Law: if it's observable, somebody depends on it. Treat every public behavior as a commitment. |
-| "We can just maintain two versions" | Multiple versions multiply maintenance cost and create diamond dependency problems. Prefer the One-Version Rule. |
-| "Internal APIs don't need contracts" | Internal consumers are still consumers. Contracts prevent coupling and enable parallel work. |
+```go
+func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
+    var req CreateUserRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        writeError(w, http.StatusBadRequest, "invalid_json", "Invalid request body")
+        return
+    }
 
-## Red Flags
+    if err := req.Validate(); err != nil {
+        writeError(w, http.StatusUnprocessableEntity, "validation_error", err.Error())
+        return
+    }
 
-- Endpoints that return different shapes depending on conditions
-- Inconsistent error formats across endpoints
-- Validation scattered throughout internal code instead of at boundaries
-- Breaking changes to existing fields (type changes, removals)
-- List endpoints without pagination
-- Verbs in REST URLs (`/api/createTask`, `/api/getUsers`)
-- Third-party API responses used without validation or sanitization
+    user, err := h.service.Create(r.Context(), req)
+    if err != nil {
+        switch {
+        case errors.Is(err, domain.ErrEmailTaken):
+            writeError(w, http.StatusConflict, "email_taken", "Email already registered")
+        default:
+            writeError(w, http.StatusInternalServerError, "internal_error", "Internal error")
+        }
+        return
+    }
 
-## Verification
+    w.Header().Set("Location", fmt.Sprintf("/api/v1/users/%s", user.ID))
+    writeJSON(w, http.StatusCreated, map[string]any{"data": user})
+}
+```
 
-After designing an API:
+## API Design Checklist
 
-- [ ] Every endpoint has typed input and output schemas
-- [ ] Error responses follow a single consistent format
-- [ ] Validation happens at system boundaries only
-- [ ] List endpoints support pagination
-- [ ] New fields are additive and optional (backward compatible)
-- [ ] Naming follows consistent conventions across all endpoints
-- [ ] API documentation or types are committed alongside the implementation
+Before shipping a new endpoint:
+
+- [ ] Resource URL follows naming conventions (plural, kebab-case, no verbs)
+- [ ] Correct HTTP method used (GET for reads, POST for creates, etc.)
+- [ ] Appropriate status codes returned (not 200 for everything)
+- [ ] Input validated with schema (Zod, Pydantic, Bean Validation)
+- [ ] Error responses follow standard format with codes and messages
+- [ ] Pagination implemented for list endpoints (cursor or offset)
+- [ ] Authentication required (or explicitly marked as public)
+- [ ] Authorization checked (user can only access their own resources)
+- [ ] Rate limiting configured
+- [ ] Response does not leak internal details (stack traces, SQL errors)
+- [ ] Consistent naming with existing endpoints (camelCase vs snake_case)
+- [ ] Documented (OpenAPI/Swagger spec updated)
