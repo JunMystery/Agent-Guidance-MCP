@@ -28,8 +28,8 @@ python  scripts/install-mcp.py        # Windows
 Keep your skills, databases, and semantic models up-to-date with upstream changes:
 
 ```bash
-python scripts/update-ecc.py          # Sync 168+ ECC skills library
-python scripts/update-ui-ux.py        # Sync UI/UX Pro Max styling database
+python scripts/update_ecc.py          # Sync 168+ ECC skills library
+python scripts/update_ui_ux.py        # Sync UI/UX Pro Max styling database
 ```
 
 Manual install:

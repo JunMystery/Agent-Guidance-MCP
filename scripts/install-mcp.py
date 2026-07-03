@@ -214,8 +214,9 @@ def main():
     # 10. Update UI/UX skill from GitHub
     print("\nUpdating UI/UX Pro Max skill...")
     try:
+        import importlib
         sys.path.append(str(repo_root / "scripts"))
-        import update_ui_ux
+        update_ui_ux = importlib.import_module("update_ui_ux")
         update_ui_ux.update_skill()
     except Exception as e:
         print(f"  Warning: Failed to auto-update UI/UX skill: {e}")

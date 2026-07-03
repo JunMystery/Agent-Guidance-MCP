@@ -49,13 +49,13 @@ The UI/UX styling, palettes, landing patterns, and slide guidance are sourced fr
 - **Search Logic:** [ui_ux.py](file:///e:/Github/Agent-Guidance-MCP/src/agent_guidance_mcp/ui_ux.py)
   - Loads CSV configuration from `skills/ui-ux-pro-max/data/`.
   - Performs BM25-based keyword ranking on styling metadata.
-- **Skill Updater:** [update-ui-ux.py](file:///e:/Github/Agent-Guidance-MCP/scripts/update-ui-ux.py)
+- **Skill Updater:** [update_ui_ux.py](file:///e:/Github/Agent-Guidance-MCP/scripts/update_ui_ux.py)
   - Downloads, extracts, and deploys the latest skill files directly from `https://github.com/nextlevelbuilder/ui-ux-pro-max-skill`.
 
 ### How to Maintain & Sync with Upstream
 - Run the python updater script to fetch the latest CSV database:
   ```bash
-  python scripts/update-ui-ux.py
+  python scripts/update_ui_ux.py
   ```
 
 ---
@@ -67,13 +67,13 @@ The main engineering standards and developer skills collection is sourced from t
 ### Architecture & Files
 - **Skills Folder:** `skills/` (e.g. `skills/android-cli/`, `skills/spec-driven-development/`, etc.)
   - Stores standard workflow descriptions (`SKILL.md`) and companion scripts/resources.
-- **Skills Updater:** [update-ecc.py](file:///e:/Github/Agent-Guidance-MCP/scripts/update-ecc.py)
+- **Skills Updater:** [update_ecc.py](file:///e:/Github/Agent-Guidance-MCP/scripts/update_ecc.py)
   - Downloads the latest snapshot of all official skills from the `affaan-m/ECC` repository.
 
 ### How to Maintain & Sync with Upstream
 - Run the python updater script to fetch new and updated skills:
   ```bash
-  python scripts/update-ecc.py
+  python scripts/update_ecc.py
   ```
 
 ---
@@ -85,9 +85,9 @@ The main engineering standards and developer skills collection is sourced from t
   ```
 - **Update UI/UX Skill:** Run the python script to download the latest skill CSV data from GitHub:
   ```bash
-  python scripts/update-ui-ux.py
+  python scripts/update_ui_ux.py
   ```
 - **Update ECC Skills:** Run the python script to download the latest skills suite from GitHub:
   ```bash
-  python scripts/update-ecc.py
+  python scripts/update_ecc.py
   ```
