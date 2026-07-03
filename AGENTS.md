@@ -1,6 +1,33 @@
 # AGENTS.md
 
-This file provides guidance to AI coding agents (Claude Code, Cursor, Copilot, Antigravity, etc.) when working with code in this repository.
+## CRITICAL — Default Tool Rules (READ FIRST)
+
+For EVERY coding action, repository lookup, refactoring, or planning:
+
+### Tool Selection Priority
+
+| You need to... | Use THIS tool first | Why |
+|---|---|---|
+| Start any coding task | `task_pipeline(task="...")` | Recommendations + tree + code search + UI in ONE call |
+| Check coding standards | `guidance(operation="search", query="...")` | No other tool provides standards or skill lookup |
+| Read a file | `project_context(operation="read", relative_path="...")` | Token-capped at 300 lines — prevents context blowout |
+| Search codebase text | `project_context(operation="search", query="...")` | Ranked, bounded results. Fallback when codegraph unavailable |
+| Understand code structure | `codegraph_explore` (if available) | Call graph + symbol lookup. Fallback: `project_context(operation="search")` |
+| Get UI/design guidance | `ui_ux(operation="search", query="...")` | Style, colors, typography, charts, slides |
+| Browse project structure | `project_context(operation="tree")` | Optimized directory tree view |
+
+### Six Mandatory Rules
+
+1. **Context First**: Call `task_pipeline` or `project_context` BEFORE any file read or code change.
+2. **Standards Check**: Use `guidance(operation="search")` BEFORE implementing.
+3. **Token Budget**: Prefer MCP tools over raw file reads — built-in limits prevent context blowout.
+4. **No Direct FS**: Never manually read/search files when MCP tools do it with optimization.
+5. **Ground & Plan**: Verify files/functions/symbols via search BEFORE proposing changes. Never guess.
+6. **300 LOC Cap**: Split files exceeding 300 lines of code. No monolithic files.
+
+**CRITICAL: All 6 rules apply to EVERY coding action without exception.**
+
+---
 
 ## Repository Overview
 

@@ -16,6 +16,29 @@ def owns_json_server_config(server_config):
     return isinstance(args, list) and MODULE_NAME in args
 
 
+AGENT_RULES_BLOCK = (
+    "\n"
+    "## Agent Guidance MCP — Tool Selection Priority\n\n"
+    "| You need to... | Use THIS tool first | Why |\n"
+    "|---|---|---|\n"
+    "| Start any coding task | `task_pipeline(task=\"...\")` | Recommendations + tree + code search + UI in ONE call |\n"
+    "| Check coding standards | `guidance(operation=\"search\", query=\"...\")` | No other tool provides standards or skill lookup |\n"
+    "| Read a file | `project_context(operation=\"read\", relative_path=\"...\")` | Token-capped at 300 lines — prevents context blowout |\n"
+    "| Search codebase text | `project_context(operation=\"search\", query=\"...\")` | Ranked, bounded results. Fallback when codegraph unavailable |\n"
+    "| Understand code structure | codegraph_explore (if available) | Call graph + symbol lookup. Fallback: project_context(operation=\"search\") |\n"
+    "| Get UI/design guidance | `ui_ux(operation=\"search\", query=\"...\")` | Style, colors, typography, charts, slides |\n"
+    "| Browse project tree | `project_context(operation=\"tree\")` | Optimized directory tree view |\n\n"
+    "### Six Mandatory Rules\n\n"
+    "1. **Context First**: Call `task_pipeline` or `project_context` BEFORE any file read or code change.\n"
+    "2. **Standards Check**: Use `guidance(operation=\"search\")` BEFORE implementing.\n"
+    "3. **Token Budget**: Prefer MCP tools over raw file reads — built-in limits prevent context blowout.\n"
+    "4. **No Direct FS**: Never manually read/search files when MCP tools do it with optimization.\n"
+    "5. **Ground & Plan**: Verify files/functions/symbols via search BEFORE proposing changes. Never guess.\n"
+    "6. **300 LOC Cap**: Split files exceeding 300 lines of code. No monolithic files.\n\n"
+    "**CRITICAL: All 6 rules apply to EVERY coding action without exception.**\n"
+)
+
+
 def main():
     repo_root = Path(__file__).resolve().parents[1]
     venv_dir = repo_root / ".venv"
@@ -277,30 +300,17 @@ def configure_workspace_rules(repo_root):
         (".copilotrules", repo_root / ".copilotrules")
     ]
     print("  Configuring Workspace Coding Agent Rules...")
-    rule_block = (
-        "\n"
-        "## Agent Guidance MCP Server Tool Usage\n\n"
-        "Whenever the user prompts you to perform any coding action, repository lookup, refactoring, or planning, you MUST involve the custom `agent-guidance-mcp` server tools.\n\n"
-        "### Rules:\n"
-        "1. **Always Start with Context Gathering**: Before you read files or make changes, invoke `task_pipeline` or `project_context(operation=\"tree\" / \"search\" / \"read\")` to load optimized project states.\n"
-        "2. **Consult Standards**: Use the `guidance` tool (with `operation=\"search\"` or `operation=\"recommend\"`) to check if any coding standard or instruction applies to the implementation.\n"
-        "3. **Minimize Tokens**: Ensure that you leverage the optimized output of the MCP server tools to run context-efficient development.\n"
-        "4. **Enforce Execution**: Never perform direct filesystem lookups or file reads manually if the corresponding context can be loaded and optimized through the MCP server tools.\n"
-        "5. **Grounding & Planning**: Always find related files, functions, and symbols (using `project_context(operation=\"search\")` or `task_pipeline`) and formulate an implementation plan before proposing changes. Even if the user prompt does not mention specific files/code directly, or references a function name without its location, AI Agents MUST NOT guess anything; they must verify via search first.\n"
-        "6. **Max 300 LOC Files**: Keep code files focused and split them when they exceed 300 lines of code (LOC). Avoid monolithic files and dumping grounds.\n\n"
-        "**CRITICAL**: All 6 rules MUST be evaluated and executed for every single coding action, repository lookup, refactoring, or planning phase without exception.\n"
-    )
     for name, path in targets:
         try:
             content = ""
             if path.exists():
                 content = path.read_text(encoding="utf-8")
             
-            if "Agent Guidance MCP Server Tool Usage" not in content:
+            if "Agent Guidance MCP — Tool Selection Priority" not in content:
                 with path.open("a", encoding="utf-8") as f:
                     if content and not content.endswith("\n"):
                         f.write("\n")
-                    f.write(rule_block)
+                    f.write(AGENT_RULES_BLOCK)
                 print(f"    Success: Appended global agent rules to {name}")
             else:
                 print(f"    Note: Agent rules already present in {name}")
@@ -315,27 +325,14 @@ def configure_supporting_agents(repo_root):
         return
         
     print("  Configuring Supporting Agents MCP Rules...")
-    rule_block = (
-        "\n"
-        "## Agent Guidance MCP Server Tool Usage\n\n"
-        "Whenever the user prompts you to perform any coding action, repository lookup, refactoring, or planning, you MUST involve the custom `agent-guidance-mcp` server tools.\n\n"
-        "### Rules:\n"
-        "1. **Always Start with Context Gathering**: Before you read files or make changes, invoke `task_pipeline` or `project_context(operation=\"tree\" / \"search\" / \"read\")` to load optimized project states.\n"
-        "2. **Consult Standards**: Use the `guidance` tool (with `operation=\"search\"` or `operation=\"recommend\"`) to check if any coding standard or instruction applies to the implementation.\n"
-        "3. **Minimize Tokens**: Ensure that you leverage the optimized output of the MCP server tools to run context-efficient development.\n"
-        "4. **Enforce Execution**: Never perform direct filesystem lookups or file reads manually if the corresponding context can be loaded and optimized through the MCP server tools.\n"
-        "5. **Grounding & Planning**: Always find related files, functions, and symbols (using `project_context(operation=\"search\")` or `task_pipeline`) and formulate an implementation plan before proposing changes. Even if the user prompt does not mention specific files/code directly, or references a function name without its location, AI Agents MUST NOT guess anything; they must verify via search first.\n"
-        "6. **Max 300 LOC Files**: Keep code files focused and split them when they exceed 300 lines of code (LOC). Avoid monolithic files and dumping grounds.\n\n"
-        "**CRITICAL**: All 6 rules MUST be evaluated and executed for every single coding action, repository lookup, refactoring, or planning phase without exception.\n"
-    )
     for agent_file in agents_dir.glob("*.md"):
         try:
             content = agent_file.read_text(encoding="utf-8")
-            if "Agent Guidance MCP Server Tool Usage" not in content:
+            if "Agent Guidance MCP — Tool Selection Priority" not in content:
                 with agent_file.open("a", encoding="utf-8") as f:
                     if content and not content.endswith("\n"):
                         f.write("\n")
-                    f.write(rule_block)
+                    f.write(AGENT_RULES_BLOCK)
                 print(f"    Success: Appended global agent rules to {agent_file.name}")
             else:
                 print(f"    Note: Agent rules already present in {agent_file.name}")
@@ -346,30 +343,17 @@ def configure_global_agents_rules():
 
     global_agents_md = Path.home() / ".gemini" / "config" / "AGENTS.md"
     print("  Configuring Global Agent Guidance MCP Rules...")
-    rule_block = (
-        "\n"
-        "## Agent Guidance MCP Server Tool Usage\n\n"
-        "Whenever the user prompts you to perform any coding action, repository lookup, refactoring, or planning, you MUST involve the custom `agent-guidance-mcp` server tools.\n\n"
-        "### Rules:\n"
-        "1. **Always Start with Context Gathering**: Before you read files or make changes, invoke `task_pipeline` or `project_context(operation=\"tree\" / \"search\" / \"read\")` to load optimized project states.\n"
-        "2. **Consult Standards**: Use the `guidance` tool (with `operation=\"search\"` or `operation=\"recommend\"`) to check if any coding standard or instruction applies to the implementation.\n"
-        "3. **Minimize Tokens**: Ensure that you leverage the optimized output of the MCP server tools to run context-efficient development.\n"
-        "4. **Enforce Execution**: Never perform direct filesystem lookups or file reads manually if the corresponding context can be loaded and optimized through the MCP server tools.\n"
-        "5. **Grounding & Planning**: Always find related files, functions, and symbols (using `project_context(operation=\"search\")` or `task_pipeline`) and formulate an implementation plan before proposing changes. Even if the user prompt does not mention specific files/code directly, or references a function name without its location, AI Agents MUST NOT guess anything; they must verify via search first.\n"
-        "6. **Max 300 LOC Files**: Keep code files focused and split them when they exceed 300 lines of code (LOC). Avoid monolithic files and dumping grounds.\n\n"
-        "**CRITICAL**: All 6 rules MUST be evaluated and executed for every single coding action, repository lookup, refactoring, or planning phase without exception.\n"
-    )
     try:
         global_agents_md.parent.mkdir(parents=True, exist_ok=True)
         content = ""
         if global_agents_md.exists():
             content = global_agents_md.read_text(encoding="utf-8")
         
-        if "Agent Guidance MCP Server Tool Usage" not in content:
+        if "Agent Guidance MCP — Tool Selection Priority" not in content:
             with global_agents_md.open("a", encoding="utf-8") as f:
                 if content and not content.endswith("\n"):
                     f.write("\n")
-                f.write(rule_block)
+                f.write(AGENT_RULES_BLOCK)
             print(f"    Success: Appended global agent rules to {global_agents_md}")
         else:
             print(f"    Note: Global agent rules already present in {global_agents_md}")

@@ -13,6 +13,34 @@ from .response_optimizer import TokenBudget, estimate_tokens, optimize_markdown
 from .token_analytics import TokenTracker
 from .token_config import TokenOptimizationConfig, load_config_from_env
 
+AGENT_INSTRUCTIONS = (
+    "## Tool Selection Priority\n\n"
+    "### 1. task_pipeline — CALL FIRST for any coding task\n"
+    "Provides recommendations, project tree, code search, and UI guidance "
+    "in ONE call. Run before any file read or code exploration tool.\n\n"
+    "### 2. guidance — standards & skill lookup\n"
+    "Use guidance(operation='search') before implementing. "
+    "No other tool provides coding standards, security rules, or skill workflows.\n\n"
+    "### 3. project_context — read & search files\n"
+    "- Read files: project_context(operation='read') — token-capped at 300 lines\n"
+    "- Search code: project_context(operation='search') — ranked text search\n"
+    "- Browse tree: project_context(operation='tree')\n\n"
+    "### When to prefer other tools over project_context\n"
+    "- Call graph / symbol structure — use codegraph_explore/codegraph_node if available\n"
+    "- External documentation — use documentation lookup tools\n"
+    "- project_context is the FALLBACK when codegraph is unavailable\n\n"
+    "### When to prefer project_context over other tools\n"
+    "- Reading large files (token budget prevents context blowout)\n"
+    "- Text search across codebase (ranked, bounded results)\n"
+    "- Getting project overview with tree + search in one call (via task_pipeline)\n\n"
+    "### 4. ui_ux — design guidance\n"
+    "Use ui_ux(operation='search') for style, color, typography, chart, and slide guidance.\n\n"
+    "### 5. token_stats — monitor efficiency\n"
+    "Check token savings from optimized responses.\n\n"
+    "### 6. health_check — verify server status\n"
+    "Confirm server is running and get entry count."
+)
+
 WORKFLOW_MODE_MAP: dict[str, str] = {
     "init": "skills/workflow-modes/references/workflow-init.md",
     "plan": "skills/workflow-modes/references/workflow-plan.md",
@@ -104,7 +132,7 @@ def create_server(
     else:
         set_config(config)
     catalog = build_catalog(root)
-    mcp = FastMCP("Agent Guidance MCP", json_response=True)
+    mcp = FastMCP("Agent Guidance MCP", instructions=AGENT_INSTRUCTIONS, json_response=True)
     register_handlers(mcp, catalog)
     return mcp
 
@@ -159,7 +187,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         include_ui: bool = True,
         limit: int = 8,
     ) -> dict[str, object]:
-        """Prepare task recommendations, project context, and optional UI guidance in one call. Parameters: task (str, required) — description of the work; project_path (str) — root of the project to scan; focus (str) — domain focus like 'general', 'frontend', 'backend'; code_query (str|None) — optional code search override; include_tree (bool) — include project directory tree; include_ui (bool) — attach UI/UX guidance when task signals UI intent; limit (int) — max recommendations (default 8)."""
+        """CALL FIRST before any coding task. Prepares recommendations, project tree, code search, and optional UI guidance in ONE optimized call. Use BEFORE codegraph, file reads, or implementation. Parameters: task (str, required) — description of the work; project_path (str) — root of the project to scan; focus (str) — domain focus like 'general', 'frontend', 'backend'; code_query (str|None) — optional code search override; include_tree (bool) — include project directory tree; include_ui (bool) — attach UI/UX guidance when task signals UI intent; limit (int) — max recommendations (default 8)."""
         return pipelines.task_pipeline(
             catalog=catalog,
             task=task,
@@ -183,7 +211,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         limit: int = 10,
         include_content: bool = False,
     ) -> dict[str, object] | list[dict[str, object]]:
-        """Grouped standards catalog operations: list (list entries), get (fetch by identifier with dependency resolution), search (query with ranking and snippets), recommend (task-context-aware). Parameters: operation (str, required) — one of list/get/search/recommend; query (str) — search/recommend query string; identifier (str) — entry identifier for get; category (str) — filter by category; kind (str) — filter by kind (skill/doc/principle/etc.); limit (int) — max results (default 10); include_content (bool) — include full body in get response (default False)."""
+        """Standards & skill lookup. Use guidance(operation='search') BEFORE implementing to find applicable coding standards, security rules, and skill workflows. No other tool provides this. Parameters: operation (str, required) — one of list/get/search/recommend; query (str) — search/recommend query string; identifier (str) — entry identifier for get; category (str) — filter by category; kind (str) — filter by kind (skill/doc/principle/etc.); limit (int) — max results (default 10); include_content (bool) — include full body in get response (default False)."""
         return pipelines.guidance(
             catalog=catalog,
             operation=operation,
@@ -211,7 +239,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         max_total_bytes: int = project_context_helpers.DEFAULT_MAX_TOTAL_BYTES,
         limit: int = 20,
     ) -> dict[str, object]:
-        """Grouped project context operations: tree (directory tree), search (grep file contents), read (read file by path with line range), snapshot (export project snapshot). Parameters: operation (str, required) — one of tree/search/read/snapshot; project_path (str) — root of the project; query (str) — search query for grep; relative_path (str) — file path for read; start_line (int) — line offset for read (default 1); max_lines (int) — max lines to read (default 300); max_depth (int) — directory tree depth (default 8); output_path (str) — snapshot output path; max_file_bytes (int) — per-file cap for snapshot; max_total_bytes (int) — total cap for snapshot; limit (int) — max search results (default 20)."""
+        """Read & search project files with built-in token budgets. Use project_context(operation='read') for bounded file reading, project_context(operation='search') for codebase text search (primary fallback when codegraph is unavailable), project_context(operation='tree') for directory overview. Parameters: operation (str, required) — one of tree/search/read/snapshot; project_path (str) — root of the project; query (str) — search query for grep; relative_path (str) — file path for read; start_line (int) — line offset for read (default 1); max_lines (int) — max lines to read (default 300); max_depth (int) — directory tree depth (default 8); output_path (str) — snapshot output path; max_file_bytes (int) — per-file cap for snapshot; max_total_bytes (int) — total cap for snapshot; limit (int) — max search results (default 20)."""
         return pipelines.project_context(
             operation=operation,
             project_path=project_path,
@@ -238,7 +266,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         output_format: str = "markdown",
         limit: int = 3,
     ) -> dict[str, object]:
-        """Grouped UI/UX Pro Max operations: search (query guidance data by domain/stack), design_system (generate compact design system recommendation), slides (search slide strategy/layout/copy/chart). Parameters: operation (str, required) — one of search/design_system/slides; query (str, required) — search query; domain (str) — UI domain filter (style/color/chart/landing/product/ux/typography/icons/react/web); stack (str) — framework stack filter (react/nextjs/vue/svelte/astro/etc.); project_name (str) — project name for design_system; output_format (str) — markdown or ascii (default markdown); limit (int) — max results (default 3)."""
+        """UI/UX design guidance. Use for style recommendations, color palettes, typography pairings, chart selection, and slide layouts. Parameters: operation (str, required) — one of search/design_system/slides; query (str, required) — search query; domain (str) — UI domain filter (style/color/chart/landing/product/ux/typography/icons/react/web); stack (str) — framework stack filter (react/nextjs/vue/svelte/astro/etc.); project_name (str) — project name for design_system; output_format (str) — markdown or ascii (default markdown); limit (int) — max results (default 3)."""
         return pipelines.ui_ux(
             catalog=catalog,
             operation=operation,
