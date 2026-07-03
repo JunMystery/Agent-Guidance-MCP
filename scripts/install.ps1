@@ -40,8 +40,13 @@ if (Test-Path "pyproject.toml") {
 # Try PyPI next
 if (-not $installed) {
     Write-Host "Attempting installation from PyPI..."
+    $oldPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
     & $uvBin tool install agent-guidance-mcp --force 2>$null
-    if ($LASTEXITCODE -eq 0) {
+    $pypiExitCode = $LASTEXITCODE
+    $ErrorActionPreference = $oldPreference
+    
+    if ($pypiExitCode -eq 0) {
         $installed = $true
     } else {
         Write-Host "PyPI installation failed (package may not be published yet). Falling back to GitHub..." -ForegroundColor Yellow
