@@ -68,14 +68,15 @@ def set_config(config: TokenOptimizationConfig | None) -> None:
 
 def get_tracker() -> TokenTracker:
     """Return the process-level token savings tracker."""
-    global _global_tracker
+    global _global_config, _global_tracker
     with _config_lock:
         if _global_tracker is None:
-            config = get_config()
+            if _global_config is None:
+                _global_config = load_config_from_env()
             _global_tracker = TokenTracker(
-                enabled=config.enabled and config.track_savings,
-                max_records=config.tracker_max_records,
-                trim_to=config.tracker_trim_to,
+                enabled=_global_config.enabled and _global_config.track_savings,
+                max_records=_global_config.tracker_max_records,
+                trim_to=_global_config.tracker_trim_to,
             )
         return _global_tracker
 
