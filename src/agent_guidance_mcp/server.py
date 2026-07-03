@@ -141,10 +141,18 @@ def create_server(
     try:
         from .database import CodeGraphDatabase
         from .indexer import CodeGraphIndexer
-        db_path = Path(root or ".").resolve() / ".agent-context" / "codegraph.db"
+        from .watcher import CodeGraphWatcher
+        
+        project_root = Path(root or ".").resolve()
+        db_path = project_root / ".agent-context" / "codegraph.db"
         db = CodeGraphDatabase(db_path)
-        indexer = CodeGraphIndexer(Path(root or ".").resolve(), db)
+        
+        indexer = CodeGraphIndexer(project_root, db)
         indexer.run()
+        
+        # Start file watcher for real-time incremental re-indexing
+        watcher = CodeGraphWatcher(project_root, db, interval_seconds=5.0)
+        watcher.start()
     except Exception:
         pass
 
@@ -255,7 +263,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         max_total_bytes: int = project_context_helpers.DEFAULT_MAX_TOTAL_BYTES,
         limit: int = 20,
     ) -> dict[str, object]:
-        """Read & search project files with built-in token budgets. Use project_context(operation='read') for bounded file reading, project_context(operation='search') for codebase text search (primary fallback when codegraph is unavailable), project_context(operation='tree') for directory overview, project_context(operation='symbols') for symbol extraction (classes/functions/methods), project_context(operation='references') to find symbol usage across the codebase, project_context(operation='structure') for hierarchical file structure, project_context(operation='callers') to get symbol callers, project_context(operation='callees') to get symbol callees. Parameters: operation (str, required) — one of tree/search/read/snapshot/symbols/references/structure/callers/callees; project_path (str) — root of the project; query (str) — search query for grep, symbol name for references, or symbol ID for callers/callees; relative_path (str) — file path for read/symbols/structure; start_line (int) — line offset for read (default 1); max_lines (int) — max lines to read (default 300); max_depth (int) — directory tree depth (default 8); output_path (str) — snapshot output path; max_file_bytes (int) — per-file cap for snapshot; max_total_bytes (int) — total cap for snapshot; limit (int) — max search/reference results (default 20)."""
+        """Read & search project files with built-in token budgets. Use project_context(operation='read') for bounded file reading, project_context(operation='search') for codebase text search (primary fallback when codegraph is unavailable), project_context(operation='tree') for directory overview, project_context(operation='symbols') for symbol extraction (classes/functions/methods), project_context(operation='references') to find symbol usage across the codebase, project_context(operation='structure') for hierarchical file structure, project_context(operation='callers') to get symbol callers, project_context(operation='callees') to get symbol callees, project_context(operation='diff') to view the git diff of workspace changes. Parameters: operation (str, required) — one of tree/search/read/snapshot/symbols/references/structure/callers/callees/diff; project_path (str) — root of the project; query (str) — search query for grep, symbol name for references, or symbol ID for callers/callees; relative_path (str) — file path for read/symbols/structure; start_line (int) — line offset for read (default 1); max_lines (int) — max lines to read (default 300); max_depth (int) — directory tree depth (default 8); output_path (str) — snapshot output path; max_file_bytes (int) — per-file cap for snapshot; max_total_bytes (int) — total cap for snapshot; limit (int) — max search/reference results (default 20)."""
         return pipelines.project_context(
             operation=operation,
             project_path=project_path,
@@ -310,6 +318,13 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             "version": __version__,
             "entries": catalog.manifest()["entry_count"],
         }
+
+    @mcp.tool()
+    def diagnose() -> dict[str, object]:
+        """Perform comprehensive self-diagnostics on the server, tree-sitter capabilities, SQLite CodeGraph database, and Context7 network connectivity. No parameters."""
+        from .diagnostics import run_diagnostics
+        root_path = Path(catalog.root or ".").resolve()
+        return run_diagnostics(root_path, catalog)
 
 
     @mcp.prompt()

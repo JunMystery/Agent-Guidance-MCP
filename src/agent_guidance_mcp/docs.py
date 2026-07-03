@@ -2,8 +2,10 @@
 
 import os
 import json
+import time
 import urllib.request
 import urllib.parse
+import functools
 from typing import Any
 
 from .response_optimizer import TokenBudget, optimize_source_content
@@ -22,6 +24,52 @@ def _get_headers() -> dict[str, str]:
         headers["Authorization"] = f"Bearer {api_key}"
     return headers
 
+def _url_open_with_retry(req: urllib.request.Request, timeout: int, retries: int = 2) -> bytes:
+    """Execute HTTP request with exponential backoff retry."""
+    last_err = None
+    for attempt in range(retries + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as response:
+                return response.read()
+        except Exception as e:
+            last_err = e
+            if attempt < retries:
+                time.sleep(2 ** attempt)
+    raise last_err or RuntimeError("Request failed after retries")
+
+@functools.lru_cache(maxsize=128)
+def _resolve_library_id(library_name: str, query: str, api_key: str | None) -> tuple[str | None, Any]:
+    """Helper cached by library name and query to find libraryId."""
+    headers = {
+        "Accept": "application/json",
+        "User-Agent": "agent-guidance-mcp/1.0"
+    }
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    search_params = urllib.parse.urlencode({
+        "libraryName": library_name,
+        "query": query
+    })
+    search_url = f"{API_BASE}/libs/search?{search_params}"
+    
+    req = urllib.request.Request(search_url, headers=headers)
+    try:
+        data_bytes = _url_open_with_retry(req, timeout=10)
+        data = json.loads(data_bytes.decode("utf-8"))
+    except Exception as e:
+        return None, f"Failed to search library '{library_name}' in Context7: {e}"
+
+    library_id = None
+    if isinstance(data, list) and len(data) > 0:
+        library_id = data[0].get("id")
+    elif isinstance(data, dict):
+        results = data.get("results") or data.get("libs") or []
+        if results and len(results) > 0:
+            library_id = results[0].get("id")
+
+    return library_id, data
+
 def query_library_docs(
     library_name: str,
     query: str,
@@ -31,36 +79,16 @@ def query_library_docs(
     """Retrieve documentation from Context7 for the given library and query."""
     config = config or load_config_from_env()
     headers = _get_headers()
+    api_key = os.environ.get("CONTEXT7_API_KEY")
 
     # Step 1: Resolve libraryId
-    search_params = urllib.parse.urlencode({
-        "libraryName": library_name,
-        "query": query
-    })
-    search_url = f"{API_BASE}/libs/search?{search_params}"
-    
-    req = urllib.request.Request(search_url, headers=headers)
-    try:
-        with urllib.request.urlopen(req, timeout=10) as response:
-            data = json.loads(response.read().decode("utf-8"))
-    except Exception as e:
-        return {"error": f"Failed to search library '{library_name}' in Context7: {e}"}
-
-    # Extract libraryId from search results
-    # The API structure usually returns a list of matches, e.g. [{"id": "/vercel/next.js", "name": "Next.js"}]
-    library_id = None
-    if isinstance(data, list) and len(data) > 0:
-        library_id = data[0].get("id")
-    elif isinstance(data, dict):
-        # Fallback if structure is {"results": [...]}
-        results = data.get("results") or data.get("libs") or []
-        if results and len(results) > 0:
-            library_id = results[0].get("id")
-
+    library_id, search_result = _resolve_library_id(library_name, query, api_key)
     if not library_id:
+        if isinstance(search_result, str):
+            return {"error": search_result}
         return {
             "error": f"Could not resolve library ID for '{library_name}'.",
-            "search_response": data
+            "search_response": search_result
         }
 
     # Step 2: Get Context
@@ -73,8 +101,8 @@ def query_library_docs(
     
     req = urllib.request.Request(context_url, headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=15) as response:
-            res_data = json.loads(response.read().decode("utf-8"))
+        res_bytes = _url_open_with_retry(req, timeout=15)
+        res_data = json.loads(res_bytes.decode("utf-8"))
     except Exception as e:
         return {"error": f"Failed to fetch context for library ID '{library_id}': {e}"}
 
@@ -102,3 +130,4 @@ def query_library_docs(
         "original_length": original_len,
         "optimized_length": len(optimized)
     }
+

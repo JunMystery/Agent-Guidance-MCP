@@ -122,6 +122,10 @@ class CodeGraphIndexer:
         # Build basic relationship edges (call graphs)
         if updates_count > 0:
             self._resolve_references()
+            try:
+                self.db.optimize()
+            except Exception:
+                pass
 
         return {
             "scanned": len(all_files),

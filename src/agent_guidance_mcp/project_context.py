@@ -34,10 +34,14 @@ from .project_scan import (
     tokenize,
 )
 
-
-def _get_db(root: Path) -> CodeGraphDatabase:
-    """Return database connection for the resolved project root."""
-    return CodeGraphDatabase(root / ".agent-context" / "codegraph.db")
+from .project_codegraph import (
+    _get_db,
+    extract_project_symbols,
+    find_project_references,
+    get_project_file_structure,
+    get_project_callers,
+    get_project_callees,
+)
 
 
 def export_project_snapshot(
@@ -275,153 +279,61 @@ def search_project_code(
     }
 
 
-def extract_project_symbols(
+def get_project_diff(
     project_path: str = ".",
-    relative_path_value: str = "",
     config: TokenOptimizationConfig | None = None,
     tracker: TokenTracker | None = None,
 ) -> dict[str, object]:
-    """Extract symbols (classes, functions, methods) from a file."""
-    if not relative_path_value:
-        raise ValueError("relative_path is required.")
+    """Retrieve git diff (staged and unstaged) in the project workspace, token-optimized."""
+    import subprocess
     root = resolve_project_root(project_path)
-    path = resolve_inside_project(root, relative_path_value)
-    ensure_project_file_allowed(root, path)
-
-    # Try DB first
-    db = _get_db(root)
-    try:
-        rel = relative_path(root, path)
-        rows = db.get_symbols_in_file(rel)
-        if rows:
-            symbols_dicts = [dict(r) for r in rows]
-            return {
-                "project_root": str(root),
-                "file": rel,
-                "language": language_hint(path),
-                "symbols": symbols_dicts,
-                "total": len(symbols_dicts),
-            }
-    except Exception:
-        pass
-    finally:
-        db.close()
-
-    # Live fallback
-    symbols = extract_symbols(path, root)
-    return {
-        "project_root": str(root),
-        "file": relative_path(root, path),
-        "language": language_hint(path),
-        "symbols": [s.to_dict() for s in symbols],
-        "total": len(symbols),
-    }
-
-
-def find_project_references(
-    project_path: str = ".",
-    symbol_name: str = "",
-    limit: int = 20,
-    config: TokenOptimizationConfig | None = None,
-    tracker: TokenTracker | None = None,
-) -> dict[str, object]:
-    """Find where a symbol is referenced across the codebase."""
     config = config or load_config_from_env()
-    if not symbol_name:
-        raise ValueError("symbol_name is required.")
-    root = resolve_project_root(project_path)
-    limit = max(1, min(limit, 100))
 
-    # Try DB first
-    db = _get_db(root)
     try:
-        # Check references if edges exist (or map using references table if we expand it)
-        pass
-    except Exception:
-        pass
-    finally:
-        db.close()
+        # Get diff of both staged and unstaged changes
+        res = subprocess.run(
+            ["git", "diff", "HEAD"],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        diff_text = res.stdout or ""
+        if not diff_text:
+            # Fallback to unstaged diff
+            res2 = subprocess.run(
+                ["git", "diff"],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            diff_text = res2.stdout or ""
+    except Exception as e:
+        return {"error": f"Failed to run git diff: {e}", "project_root": str(root)}
 
-    matches = find_references(root, symbol_name, limit=limit)
-    return {
-        "project_root": str(root),
-        "symbol": symbol_name,
-        "matches": matches,
-        "total": len(matches),
-    }
+    original_len = len(diff_text)
+    if not diff_text.strip():
+        return {
+            "project_root": str(root),
+            "diff": "No changes detected.",
+            "original_length": 0,
+            "optimized_length": 0,
+        }
 
-
-def get_project_file_structure(
-    project_path: str = ".",
-    relative_path_value: str = "",
-    config: TokenOptimizationConfig | None = None,
-    tracker: TokenTracker | None = None,
-) -> dict[str, object]:
-    """Return hierarchical structure (classes, methods, functions) of a file."""
-    config = config or load_config_from_env()
-    if not relative_path_value:
-        raise ValueError("relative_path is required.")
-    root = resolve_project_root(project_path)
-    path = resolve_inside_project(root, relative_path_value)
-    ensure_project_file_allowed(root, path)
-    structure = get_file_structure(path, root)
-
+    # Bounded diff
     if config.enabled:
-        from .response_optimizer import optimize_source_content
-        raw = str(structure)
-        optimized, _ = optimize_source_content(raw, "json", config=config)
-        import json
-        try:
-            structure = json.loads(optimized)
-        except (json.JSONDecodeError, TypeError):
-            pass
+        optimized, _ = optimize_source_content(diff_text, "diff", config=config)
+    else:
+        optimized = diff_text
 
-    return structure
-
-
-def get_project_callers(
-    project_path: str = ".",
-    symbol_id: str = "",
-    config: TokenOptimizationConfig | None = None,
-    tracker: TokenTracker | None = None,
-) -> dict[str, object]:
-    """Get all callers of a given symbol ID from the database."""
-    if not symbol_id:
-        raise ValueError("symbol_id is required.")
-    root = resolve_project_root(project_path)
-    db = _get_db(root)
-    try:
-        callers = db.get_callers(symbol_id)
-        results = [dict(c) for c in callers]
-        return {
-            "project_root": str(root),
-            "symbol_id": symbol_id,
-            "callers": results,
-            "total": len(results),
-        }
-    finally:
-        db.close()
+    _record_savings(tracker, "project_context", "diff", diff_text, optimized)
+    return {
+        "project_root": str(root),
+        "diff": optimized,
+        "original_length": original_len,
+        "optimized_length": len(optimized),
+    }
 
 
-def get_project_callees(
-    project_path: str = ".",
-    symbol_id: str = "",
-    config: TokenOptimizationConfig | None = None,
-    tracker: TokenTracker | None = None,
-) -> dict[str, object]:
-    """Get all callees of a given symbol ID from the database."""
-    if not symbol_id:
-        raise ValueError("symbol_id is required.")
-    root = resolve_project_root(project_path)
-    db = _get_db(root)
-    try:
-        callees = db.get_callees(symbol_id)
-        results = [dict(c) for c in callees]
-        return {
-            "project_root": str(root),
-            "symbol_id": symbol_id,
-            "callees": results,
-            "total": len(results),
-        }
-    finally:
-        db.close()
+

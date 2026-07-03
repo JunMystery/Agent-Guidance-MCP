@@ -13,33 +13,17 @@ from .token_analytics import TokenTracker
 from .token_config import TokenOptimizationConfig, load_config_from_env
 
 GUIDANCE_OPERATIONS = ("list", "get", "search", "recommend", "reason", "docs")
-PROJECT_CONTEXT_OPERATIONS = ("tree", "search", "read", "snapshot", "symbols", "references", "structure", "callers", "callees")
+PROJECT_CONTEXT_OPERATIONS = ("tree", "search", "read", "snapshot", "symbols", "references", "structure", "callers", "callees", "diff")
 UI_UX_OPERATIONS = ("search", "design_system", "slides")
 
-from collections import OrderedDict
-
-_FRAMEWORK_CACHE_MAX = 10
-_FRAMEWORK_CACHE: OrderedDict[tuple[str, float], list[str]] = OrderedDict()
-
-UI_TASK_TERMS = {
-    "a11y",
-    "accessibility",
-    "brand",
-    "branding",
-    "color",
-    "component",
-    "components",
-    "dashboard",
-    "design",
-    "frontend",
-    "landing",
-    "slides",
-    "typography",
-    "ui",
-    "ux",
-    "visual",
-}
-
+from .pipeline_helpers import (
+    _detect_frameworks,
+    _is_ui_task,
+    _unsupported_operation,
+    _missing_argument,
+    _record_savings,
+    lifecycle_sort_key,
+)
 
 def guidance(
     catalog: StandardsCatalog,
@@ -212,6 +196,13 @@ def project_context(
             tracker=tracker,
         )
 
+    if operation_key == "diff":
+        return project_context_helpers.get_project_diff(
+            project_path=project_path,
+            config=config,
+            tracker=tracker,
+        )
+
     try:
         return project_context_helpers.export_project_snapshot(
             project_path=project_path,
@@ -294,117 +285,6 @@ def ui_ux(
     return optimized
 
 
-def _detect_frameworks(project_path: str) -> list[str]:
-    import json
-    from pathlib import Path
-    from .project_scan import resolve_project_root
-    
-    base_path = resolve_project_root(project_path)
-    key = str(base_path.resolve())
-    
-    pkg_json = base_path / "package.json"
-    mtime = pkg_json.stat().st_mtime if pkg_json.is_file() else base_path.stat().st_mtime
-    cache_key = (key, mtime)
-    if cache_key in _FRAMEWORK_CACHE:
-        # Move to end for LRU ordering
-        val = _FRAMEWORK_CACHE.pop(cache_key)
-        _FRAMEWORK_CACHE[cache_key] = val
-        return list(val)
-    
-    while len(_FRAMEWORK_CACHE) >= _FRAMEWORK_CACHE_MAX:
-        _FRAMEWORK_CACHE.popitem(last=False)
-    
-    detected: list[str] = []
-    
-    # 1. Node/JS frameworks via package.json
-    pkg_json = base_path / "package.json"
-    if pkg_json.is_file():
-        try:
-            with open(pkg_json, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            deps = data.get("dependencies", {}) or {}
-            dev_deps = data.get("devDependencies", {}) or {}
-            all_deps = {**deps, **dev_deps}
-            
-            js_frameworks = {
-                "react": "react",
-                "next": "nextjs",
-                "vue": "vue",
-                "nuxt": "nuxt",
-                "svelte": "svelte",
-                "angular": "angular",
-                "express": "express",
-                "nestjs": "nestjs",
-                "vite": "vite",
-                "tailwindcss": "tailwindcss",
-            }
-            for dep_key, tag in js_frameworks.items():
-                if dep_key in all_deps or any(dep_key in str(k) for k in all_deps):
-                    detected.append(tag)
-        except (OSError, json.JSONDecodeError):
-            pass
-
-    # 2. Python frameworks via pyproject.toml, requirements.txt
-    pyproject = base_path / "pyproject.toml"
-    req_txt = base_path / "requirements.txt"
-    py_content = ""
-    if pyproject.is_file():
-        try:
-            py_content += pyproject.read_text(encoding="utf-8")
-        except (OSError, json.JSONDecodeError):
-            pass
-    if req_txt.is_file():
-        try:
-            py_content += req_txt.read_text(encoding="utf-8")
-        except (OSError, json.JSONDecodeError):
-            pass
-            
-    if py_content:
-        py_frameworks = {
-            "django": "django",
-            "fastapi": "fastapi",
-            "flask": "flask",
-            "pytest": "pytest",
-            "numpy": "numpy",
-            "torch": "pytorch",
-        }
-        py_content_lower = py_content.lower()
-        for dep_key, tag in py_frameworks.items():
-            if dep_key in py_content_lower:
-                detected.append(tag)
-
-    # 3. Rust frameworks via Cargo.toml
-    cargo_toml = base_path / "Cargo.toml"
-    if cargo_toml.is_file():
-        try:
-            content = cargo_toml.read_text(encoding="utf-8").lower()
-            rust_frameworks = {
-                "tokio": "tokio",
-                "serde": "serde",
-                "axum": "axum",
-                "actix": "actix",
-            }
-            for dep_key, tag in rust_frameworks.items():
-                if dep_key in content:
-                    detected.append(tag)
-        except (OSError, json.JSONDecodeError):
-            pass
-
-    # 4. Ruby frameworks via Gemfile
-    gemfile = base_path / "Gemfile"
-    if gemfile.is_file():
-        try:
-            content = gemfile.read_text(encoding="utf-8").lower()
-            if "rails" in content:
-                detected.append("rails")
-            if "sinatra" in content:
-                detected.append("sinatra")
-        except (OSError, json.JSONDecodeError):
-            pass
-
-    result = list(dict.fromkeys(detected))
-    _FRAMEWORK_CACHE[cache_key] = list(result)
-    return result
 
 def task_pipeline(
     catalog: StandardsCatalog,
@@ -478,29 +358,9 @@ def task_pipeline(
         }
 
     # Execution Chaining: Sort recommended skills in lifecycle order
-    lifecycle_order = [
-        "spec-driven-development",
-        "planning-and-task-breakdown",
-        "intent-driven-development",
-        "api-design",
-        "frontend-patterns",
-        "backend-patterns",
-        "incremental-implementation",
-        "tdd-workflow",
-        "verification-loop",
-        "browser-qa",
-        "code-review-and-quality",
-        "shipping-and-launch",
-    ]
     recs = concurrent_results["recommendations"].get("recommendations", [])
     skills_to_chain = [r["identifier"] for r in recs if r.get("kind") == "skill"]
     
-    def lifecycle_sort_key(skill_id: str) -> int:
-        try:
-            return lifecycle_order.index(skill_id)
-        except ValueError:
-            return len(lifecycle_order)
-            
     sorted_skills = sorted(skills_to_chain, key=lifecycle_sort_key)
     if sorted_skills:
         result["execution_sequence"] = sorted_skills
@@ -510,39 +370,3 @@ def task_pipeline(
     )
     _record_savings(tracker, "task_pipeline", "task_pipeline", result, optimized)
     return optimized
-
-
-def _is_ui_task(value: str) -> bool:
-    terms = set()
-    for t in value.split():
-        cleaned = t.strip(".,:;()[]{}").lower()
-        terms.add(cleaned)
-        terms.update(cleaned.split("-"))
-    return bool(terms & UI_TASK_TERMS)
-
-
-def _unsupported_operation(operation: str, supported: tuple[str, ...]) -> dict[str, object]:
-    return {
-        "error": f"Unsupported operation: {operation}",
-        "supported_operations": list(supported),
-    }
-
-
-def _missing_argument(argument: str, operation: str) -> dict[str, Any]:
-    return {
-        "error": f"{argument} is required for operation '{operation}'.",
-        "required_argument": argument,
-        "operation": operation,
-    }
-
-
-def _record_savings(
-    tracker: TokenTracker | None,
-    tool_name: str,
-    operation: str,
-    original: object,
-    optimized: object,
-) -> None:
-    from .utils import record_savings
-    record_savings(tracker, tool_name, operation, original, optimized)
-
