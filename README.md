@@ -45,6 +45,20 @@ agent-guidance-mcp --update
 uv tool update agent-guidance-mcp
 ```
 
+### Uninstalling
+
+**Linux / macOS (Bash):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/JunMystery/Agent-Guidance-MCP/main/scripts/uninstall.sh | bash
+```
+
+**Windows (CMD / PowerShell):**
+```cmd
+powershell -Command "irm https://raw.githubusercontent.com/JunMystery/Agent-Guidance-MCP/main/scripts/uninstall.ps1 | iex"
+```
+
+*This will automatically remove the server registration from all detected IDE client configurations, clean up the global rules in `AGENTS.md`, remove the database/skills directory (`~/.agent-guidance`), and uninstall the executable.*
+
 ### Manual / Local Developer Install
 
 ```bash

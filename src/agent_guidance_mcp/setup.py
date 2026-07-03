@@ -149,5 +149,85 @@ def run_setup() -> None:
     print("\n=== Setup completed successfully! ===")
     print("Restart your IDE / MCP Client to apply the configuration.")
 
+def remove_mcp_clients():
+    print("\nRemoving MCP Clients registrations...")
+    if sys.platform == "win32":
+        appdata = Path(os.environ.get("APPDATA", ""))
+        claude_path = appdata / "Claude" / "claude_desktop_config.json"
+        code_path = appdata / "Code" / "User" / "globalStorage"
+        cursor_path = appdata / "Cursor" / "User" / "globalStorage"
+    elif sys.platform == "darwin":
+        home = Path.home()
+        claude_path = home / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json"
+        code_path = home / "Library" / "Application Support" / "Code" / "User" / "globalStorage"
+        cursor_path = home / "Library" / "Application Support" / "Cursor" / "User" / "globalStorage"
+    else: # Linux
+        home = Path.home()
+        claude_path = home / ".config" / "Claude" / "claude_desktop_config.json"
+        code_path = home / ".config" / "Code" / "User" / "globalStorage"
+        cursor_path = home / ".config" / "Cursor" / "User" / "globalStorage"
+
+    targets = [
+        ("Claude Desktop", claude_path),
+        ("Gemini MCP config", Path.home() / ".gemini" / "config" / "mcp_config.json"),
+        ("Cursor Native", Path.home() / ".cursor" / "mcp.json"),
+        ("VS Code Native (User)", code_path.parent / "mcp.json"),
+        ("Continue (Global)", Path.home() / ".continue" / "mcpServers" / "config.json")
+    ]
+
+    # Cline & Roo-Code extensions
+    extensions = [
+        ("VS Code Cline", code_path / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"),
+        ("VS Code Roo-Code", code_path / "roovet.roo-cline" / settings_path()),
+        ("Cursor Cline", cursor_path / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"),
+        ("Cursor Roo-Code", cursor_path / "roovet.roo-cline" / settings_path()),
+    ]
+    for name, path in extensions:
+        if path.parent.parent.exists():
+            targets.append((name, path))
+
+    for name, path in targets:
+        if not path.exists():
+            continue
+        try:
+            config = json.loads(path.read_text(encoding="utf-8"))
+            config_key = "servers" if "VS Code Native" in name else "mcpServers"
+            if config_key in config and SERVER_ID in config[config_key]:
+                del config[config_key][SERVER_ID]
+                path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+                print(f"    Success: Removed '{SERVER_ID}' registration from {name}.")
+        except Exception as e:
+            print(f"    Error updating config {name}: {e}")
+
+def remove_global_rules():
+    print("\nRemoving global configuration and directories...")
+    global_config_dir = Path.home() / ".gemini" / "config"
+    agents_md = global_config_dir / "AGENTS.md"
+    if agents_md.exists():
+        try:
+            content = agents_md.read_text(encoding="utf-8")
+            if AGENT_RULES_BLOCK in content:
+                content = content.replace(AGENT_RULES_BLOCK, "")
+                agents_md.write_text(content, encoding="utf-8")
+                print("    Success: Removed agent rules block from global AGENTS.md.")
+        except Exception as e:
+            print(f"    Error updating global AGENTS.md: {e}")
+            
+    # Remove ~/.agent-guidance directory
+    agent_guidance_dir = Path.home() / ".agent-guidance"
+    if agent_guidance_dir.exists() and agent_guidance_dir.is_dir():
+        try:
+            shutil.rmtree(agent_guidance_dir)
+            print("    Success: Deleted ~/.agent-guidance directory.")
+        except Exception as e:
+            print(f"    Error deleting ~/.agent-guidance: {e}")
+
+def run_uninstall() -> None:
+    print("=== Agent Guidance MCP Uninstall ===")
+    remove_mcp_clients()
+    remove_global_rules()
+    print("\n=== Uninstall completed successfully! ===")
+    print("Client configurations cleared. You can now safely uninstall the python package.")
+
 if __name__ == "__main__":
     run_setup()
