@@ -20,6 +20,10 @@ dependencies = [
 dev = [
   "pytest>=8.0"
 ]
+ast = [
+  "tree-sitter>=0.21.0",
+  "tree-sitter-languages>=1.10.0"
+]
 
 [project.scripts]
 agent-guidance-mcp = "agent_guidance_mcp.__main__:main"

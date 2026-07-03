@@ -12,7 +12,9 @@ For EVERY coding action, repository lookup, refactoring, or planning:
 | Check coding standards | `guidance(operation="search", query="...")` | No other tool provides standards or skill lookup |
 | Read a file | `project_context(operation="read", relative_path="...")` | Token-capped at 300 lines — prevents context blowout |
 | Search codebase text | `project_context(operation="search", query="...")` | Ranked, bounded results. Fallback when codegraph unavailable |
-| Understand code structure | `codegraph_explore` (if available) | Call graph + symbol lookup. Fallback: `project_context(operation="search")` |
+| Understand code structure | `project_context(operation="structure", relative_path="...")` | Hierarchical view of classes, methods, functions in a file |
+| Extract symbols | `project_context(operation="symbols", relative_path="...")` | Flat list of classes, functions, methods with signatures |
+| Find symbol references | `project_context(operation="references", query="...")` | Locate all usages of a symbol across the codebase |
 | Get UI/design guidance | `ui_ux(operation="search", query="...")` | Style, colors, typography, charts, slides |
 | Browse project structure | `project_context(operation="tree")` | Optimized directory tree view |
 

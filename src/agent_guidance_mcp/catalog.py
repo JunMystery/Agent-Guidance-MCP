@@ -266,6 +266,20 @@ class StandardsCatalog:
             "recommendations": selected[:limit],
         }
 
+    def recommend_reasoning_framework(self, task: str) -> dict[str, object]:
+        """Return a structured reasoning framework for the given task."""
+        from .reasoning import get_reasoning_framework
+        framework = get_reasoning_framework(task)
+        skill_entries: list[dict[str, object]] = []
+        for skill_id in framework["skills_to_invoke"]:
+            try:
+                entry = self.get_entry(skill_id)
+                skill_entries.append(entry.to_dict())
+            except KeyError:
+                continue
+        framework["skill_entries"] = skill_entries
+        return framework
+
 
 def build_catalog(root: str | Path | None = None) -> StandardsCatalog:
     standards_root = find_standards_root(root)

@@ -24,7 +24,10 @@ AGENT_INSTRUCTIONS = (
     "### 3. project_context — read & search files\n"
     "- Read files: project_context(operation='read') — token-capped at 300 lines\n"
     "- Search code: project_context(operation='search') — ranked text search\n"
-    "- Browse tree: project_context(operation='tree')\n\n"
+    "- Browse tree: project_context(operation='tree')\n"
+    "- Extract symbols: project_context(operation='symbols') — classes, functions, methods\n"
+    "- Find references: project_context(operation='references') — symbol usage across codebase\n"
+    "- File structure: project_context(operation='structure') — hierarchical overview\n\n"
     "### When to prefer other tools over project_context\n"
     "- Call graph / symbol structure — use codegraph_explore/codegraph_node if available\n"
     "- External documentation — use documentation lookup tools\n"
@@ -32,6 +35,7 @@ AGENT_INSTRUCTIONS = (
     "### When to prefer project_context over other tools\n"
     "- Reading large files (token budget prevents context blowout)\n"
     "- Text search across codebase (ranked, bounded results)\n"
+    "- Code exploration via symbols, references, and structure\n"
     "- Getting project overview with tree + search in one call (via task_pipeline)\n\n"
     "### 4. ui_ux — design guidance\n"
     "Use ui_ux(operation='search') for style, color, typography, chart, and slide guidance.\n\n"
@@ -211,7 +215,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         limit: int = 10,
         include_content: bool = False,
     ) -> dict[str, object] | list[dict[str, object]]:
-        """Standards & skill lookup. Use guidance(operation='search') BEFORE implementing to find applicable coding standards, security rules, and skill workflows. No other tool provides this. Parameters: operation (str, required) — one of list/get/search/recommend; query (str) — search/recommend query string; identifier (str) — entry identifier for get; category (str) — filter by category; kind (str) — filter by kind (skill/doc/principle/etc.); limit (int) — max results (default 10); include_content (bool) — include full body in get response (default False)."""
+        """Standards & skill lookup. Use guidance(operation='search') BEFORE implementing to find applicable coding standards, security rules, and skill workflows. Use guidance(operation='reason', query='...') for structured reasoning frameworks (decision/bug/architecture/security/performance). No other tool provides this. Parameters: operation (str, required) — one of list/get/search/recommend/reason; query (str) — search/recommend/reason query string; identifier (str) — entry identifier for get; category (str) — filter by category; kind (str) — filter by kind (skill/doc/principle/etc.); limit (int) — max results (default 10); include_content (bool) — include full body in get response (default False)."""
         return pipelines.guidance(
             catalog=catalog,
             operation=operation,
@@ -239,7 +243,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         max_total_bytes: int = project_context_helpers.DEFAULT_MAX_TOTAL_BYTES,
         limit: int = 20,
     ) -> dict[str, object]:
-        """Read & search project files with built-in token budgets. Use project_context(operation='read') for bounded file reading, project_context(operation='search') for codebase text search (primary fallback when codegraph is unavailable), project_context(operation='tree') for directory overview. Parameters: operation (str, required) — one of tree/search/read/snapshot; project_path (str) — root of the project; query (str) — search query for grep; relative_path (str) — file path for read; start_line (int) — line offset for read (default 1); max_lines (int) — max lines to read (default 300); max_depth (int) — directory tree depth (default 8); output_path (str) — snapshot output path; max_file_bytes (int) — per-file cap for snapshot; max_total_bytes (int) — total cap for snapshot; limit (int) — max search results (default 20)."""
+        """Read & search project files with built-in token budgets. Use project_context(operation='read') for bounded file reading, project_context(operation='search') for codebase text search (primary fallback when codegraph is unavailable), project_context(operation='tree') for directory overview, project_context(operation='symbols') for symbol extraction (classes/functions/methods), project_context(operation='references') to find symbol usage across the codebase, project_context(operation='structure') for hierarchical file structure. Parameters: operation (str, required) — one of tree/search/read/snapshot/symbols/references/structure; project_path (str) — root of the project; query (str) — search query for grep, or symbol name for references; relative_path (str) — file path for read/symbols/structure; start_line (int) — line offset for read (default 1); max_lines (int) — max lines to read (default 300); max_depth (int) — directory tree depth (default 8); output_path (str) — snapshot output path; max_file_bytes (int) — per-file cap for snapshot; max_total_bytes (int) — total cap for snapshot; limit (int) — max search/reference results (default 20)."""
         return pipelines.project_context(
             operation=operation,
             project_path=project_path,

@@ -10,6 +10,7 @@ from .response_optimizer import (
     optimize_snapshot_content,
     optimize_source_content,
 )
+from .symbols import extract_symbols, find_references, get_file_structure
 from .token_analytics import TokenTracker
 from .token_config import TokenOptimizationConfig, load_config_from_env
 from .token_filter import FilterLevel
@@ -53,28 +54,40 @@ def export_project_snapshot(
     max_total_bytes = max(1, max_total_bytes)
 
     tree = build_project_tree(root, DEFAULT_MAX_DEPTH, excluded_paths={output_relative})
+    file_paths = list(iter_project_files(root, excluded_paths={output_relative}))
+
+    def _read_file(path):
+        content, truncated = read_bounded_text(path, max_file_bytes)
+        if content is None:
+            return None
+        return {
+            "path": relative_path(root, path),
+            "language_hint": language_hint(path),
+            "size_bytes": path.stat().st_size,
+            "truncated": truncated,
+            "content": content,
+            "content_bytes": len(content.encode("utf-8")),
+        }
+
+    from .parallel import parallel_map
+
+    raw_results = parallel_map(_read_file, file_paths)
+
     files: list[dict[str, object]] = []
     total_content_bytes = 0
-
-    for path in iter_project_files(root, excluded_paths={output_relative}):
+    for entry in raw_results:
         if total_content_bytes >= max_total_bytes:
             break
-
-        remaining_bytes = max_total_bytes - total_content_bytes
-        content, truncated = read_bounded_text(path, min(max_file_bytes, remaining_bytes))
-        if content is None:
-            continue
-
-        total_content_bytes += len(content.encode("utf-8"))
-        files.append(
-            {
-                "path": relative_path(root, path),
-                "language_hint": language_hint(path),
-                "size_bytes": path.stat().st_size,
-                "truncated": truncated,
-                "content": content,
-            }
-        )
+        content_bytes = entry.pop("content_bytes")
+        if total_content_bytes + content_bytes > max_total_bytes:
+            remaining = max_total_bytes - total_content_bytes
+            if remaining <= 0:
+                break
+            entry["content"] = entry["content"][:remaining]
+            entry["truncated"] = True
+            content_bytes = remaining
+        total_content_bytes += content_bytes
+        files.append(entry)
 
     raw_files = files
     if config.enabled:
@@ -198,38 +211,107 @@ def search_project_code(
     if not terms:
         return {"project_root": str(root), "query": query, "matches": []}
 
-    matches: list[tuple[int, dict[str, object]]] = []
-    seen_files = 0
-    for path in iter_project_files(root, excluded_paths={DEFAULT_SNAPSHOT_PATH}):
-        seen_files += 1
-        if seen_files > 2000:
-            break
+    file_paths = list(iter_project_files(root, excluded_paths={DEFAULT_SNAPSHOT_PATH}))[:2000]
+
+    def _scan_file(path):
         content, _ = read_bounded_text(path, DEFAULT_MAX_FILE_BYTES)
         if content is None:
-            continue
-
+            return None
         haystack = f"{relative_path(root, path)}\n{content}".lower()
         score = sum(haystack.count(term) for term in terms)
         if score == 0:
-            continue
-
+            return None
         line_number, snippet = first_matching_line(content, terms)
-        matches.append(
-            (
-                score,
-                {
-                    "path": relative_path(root, path),
-                    "language_hint": language_hint(path),
-                    "score": score,
-                    "line": line_number,
-                    "snippet": snippet,
-                },
-            )
+        return (
+            score,
+            {
+                "path": relative_path(root, path),
+                "language_hint": language_hint(path),
+                "score": score,
+                "line": line_number,
+                "snippet": snippet,
+            },
         )
 
+    from .parallel import parallel_map
+
+    matches = parallel_map(_scan_file, file_paths)
     matches.sort(key=lambda item: (-item[0], str(item[1]["path"])))
     return {
         "project_root": str(root),
         "query": query,
         "matches": [item for _, item in matches[:limit]],
     }
+
+
+def extract_project_symbols(
+    project_path: str = ".",
+    relative_path_value: str = "",
+    config: TokenOptimizationConfig | None = None,
+    tracker: TokenTracker | None = None,
+) -> dict[str, object]:
+    """Extract symbols (classes, functions, methods) from a file."""
+    if not relative_path_value:
+        raise ValueError("relative_path is required.")
+    root = resolve_project_root(project_path)
+    path = resolve_inside_project(root, relative_path_value)
+    ensure_project_file_allowed(root, path)
+    symbols = extract_symbols(path, root)
+
+    return {
+        "project_root": str(root),
+        "file": relative_path(root, path),
+        "language": language_hint(path),
+        "symbols": [s.to_dict() for s in symbols],
+        "total": len(symbols),
+    }
+
+
+def find_project_references(
+    project_path: str = ".",
+    symbol_name: str = "",
+    limit: int = 20,
+    config: TokenOptimizationConfig | None = None,
+    tracker: TokenTracker | None = None,
+) -> dict[str, object]:
+    """Find where a symbol is referenced across the codebase."""
+    config = config or load_config_from_env()
+    if not symbol_name:
+        raise ValueError("symbol_name is required.")
+    root = resolve_project_root(project_path)
+    limit = max(1, min(limit, 100))
+    matches = find_references(root, symbol_name, limit=limit)
+    return {
+        "project_root": str(root),
+        "symbol": symbol_name,
+        "matches": matches,
+        "total": len(matches),
+    }
+
+
+def get_project_file_structure(
+    project_path: str = ".",
+    relative_path_value: str = "",
+    config: TokenOptimizationConfig | None = None,
+    tracker: TokenTracker | None = None,
+) -> dict[str, object]:
+    """Return hierarchical structure (classes, methods, functions) of a file."""
+    config = config or load_config_from_env()
+    if not relative_path_value:
+        raise ValueError("relative_path is required.")
+    root = resolve_project_root(project_path)
+    path = resolve_inside_project(root, relative_path_value)
+    ensure_project_file_allowed(root, path)
+    structure = get_file_structure(path, root)
+
+    if config.enabled:
+        from .response_optimizer import optimize_source_content
+        raw = str(structure)
+        optimized, _ = optimize_source_content(raw, "json", config=config)
+        import json
+        try:
+            structure = json.loads(optimized)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    return structure

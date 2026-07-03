@@ -11,8 +11,8 @@ from .response_optimizer import estimate_tokens, optimize_response
 from .token_analytics import TokenTracker
 from .token_config import TokenOptimizationConfig, load_config_from_env
 
-GUIDANCE_OPERATIONS = ("list", "get", "search", "recommend")
-PROJECT_CONTEXT_OPERATIONS = ("tree", "search", "read", "snapshot")
+GUIDANCE_OPERATIONS = ("list", "get", "search", "recommend", "reason")
+PROJECT_CONTEXT_OPERATIONS = ("tree", "search", "read", "snapshot", "symbols", "references", "structure")
 UI_UX_OPERATIONS = ("search", "design_system", "slides")
 
 from collections import OrderedDict
@@ -88,6 +88,12 @@ def guidance(
         _record_savings(tracker, "guidance", operation_key, results, optimized["results"])
         return optimized["results"]  # type: ignore[return-value]
 
+    if operation_key == "reason":
+        result = catalog.recommend_reasoning_framework(task=query)
+        optimized = optimize_response(result, config=config)
+        _record_savings(tracker, "guidance", operation_key, result, optimized)
+        return optimized
+
     return optimize_response(
         catalog.recommend_context(task=query, limit=limit), config=config
     )
@@ -138,6 +144,37 @@ def project_context(
             relative_path_value=relative_path,
             start_line=start_line,
             max_lines=max_lines,
+            config=config,
+            tracker=tracker,
+        )
+
+    if operation_key == "symbols":
+        if not relative_path:
+            return _missing_argument("relative_path", operation_key)
+        return project_context_helpers.extract_project_symbols(
+            project_path=project_path,
+            relative_path_value=relative_path,
+            config=config,
+            tracker=tracker,
+        )
+
+    if operation_key == "references":
+        if not query:
+            return _missing_argument("query", operation_key)
+        return project_context_helpers.find_project_references(
+            project_path=project_path,
+            symbol_name=query,
+            limit=limit,
+            config=config,
+            tracker=tracker,
+        )
+
+    if operation_key == "structure":
+        if not relative_path:
+            return _missing_argument("relative_path", operation_key)
+        return project_context_helpers.get_project_file_structure(
+            project_path=project_path,
+            relative_path_value=relative_path,
             config=config,
             tracker=tracker,
         )
@@ -360,31 +397,40 @@ def task_pipeline(
         detected_tags = []
     ecosystem_str = " ".join(detected_tags)
     weighted_task = f"{focus} {ecosystem_str} {task}".strip()
-    recommendations_payload = catalog.recommend_context(task=weighted_task, limit=limit)
-    
-    result: dict[str, object] = {
-        "task": task,
-        "focus": focus,
-        "recommendations": recommendations_payload,
-    }
 
     # Dynamic Intent Routing: Auto-detect code query if none provided
     active_code_query = code_query
     if not active_code_query:
         active_code_query = extract_code_terms(task)
 
+    from .parallel import parallel_run
+
+    concurrent_tasks: dict[str, object] = {
+        "recommendations": lambda: catalog.recommend_context(task=weighted_task, limit=limit),
+    }
     if include_tree:
-        result["project_tree"] = project_context_helpers.get_project_tree(
+        concurrent_tasks["project_tree"] = lambda: project_context_helpers.get_project_tree(
             project_path=project_path,
             max_depth=project_context_helpers.DEFAULT_MAX_DEPTH,
         )
-
     if active_code_query:
-        result["code_search"] = project_context_helpers.search_project_code(
+        concurrent_tasks["code_search"] = lambda: project_context_helpers.search_project_code(
             project_path=project_path,
             query=active_code_query,
             limit=min(max(1, limit), 20),
         )
+
+    concurrent_results = parallel_run(concurrent_tasks)
+
+    result: dict[str, object] = {
+        "task": task,
+        "focus": focus,
+        "recommendations": concurrent_results["recommendations"],
+    }
+    if "project_tree" in concurrent_results:
+        result["project_tree"] = concurrent_results["project_tree"]
+    if "code_search" in concurrent_results:
+        result["code_search"] = concurrent_results["code_search"]
 
     # Dynamic Intent Routing: Check UI signals in prompt and code query
     ui_search_text = " ".join([task, focus, active_code_query or ""])
@@ -413,7 +459,7 @@ def task_pipeline(
         "code-review-and-quality",
         "shipping-and-launch",
     ]
-    recs = recommendations_payload.get("recommendations", [])
+    recs = concurrent_results["recommendations"].get("recommendations", [])
     skills_to_chain = [r["identifier"] for r in recs if r.get("kind") == "skill"]
     
     def lifecycle_sort_key(skill_id: str) -> int:
