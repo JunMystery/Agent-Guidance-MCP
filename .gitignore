@@ -32,3 +32,5 @@ rtk/
 rtk-implementing/
 opencode.json
 /.omo/
+.agent-context/
+.codegraph/
