@@ -36,9 +36,11 @@ fi
 echo "Running post-install configuration..."
 if [ -f "$TOOL_BIN" ] || command -v agent-guidance-mcp &> /dev/null; then
     "$TOOL_BIN" --setup
+    "$TOOL_BIN" --update
 else
     # Fallback: run via uv tool run directly
     "$UV_BIN" tool run agent-guidance-mcp --setup
+    "$UV_BIN" tool run agent-guidance-mcp --update
 fi
 
 echo ""

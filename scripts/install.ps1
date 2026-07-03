@@ -37,9 +37,11 @@ if (-not (Test-Path $toolBin)) {
 Write-Host "Running post-install configuration..." -ForegroundColor Cyan
 if (Test-Path $toolBin) {
     & $toolBin --setup
+    & $toolBin --update
 } else {
     # Fallback to uv tool run
     & $uvBin tool run agent-guidance-mcp --setup
+    & $uvBin tool run agent-guidance-mcp --update
 }
 
 Write-Host "`n✓ Installation completed successfully!" -ForegroundColor Green

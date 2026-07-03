@@ -16,6 +16,8 @@ def find_standards_root(root: str | Path | None = None) -> Path:
     if os.environ.get("AGENT_GUIDANCE_ROOT"):
         candidates.append(Path(os.environ["AGENT_GUIDANCE_ROOT"]))
 
+    candidates.append(Path.home() / ".agent-guidance")
+    
     here = Path(__file__).resolve()
     candidates.append(here.parent / "bundled")
     for depth, parent in enumerate(here.parents):
