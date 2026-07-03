@@ -21,8 +21,32 @@ else
 fi
 
 # 2. Install the Agent Guidance MCP tool
-echo "Installing agent-guidance-mcp from PyPI..."
-"$UV_BIN" tool install agent-guidance-mcp --force
+echo "Installing agent-guidance-mcp..."
+INSTALLED=false
+
+# Try local path first
+if [ -f "pyproject.toml" ]; then
+    echo "Found local pyproject.toml, installing from local path..."
+    if "$UV_BIN" tool install . --force -q; then
+        INSTALLED=true
+    fi
+fi
+
+# Try PyPI next
+if [ "$INSTALLED" = false ]; then
+    echo "Attempting installation from PyPI..."
+    if "$UV_BIN" tool install agent-guidance-mcp --force &> /dev/null; then
+        INSTALLED=true
+    else
+        echo "PyPI installation failed (package may not be published yet). Falling back to GitHub..."
+    fi
+fi
+
+# Fallback to GitHub Git installation
+if [ "$INSTALLED" = false ]; then
+    echo "Installing directly from GitHub repository..."
+    "$UV_BIN" tool install git+https://github.com/JunMystery/Agent-Guidance-MCP.git --force
+fi
 
 # 3. Resolve the path of the installed tool to run the setup
 TOOL_BIN="$HOME/.local/bin/agent-guidance-mcp"
