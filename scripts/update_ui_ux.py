@@ -47,11 +47,21 @@ def update_skill():
             print(f"Deploying skill files from {src_dir.name}...")
             
             # Copy all files from src_dir into target_dir
+            # Define essential files/directories to keep
+            essentials = {"SKILL.md", "data"}
+            
+            # Clear target directory first to clean up old non-essential files
+            if target_dir.exists():
+                shutil.rmtree(target_dir)
+            target_dir.mkdir(parents=True, exist_ok=True)
+
+            print(f"Deploying essential skill files from {src_dir.name}...")
+
             for item in src_dir.iterdir():
+                if item.name not in essentials:
+                    continue
                 dest_item = target_dir / item.name
                 if item.is_dir():
-                    if dest_item.exists():
-                        shutil.rmtree(dest_item)
                     shutil.copytree(item, dest_item)
                 else:
                     shutil.copy2(item, dest_item)

@@ -51,13 +51,25 @@ def update_ecc():
             print(f"Deploying skills from {src_skills_dir.parent.name}/skills...")
             
             # Copy all items from src_skills_dir into target_skills_dir
+            # Define essential folders/files to keep for each individual skill folder
+            skill_essentials = {"SKILL.md", "scripts", "examples", "resources", "references"}
+
             for item in src_skills_dir.iterdir():
                 dest_item = target_skills_dir / item.name
                 if item.is_dir():
                     if dest_item.exists():
                         shutil.rmtree(dest_item)
-                    shutil.copytree(item, dest_item)
+                    dest_item.mkdir(parents=True, exist_ok=True)
+                    
+                    for sub_item in item.iterdir():
+                        if sub_item.name in skill_essentials:
+                            sub_dest = dest_item / sub_item.name
+                            if sub_item.is_dir():
+                                shutil.copytree(sub_item, sub_dest)
+                            else:
+                                shutil.copy2(sub_item, sub_dest)
                 else:
+                    # Root files inside skills/ directory (if any) can be copied
                     shutil.copy2(item, dest_item)
                     
             print("✓ ECC skills successfully updated!")
