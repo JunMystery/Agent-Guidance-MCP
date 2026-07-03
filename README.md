@@ -16,23 +16,25 @@ Skills are sourced from [Everything Claude Code (ECC) v2.0.0](https://github.com
 
 ## Installation
 
-Automatic install:
+Install the Agent Guidance MCP server and configure all local IDE clients with a single command:
 
+**Linux / macOS (Bash):**
 ```bash
-python3 scripts/install-mcp.py        # Linux / macOS
-python  scripts/install-mcp.py        # Windows
+curl -fsSL https://raw.githubusercontent.com/JunMystery/Agent-Guidance-MCP/main/scripts/install.sh | bash
 ```
 
-### Syncing & Updating
-
-Keep your skills, databases, and semantic models up-to-date with upstream changes:
-
-```bash
-python scripts/update_ecc.py          # Sync 168+ ECC skills library
-python scripts/update_ui_ux.py        # Sync UI/UX Pro Max styling database
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/JunMystery/Agent-Guidance-MCP/main/scripts/install.ps1 | iex
 ```
 
-Manual install:
+*This requires no prior Python installation; the script will automatically bootstrap `uv` (a single-binary Python toolchain) to run the server if Python is not present.*
+
+### Upgrading
+
+To update to the latest version and refresh your IDE client registrations, simply run the installation command again.
+
+### Manual / Local Developer Install
 
 ```bash
 python -m venv .venv

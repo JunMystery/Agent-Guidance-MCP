@@ -20,6 +20,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--setup",
+        action="store_true",
+        help="Run post-install setup to register server in IDE client configs.",
+    )
+    parser.add_argument(
         "--no-optimize",
         action="store_true",
         help="Disable token optimization and savings tracking for this server session.",
@@ -36,6 +41,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main() -> None:
     try:
         args = parse_args()
+        if args.setup:
+            from .setup import run_setup
+            run_setup()
+            sys.exit(0)
         root = find_standards_root(args.root)
         config = TokenOptimizationConfig.disabled() if args.no_optimize else None
         server = create_server(root, config=config)

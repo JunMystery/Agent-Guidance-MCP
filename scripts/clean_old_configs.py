@@ -13,6 +13,8 @@ def main():
         repo_root / "dist",
         repo_root / ".pytest_cache",
         repo_root / "tests" / ".tmp_install_mcp",
+        repo_root / "install.sh",
+        repo_root / "install.ps1",
     ]
     
     # Add VSCode backup files

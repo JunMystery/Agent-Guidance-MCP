@@ -1,0 +1,31 @@
+name: Publish Package to PyPI
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-n-publish:
+    name: Build and publish Python distribution
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write  # Required for trusted publishing
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install Hatch
+      run: pip install hatch
+
+    - name: Build wheel and source dist
+      run: hatch build
+
+    - name: Publish to PyPI
+      uses: pypa/github-action-pypi-publish@release/v1

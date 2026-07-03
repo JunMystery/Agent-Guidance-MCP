@@ -17,6 +17,7 @@ def find_standards_root(root: str | Path | None = None) -> Path:
         candidates.append(Path(os.environ["AGENT_GUIDANCE_ROOT"]))
 
     here = Path(__file__).resolve()
+    candidates.append(here.parent / "bundled")
     for depth, parent in enumerate(here.parents):
         if depth > 4:
             break
