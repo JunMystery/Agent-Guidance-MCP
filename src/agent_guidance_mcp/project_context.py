@@ -3,6 +3,7 @@
 
 import json
 from datetime import datetime, timezone
+from pathlib import Path
 
 from .response_optimizer import (
     TokenBudget,
@@ -14,6 +15,7 @@ from .symbols import extract_symbols, find_references, get_file_structure
 from .token_analytics import TokenTracker
 from .token_config import TokenOptimizationConfig, load_config_from_env
 from .token_filter import FilterLevel
+from .database import CodeGraphDatabase
 from .project_scan import (
     DEFAULT_MAX_DEPTH,
     DEFAULT_MAX_FILE_BYTES,
@@ -31,6 +33,11 @@ from .project_scan import (
     resolve_project_root,
     tokenize,
 )
+
+
+def _get_db(root: Path) -> CodeGraphDatabase:
+    """Return database connection for the resolved project root."""
+    return CodeGraphDatabase(root / ".agent-context" / "codegraph.db")
 
 
 def export_project_snapshot(
@@ -206,8 +213,32 @@ def search_project_code(
 ) -> dict[str, object]:
     """Search bounded text content in source files and return ranked snippets."""
     root = resolve_project_root(project_path)
-    terms = tokenize(query)
     limit = max(1, min(limit, 100))
+    if not query:
+        return {"project_root": str(root), "query": query, "matches": []}
+
+    # Try SQLite FTS5 first
+    db = _get_db(root)
+    try:
+        results = db.search_symbols(query, limit=limit)
+        if results:
+            matches = []
+            for row in results:
+                matches.append({
+                    "path": row["file_path"],
+                    "language_hint": language_hint(root / row["file_path"]),
+                    "score": 100,  # FTS5 matches get generic high score
+                    "line": row["start_line"],
+                    "snippet": row["signature"] or row["name"],
+                })
+            return {"project_root": str(root), "query": query, "matches": matches}
+    except Exception:
+        pass
+    finally:
+        db.close()
+
+    # Fallback to parallel text scan
+    terms = tokenize(query)
     if not terms:
         return {"project_root": str(root), "query": query, "matches": []}
 
@@ -256,8 +287,28 @@ def extract_project_symbols(
     root = resolve_project_root(project_path)
     path = resolve_inside_project(root, relative_path_value)
     ensure_project_file_allowed(root, path)
-    symbols = extract_symbols(path, root)
 
+    # Try DB first
+    db = _get_db(root)
+    try:
+        rel = relative_path(root, path)
+        rows = db.get_symbols_in_file(rel)
+        if rows:
+            symbols_dicts = [dict(r) for r in rows]
+            return {
+                "project_root": str(root),
+                "file": rel,
+                "language": language_hint(path),
+                "symbols": symbols_dicts,
+                "total": len(symbols_dicts),
+            }
+    except Exception:
+        pass
+    finally:
+        db.close()
+
+    # Live fallback
+    symbols = extract_symbols(path, root)
     return {
         "project_root": str(root),
         "file": relative_path(root, path),
@@ -280,6 +331,17 @@ def find_project_references(
         raise ValueError("symbol_name is required.")
     root = resolve_project_root(project_path)
     limit = max(1, min(limit, 100))
+
+    # Try DB first
+    db = _get_db(root)
+    try:
+        # Check references if edges exist (or map using references table if we expand it)
+        pass
+    except Exception:
+        pass
+    finally:
+        db.close()
+
     matches = find_references(root, symbol_name, limit=limit)
     return {
         "project_root": str(root),
@@ -315,3 +377,51 @@ def get_project_file_structure(
             pass
 
     return structure
+
+
+def get_project_callers(
+    project_path: str = ".",
+    symbol_id: str = "",
+    config: TokenOptimizationConfig | None = None,
+    tracker: TokenTracker | None = None,
+) -> dict[str, object]:
+    """Get all callers of a given symbol ID from the database."""
+    if not symbol_id:
+        raise ValueError("symbol_id is required.")
+    root = resolve_project_root(project_path)
+    db = _get_db(root)
+    try:
+        callers = db.get_callers(symbol_id)
+        results = [dict(c) for c in callers]
+        return {
+            "project_root": str(root),
+            "symbol_id": symbol_id,
+            "callers": results,
+            "total": len(results),
+        }
+    finally:
+        db.close()
+
+
+def get_project_callees(
+    project_path: str = ".",
+    symbol_id: str = "",
+    config: TokenOptimizationConfig | None = None,
+    tracker: TokenTracker | None = None,
+) -> dict[str, object]:
+    """Get all callees of a given symbol ID from the database."""
+    if not symbol_id:
+        raise ValueError("symbol_id is required.")
+    root = resolve_project_root(project_path)
+    db = _get_db(root)
+    try:
+        callees = db.get_callees(symbol_id)
+        results = [dict(c) for c in callees]
+        return {
+            "project_root": str(root),
+            "symbol_id": symbol_id,
+            "callees": results,
+            "total": len(results),
+        }
+    finally:
+        db.close()

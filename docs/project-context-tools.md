@@ -126,6 +126,33 @@ Each file entry includes:
 - `truncated`
 - `content`
 
+## CodeGraph Semantic Operations (SQLite Indexer)
+
+For large and complex codebases, `project_context` has built-in CodeGraph-like AST parsing and SQLite-based caching. These operations are fast, incremental, and do not consume LLM tokens:
+
+### `project_context(operation="symbols")`
+Extracts class, method, and function declarations from a file (using AST `tree-sitter` queries).
+- **Parameters:** `relative_path` (required).
+- **Returns:** List of symbol items with their scopes, signatures, and start/end lines.
+
+### `project_context(operation="references")`
+Finds all occurrences/references of a symbol (class name, function name, etc.) across the codebase.
+- **Parameters:** `query` (symbol name, required).
+
+### `project_context(operation="structure")`
+Returns a hierarchical method-level structure map of a specific source file.
+- **Parameters:** `relative_path` (required).
+
+### `project_context(operation="callers")`
+Traces what functions/methods call the target function.
+- **Parameters:** `query` (fully-qualified Symbol ID, e.g. `path/to/file.py::ClassName::method_name`, required).
+
+### `project_context(operation="callees")`
+Traces what functions/methods the target function calls.
+- **Parameters:** `query` (fully-qualified Symbol ID, required).
+
+---
+
 ## Snapshot Freshness
 
 Treat snapshots as cached overview context, not the source of truth.

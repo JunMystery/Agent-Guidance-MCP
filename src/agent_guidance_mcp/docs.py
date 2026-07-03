@@ -1,0 +1,104 @@
+"""Context7 API client for retrieving live library documentation."""
+
+import os
+import json
+import urllib.request
+import urllib.parse
+from typing import Any
+
+from .response_optimizer import TokenBudget, optimize_source_content
+from .token_analytics import TokenTracker
+from .token_config import TokenOptimizationConfig, load_config_from_env
+
+API_BASE = "https://context7.com/api/v2"
+
+def _get_headers() -> dict[str, str]:
+    headers = {
+        "Accept": "application/json",
+        "User-Agent": "agent-guidance-mcp/1.0"
+    }
+    api_key = os.environ.get("CONTEXT7_API_KEY")
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    return headers
+
+def query_library_docs(
+    library_name: str,
+    query: str,
+    config: TokenOptimizationConfig | None = None,
+    tracker: TokenTracker | None = None,
+) -> dict[str, Any]:
+    """Retrieve documentation from Context7 for the given library and query."""
+    config = config or load_config_from_env()
+    headers = _get_headers()
+
+    # Step 1: Resolve libraryId
+    search_params = urllib.parse.urlencode({
+        "libraryName": library_name,
+        "query": query
+    })
+    search_url = f"{API_BASE}/libs/search?{search_params}"
+    
+    req = urllib.request.Request(search_url, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=10) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except Exception as e:
+        return {"error": f"Failed to search library '{library_name}' in Context7: {e}"}
+
+    # Extract libraryId from search results
+    # The API structure usually returns a list of matches, e.g. [{"id": "/vercel/next.js", "name": "Next.js"}]
+    library_id = None
+    if isinstance(data, list) and len(data) > 0:
+        library_id = data[0].get("id")
+    elif isinstance(data, dict):
+        # Fallback if structure is {"results": [...]}
+        results = data.get("results") or data.get("libs") or []
+        if results and len(results) > 0:
+            library_id = results[0].get("id")
+
+    if not library_id:
+        return {
+            "error": f"Could not resolve library ID for '{library_name}'.",
+            "search_response": data
+        }
+
+    # Step 2: Get Context
+    context_params = urllib.parse.urlencode({
+        "libraryId": library_id,
+        "query": query,
+        "type": "json"
+    })
+    context_url = f"{API_BASE}/context?{context_params}"
+    
+    req = urllib.request.Request(context_url, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=15) as response:
+            res_data = json.loads(response.read().decode("utf-8"))
+    except Exception as e:
+        return {"error": f"Failed to fetch context for library ID '{library_id}': {e}"}
+
+    # Step 3: Optimize Response
+    content = ""
+    if isinstance(res_data, dict):
+        content = res_data.get("context") or res_data.get("content") or json.dumps(res_data)
+    else:
+        content = str(res_data)
+
+    original_len = len(content)
+    if config.enabled:
+        optimized, _ = optimize_source_content(content, "markdown", config=config)
+    else:
+        optimized = content
+
+    from .utils import record_savings
+    record_savings(tracker, "guidance", "docs", content, optimized)
+
+    return {
+        "library_name": library_name,
+        "library_id": library_id,
+        "query": query,
+        "documentation": optimized,
+        "original_length": original_len,
+        "optimized_length": len(optimized)
+    }

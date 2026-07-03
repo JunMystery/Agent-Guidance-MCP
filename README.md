@@ -23,6 +23,15 @@ python3 scripts/install-mcp.py        # Linux / macOS
 python  scripts/install-mcp.py        # Windows
 ```
 
+### Syncing & Updating
+
+Keep your skills, databases, and semantic models up-to-date with upstream changes:
+
+```bash
+python scripts/update-ecc.py          # Sync 168+ ECC skills library
+python scripts/update-ui-ux.py        # Sync UI/UX Pro Max styling database
+```
+
 Manual install:
 
 ```bash
@@ -66,14 +75,15 @@ Then call `task_pipeline(...)` to load task guidance and bounded project context
 - [Project Context Tools](docs/project-context-tools.md) - grouped tree, search, file read, snapshot export, token guidance, and freshness rules.
 - [Development Guide](docs/development.md) - tests, project structure, and maintainer notes.
 - [Repo Map For Agents](docs/repo-map-for-agents.md) - existing repository orientation notes.
+- [MCP Integrations Guide](agent-guidance/mcp-integrations/README.md) - SQLite caching, CodeGraph-like AST parsing, and Context7 docs details.
 
 ## MCP Surface
 
 Tools:
 
 - `task_pipeline(task, project_path, focus, code_query, include_tree, include_ui, limit)` — **Recommended first call.** Prepares task recommendations, project context, and optional UI guidance.
-- `guidance(operation, query, identifier, category, kind, limit, include_content)` — Standards catalog operations: list, get, search, recommend.
-- `project_context(operation, project_path, query, relative_path, start_line, max_lines, max_depth, output_path, max_file_bytes, max_total_bytes, limit)` — Bounded project-code context: tree, search, read, snapshot.
+- `guidance(operation, query, identifier, category, kind, limit, include_content)` — Standards catalog operations: list, get, search, recommend, reason, and **docs** (live library docs via Context7).
+- `project_context(operation, project_path, query, relative_path, start_line, max_lines, max_depth, output_path, max_file_bytes, max_total_bytes, limit)` — Bounded project context: tree, search, read, snapshot, **symbols**, **references**, **structure**, **callers**, and **callees** (local SQLite CodeGraph engine).
 - `ui_ux(operation, query, domain, stack, project_name, output_format, limit)` — UI/UX Pro Max: search, design system, slides.
 - `health_check()` — Server health status and metadata.
 - `token_stats()` — Token optimization statistics for the session.

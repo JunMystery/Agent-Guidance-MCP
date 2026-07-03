@@ -10,11 +10,14 @@ For EVERY coding action, repository lookup, refactoring, or planning:
 |---|---|---|
 | Start any coding task | `task_pipeline(task="...")` | Recommendations + tree + code search + UI in ONE call |
 | Check coding standards | `guidance(operation="search", query="...")` | No other tool provides standards or skill lookup |
+| Search library docs | `guidance(operation="docs", query="question", identifier="lib")` | Query live API documentation via Context7 |
 | Read a file | `project_context(operation="read", relative_path="...")` | Token-capped at 300 lines — prevents context blowout |
 | Search codebase text | `project_context(operation="search", query="...")` | Ranked, bounded results. Fallback when codegraph unavailable |
 | Understand code structure | `project_context(operation="structure", relative_path="...")` | Hierarchical view of classes, methods, functions in a file |
 | Extract symbols | `project_context(operation="symbols", relative_path="...")` | Flat list of classes, functions, methods with signatures |
 | Find symbol references | `project_context(operation="references", query="...")` | Locate all usages of a symbol across the codebase |
+| Find symbol callers | `project_context(operation="callers", query="symbol_id")` | Find all callers of a symbol in the index |
+| Find symbol callees | `project_context(operation="callees", query="symbol_id")` | Find all callees of a symbol in the index |
 | Get UI/design guidance | `ui_ux(operation="search", query="...")` | Style, colors, typography, charts, slides |
 | Browse project structure | `project_context(operation="tree")` | Optimized directory tree view |
 
@@ -28,6 +31,12 @@ For EVERY coding action, repository lookup, refactoring, or planning:
 6. **300 LOC Cap**: Split files exceeding 300 lines of code. No monolithic files.
 
 **CRITICAL: All 6 rules apply to EVERY coding action without exception.**
+
+---
+
+## Custom MCP Integrations (Upstream & Maintenance)
+
+Our custom MCP includes built-in semantic indexing (caching, AST symbol parsing, reference call edges) and Context7 library documentation lookup. For details on database schema, custom modules, and sync instructions for future upstream releases, see the [Mcp Integrations Guide](file:///e:/Github/Agent-Guidance-MCP/agent-guidance/mcp-integrations/README.md).
 
 ---
 

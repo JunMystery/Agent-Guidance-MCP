@@ -210,6 +210,18 @@ def main():
 
     # 9. Configure OpenCode global config (~/.config/opencode/opencode.json)
     configure_opencode_global(python_exe, repo_root)
+
+    # 10. Update UI/UX skill from GitHub
+    print("\nUpdating UI/UX Pro Max skill...")
+    try:
+        sys.path.append(str(repo_root / "scripts"))
+        import update_ui_ux
+        update_ui_ux.update_skill()
+    except Exception as e:
+        print(f"  Warning: Failed to auto-update UI/UX skill: {e}")
+        
+    # 11. Configure gitignore rules
+    configure_gitignore(repo_root)
             
     print("\n=== Installation Completed Successfully! ===")
     print("Restart your IDE / MCP Client to start using the server.")
@@ -436,6 +448,38 @@ def configure_codex(python_exe, repo_root):
             print(f"    Success: Configured '{SERVER_ID}' server in {name}.")
         except Exception as e:
             print(f"    Error: Failed to configure {name}: {e}")
+
+
+def configure_gitignore(repo_root):
+    print("  Configuring gitignore for local database and cache folders...")
+    gitignore_path = repo_root / ".gitignore"
+    rules_to_add = [
+        ".agent-context/",
+        ".omo/"
+    ]
+    
+    try:
+        content = ""
+        if gitignore_path.exists():
+            content = gitignore_path.read_text(encoding="utf-8")
+            
+        lines = [line.strip() for line in content.splitlines()]
+        
+        added_any = False
+        with gitignore_path.open("a", encoding="utf-8") as f:
+            for rule in rules_to_add:
+                if rule not in lines and rule.strip("/") not in lines:
+                    if not added_any and content and not content.endswith("\n"):
+                        f.write("\n")
+                    f.write(f"{rule}\n")
+                    print(f"    Success: Added '{rule}' to .gitignore")
+                    added_any = True
+                    
+        if not added_any:
+            print("    Note: Local databases and cache rules are already ignored.")
+    except Exception as e:
+        print(f"    Error: Failed to update .gitignore: {e}")
+
 
 if __name__ == "__main__":
     main()

@@ -136,6 +136,18 @@ def create_server(
     else:
         set_config(config)
     catalog = build_catalog(root)
+
+    # Auto-index project workspace on startup
+    try:
+        from .database import CodeGraphDatabase
+        from .indexer import CodeGraphIndexer
+        db_path = Path(root or ".").resolve() / ".agent-context" / "codegraph.db"
+        db = CodeGraphDatabase(db_path)
+        indexer = CodeGraphIndexer(Path(root or ".").resolve(), db)
+        indexer.run()
+    except Exception:
+        pass
+
     mcp = FastMCP("Agent Guidance MCP", instructions=AGENT_INSTRUCTIONS, json_response=True)
     register_handlers(mcp, catalog)
     return mcp
@@ -215,7 +227,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         limit: int = 10,
         include_content: bool = False,
     ) -> dict[str, object] | list[dict[str, object]]:
-        """Standards & skill lookup. Use guidance(operation='search') BEFORE implementing to find applicable coding standards, security rules, and skill workflows. Use guidance(operation='reason', query='...') for structured reasoning frameworks (decision/bug/architecture/security/performance). No other tool provides this. Parameters: operation (str, required) — one of list/get/search/recommend/reason; query (str) — search/recommend/reason query string; identifier (str) — entry identifier for get; category (str) — filter by category; kind (str) — filter by kind (skill/doc/principle/etc.); limit (int) — max results (default 10); include_content (bool) — include full body in get response (default False)."""
+        """Standards & skill lookup. Use guidance(operation='search') BEFORE implementing to find applicable coding standards, security rules, and skill workflows. Use guidance(operation='reason', query='...') for structured reasoning frameworks (decision/bug/architecture/security/performance). Use guidance(operation='docs', query='...', identifier='...') for live library/API documentation search via Context7. Parameters: operation (str, required) — one of list/get/search/recommend/reason/docs; query (str) — search/recommend/reason query string, or technical question for docs; identifier (str) — entry identifier for get, or library/package name (e.g., 'react', 'nextjs') for docs; category (str) — filter by category; kind (str) — filter by kind (skill/doc/principle/etc.); limit (int) — max results (default 10); include_content (bool) — include full body in get response (default False)."""
         return pipelines.guidance(
             catalog=catalog,
             operation=operation,
@@ -243,7 +255,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         max_total_bytes: int = project_context_helpers.DEFAULT_MAX_TOTAL_BYTES,
         limit: int = 20,
     ) -> dict[str, object]:
-        """Read & search project files with built-in token budgets. Use project_context(operation='read') for bounded file reading, project_context(operation='search') for codebase text search (primary fallback when codegraph is unavailable), project_context(operation='tree') for directory overview, project_context(operation='symbols') for symbol extraction (classes/functions/methods), project_context(operation='references') to find symbol usage across the codebase, project_context(operation='structure') for hierarchical file structure. Parameters: operation (str, required) — one of tree/search/read/snapshot/symbols/references/structure; project_path (str) — root of the project; query (str) — search query for grep, or symbol name for references; relative_path (str) — file path for read/symbols/structure; start_line (int) — line offset for read (default 1); max_lines (int) — max lines to read (default 300); max_depth (int) — directory tree depth (default 8); output_path (str) — snapshot output path; max_file_bytes (int) — per-file cap for snapshot; max_total_bytes (int) — total cap for snapshot; limit (int) — max search/reference results (default 20)."""
+        """Read & search project files with built-in token budgets. Use project_context(operation='read') for bounded file reading, project_context(operation='search') for codebase text search (primary fallback when codegraph is unavailable), project_context(operation='tree') for directory overview, project_context(operation='symbols') for symbol extraction (classes/functions/methods), project_context(operation='references') to find symbol usage across the codebase, project_context(operation='structure') for hierarchical file structure, project_context(operation='callers') to get symbol callers, project_context(operation='callees') to get symbol callees. Parameters: operation (str, required) — one of tree/search/read/snapshot/symbols/references/structure/callers/callees; project_path (str) — root of the project; query (str) — search query for grep, symbol name for references, or symbol ID for callers/callees; relative_path (str) — file path for read/symbols/structure; start_line (int) — line offset for read (default 1); max_lines (int) — max lines to read (default 300); max_depth (int) — directory tree depth (default 8); output_path (str) — snapshot output path; max_file_bytes (int) — per-file cap for snapshot; max_total_bytes (int) — total cap for snapshot; limit (int) — max search/reference results (default 20)."""
         return pipelines.project_context(
             operation=operation,
             project_path=project_path,

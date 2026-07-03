@@ -6,13 +6,14 @@ from typing import Any
 
 from . import project_context as project_context_helpers
 from . import ui_ux as ui_ux_helpers
+from . import docs as docs_helpers
 from .catalog import StandardsCatalog
 from .response_optimizer import estimate_tokens, optimize_response
 from .token_analytics import TokenTracker
 from .token_config import TokenOptimizationConfig, load_config_from_env
 
-GUIDANCE_OPERATIONS = ("list", "get", "search", "recommend", "reason")
-PROJECT_CONTEXT_OPERATIONS = ("tree", "search", "read", "snapshot", "symbols", "references", "structure")
+GUIDANCE_OPERATIONS = ("list", "get", "search", "recommend", "reason", "docs")
+PROJECT_CONTEXT_OPERATIONS = ("tree", "search", "read", "snapshot", "symbols", "references", "structure", "callers", "callees")
 UI_UX_OPERATIONS = ("search", "design_system", "slides")
 
 from collections import OrderedDict
@@ -93,6 +94,18 @@ def guidance(
         optimized = optimize_response(result, config=config)
         _record_savings(tracker, "guidance", operation_key, result, optimized)
         return optimized
+
+    if operation_key == "docs":
+        if not query:
+            return _missing_argument("query", operation_key)
+        if not identifier:
+            return _missing_argument("identifier", operation_key)
+        return docs_helpers.query_library_docs(
+            library_name=identifier,
+            query=query,
+            config=config,
+            tracker=tracker,
+        )
 
     return optimize_response(
         catalog.recommend_context(task=query, limit=limit), config=config
@@ -175,6 +188,26 @@ def project_context(
         return project_context_helpers.get_project_file_structure(
             project_path=project_path,
             relative_path_value=relative_path,
+            config=config,
+            tracker=tracker,
+        )
+
+    if operation_key == "callers":
+        if not query:
+            return _missing_argument("query", operation_key)
+        return project_context_helpers.get_project_callers(
+            project_path=project_path,
+            symbol_id=query,
+            config=config,
+            tracker=tracker,
+        )
+
+    if operation_key == "callees":
+        if not query:
+            return _missing_argument("query", operation_key)
+        return project_context_helpers.get_project_callees(
+            project_path=project_path,
+            symbol_id=query,
             config=config,
             tracker=tracker,
         )
