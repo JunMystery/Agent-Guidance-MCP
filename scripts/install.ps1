@@ -24,38 +24,18 @@ if (Get-Command "uv" -ErrorAction SilentlyContinue) {
 
 # 2. Install the Agent Guidance MCP tool
 Write-Host "Installing agent-guidance-mcp..." -ForegroundColor Cyan
-$installed = $false
 
 # Try local path first if inside a repository clone
 if (Test-Path "pyproject.toml") {
     Write-Host "Found local pyproject.toml, installing from local path..."
     try {
         & $uvBin tool install . --force -q
-        $installed = $true
     } catch {
-        Write-Host "Local installation failed, falling back..." -ForegroundColor Yellow
+        Write-Host "Local installation failed, falling back to GitHub..." -ForegroundColor Yellow
+        & $uvBin tool install git+https://github.com/JunMystery/Agent-Guidance-MCP.git --force
     }
-}
-
-# Try PyPI next
-if (-not $installed) {
-    Write-Host "Attempting installation from PyPI..."
-    $oldPreference = $ErrorActionPreference
-    $ErrorActionPreference = "Continue"
-    & $uvBin tool install agent-guidance-mcp --force 2>$null
-    $pypiExitCode = $LASTEXITCODE
-    $ErrorActionPreference = $oldPreference
-    
-    if ($pypiExitCode -eq 0) {
-        $installed = $true
-    } else {
-        Write-Host "PyPI installation failed (package may not be published yet). Falling back to GitHub..." -ForegroundColor Yellow
-    }
-}
-
-# Fallback to GitHub Git installation
-if (-not $installed) {
-    Write-Host "Installing directly from GitHub repository..."
+} else {
+    Write-Host "Installing from GitHub repository..."
     & $uvBin tool install git+https://github.com/JunMystery/Agent-Guidance-MCP.git --force
 }
 
