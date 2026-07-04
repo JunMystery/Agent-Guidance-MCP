@@ -34,23 +34,16 @@ AGENT_RULES_BLOCK = (
 )
 
 def get_executable_path() -> str:
-    # Try to find the standalone binary
     exe_name = "agent-guidance-mcp.exe" if os.name == "nt" else "agent-guidance-mcp"
     which_path = shutil.which(exe_name)
     if which_path:
         return which_path
-        
-    # Check if run as a script wrapper
     if "agent-guidance-mcp" in sys.argv[0]:
         return sys.argv[0]
-        
-    # Fallback to sys.executable
     return sys.executable
 
 def configure_mcp_clients(executable: str):
     print("\nConfiguring MCP Clients...")
-    
-    # Resolve OS-specific settings paths
     if sys.platform == "win32":
         appdata = Path(os.environ.get("APPDATA", ""))
         claude_path = appdata / "Claude" / "claude_desktop_config.json"
@@ -61,7 +54,7 @@ def configure_mcp_clients(executable: str):
         claude_path = home / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json"
         code_path = home / "Library" / "Application Support" / "Code" / "User" / "globalStorage"
         cursor_path = home / "Library" / "Application Support" / "Cursor" / "User" / "globalStorage"
-    else: # Linux
+    else:
         home = Path.home()
         claude_path = home / ".config" / "Claude" / "claude_desktop_config.json"
         code_path = home / ".config" / "Code" / "User" / "globalStorage"
@@ -75,7 +68,6 @@ def configure_mcp_clients(executable: str):
         ("Continue (Global)", Path.home() / ".continue" / "mcpServers" / "config.json", True)
     ]
 
-    # Cline & Roo-Code extensions
     extensions = [
         ("VS Code Cline", code_path / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"),
         ("VS Code Roo-Code", code_path / "roovet.roo-cline" / settings_path()),
@@ -92,14 +84,13 @@ def configure_mcp_clients(executable: str):
     for name, path, force_create in targets:
         if not force_create and not path.parent.parent.exists():
             continue
-            
         print(f"  Configuring {name}...")
         config = {}
         if path.exists():
             try:
                 config = json.loads(path.read_text(encoding="utf-8"))
             except Exception as e:
-                print(f"    Warning: Failed to read config {path.name}: {e}. Starting fresh.")
+                print(f"    Warning: Failed to read config: {e}. Starting fresh.")
 
         config_key = "servers" if "VS Code Native" in name else "mcpServers"
         if config_key not in config:
@@ -120,18 +111,130 @@ def configure_mcp_clients(executable: str):
 def settings_path() -> Path:
     return Path("settings") / "cline_mcp_settings.json"
 
+def configure_opencode(executable: str):
+    print("\nConfiguring OpenCode & OMO...")
+    opencode_global_dir = Path.home() / ".config" / "opencode"
+    opencode_global_path = opencode_global_dir / "opencode.json"
+    
+    is_script = executable == sys.executable
+    cmd_args = [executable] if not is_script else [executable, "-m", MODULE_NAME]
+
+    targets = [(opencode_global_path, True)]
+    if (Path.cwd() / "pyproject.toml").exists():
+        targets.append((Path.cwd() / "opencode.json", False))
+
+    for path, is_global in targets:
+        config = {}
+        if path.exists():
+            try:
+                config = json.loads(path.read_text(encoding="utf-8"))
+            except Exception as e:
+                print(f"    Warning: Failed to read OpenCode config: {e}")
+
+        if "mcp" not in config:
+            config["mcp"] = {}
+
+        config["mcp"][SERVER_ID] = {
+            "type": "local",
+            "command": cmd_args,
+            "enabled": True,
+            "environment": {}
+        }
+
+        instructions = config.get("instructions", [])
+        agents_md = "AGENTS.md"
+        if agents_md not in instructions:
+            instructions.append(agents_md)
+            config["instructions"] = instructions
+
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+            print(f"    Success: Configured '{SERVER_ID}' in OpenCode config: {path.name}")
+        except Exception as e:
+            print(f"    Error: Failed to write OpenCode config: {e}")
+
+def configure_codex(executable: str):
+    print("\nConfiguring Codex...")
+    is_script = executable == sys.executable
+    cmd_args = [executable] if not is_script else [executable, "-m", MODULE_NAME]
+
+    targets = [("Global Codex config", Path.home() / ".codex" / "config.toml")]
+    if (Path.cwd() / "pyproject.toml").exists():
+        targets.append(("Project-local Codex config", Path.cwd() / ".codex" / "config.toml"))
+
+    exe_str = str(cmd_args[0]).replace("\\", "\\\\")
+    args_str = ", ".join(f'"{a}"' for a in cmd_args[1:]).replace("\\", "\\\\")
+
+    new_block = [
+        f"[mcp_servers.{SERVER_ID}]",
+        f'command = "{exe_str}"',
+    ]
+    if cmd_args[1:]:
+        new_block.append(f'args = [{args_str}]')
+    new_block.append("")
+
+    for name, config_path in targets:
+        try:
+            config_path.parent.mkdir(parents=True, exist_ok=True)
+            content = ""
+            if config_path.exists():
+                content = config_path.read_text(encoding="utf-8")
+
+            lines = content.splitlines()
+            new_lines = []
+            block_found = False
+
+            def matching_server_id(header):
+                header_stripped = header.strip("[]")
+                if header_stripped == f"mcp_servers.{SERVER_ID}" or header_stripped.startswith(f"mcp_servers.{SERVER_ID}."):
+                    return SERVER_ID
+                return None
+
+            index = 0
+            while index < len(lines):
+                line = lines[index]
+                stripped = line.strip()
+                server_id = matching_server_id(stripped)
+                if server_id is None:
+                    new_lines.append(line)
+                    index += 1
+                    continue
+
+                block_lines = [line]
+                index += 1
+                while index < len(lines) and not lines[index].strip().startswith("["):
+                    block_lines.append(lines[index])
+                    index += 1
+
+                if server_id == SERVER_ID:
+                    if not block_found:
+                        block_found = True
+                        new_lines.extend(new_block[:-1])
+                    continue
+                new_lines.extend(block_lines)
+
+            if not block_found:
+                if new_lines and new_lines[-1] != "":
+                    new_lines.append("")
+                new_lines.extend(new_block)
+
+            config_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+            print(f"    Success: Configured '{SERVER_ID}' in {name}.")
+        except Exception as e:
+            print(f"    Error: Failed to configure {name}: {e}")
+
 def configure_global_rules():
     print("\nConfiguring Global rules (~/.gemini/config/AGENTS.md)...")
     global_config_dir = Path.home() / ".gemini" / "config"
     agents_md = global_config_dir / "AGENTS.md"
-
     try:
         global_config_dir.mkdir(parents=True, exist_ok=True)
         content = ""
         if agents_md.exists():
             content = agents_md.read_text(encoding="utf-8")
 
-        if "Agent Guidance MCP" not in content:
+        if "Agent Guidance MCP — Tool Selection Priority" not in content:
             new_content = content + AGENT_RULES_BLOCK
             agents_md.write_text(new_content, encoding="utf-8")
             print("    Success: Appended agent rules to global AGENTS.md.")
@@ -140,12 +243,42 @@ def configure_global_rules():
     except Exception as e:
         print(f"    Error: Failed to configure global rules: {e}")
 
+def configure_workspace_rules():
+    if not (Path.cwd() / "pyproject.toml").exists():
+        return
+    targets = [
+        (".cursorrules", Path.cwd() / ".cursorrules"),
+        (".clinerules", Path.cwd() / ".clinerules"),
+        (".copilotrules", Path.cwd() / ".copilotrules"),
+        (".codexrules", Path.cwd() / ".codexrules"),
+        ("AGENTS.md", Path.cwd() / "AGENTS.md"),
+    ]
+    print("\nConfiguring Workspace Coding Agent Rules...")
+    for name, path in targets:
+        try:
+            content = ""
+            if path.exists():
+                content = path.read_text(encoding="utf-8")
+            if "Agent Guidance MCP — Tool Selection Priority" not in content:
+                with path.open("a", encoding="utf-8") as f:
+                    if content and not content.endswith("\n"):
+                        f.write("\n")
+                    f.write(AGENT_RULES_BLOCK)
+                print(f"    Success: Appended agent rules to local {name}")
+            else:
+                print(f"    Note: Agent rules already present in local {name}")
+        except Exception as e:
+            print(f"    Error: Failed to configure {name}: {e}")
+
 def run_setup() -> None:
     print("=== Agent Guidance MCP Setup ===")
     exe = get_executable_path()
     print(f"Using executable: {exe}")
     configure_mcp_clients(exe)
+    configure_opencode(exe)
+    configure_codex(exe)
     configure_global_rules()
+    configure_workspace_rules()
     print("\n=== Setup completed successfully! ===")
     print("Restart your IDE / MCP Client to apply the configuration.")
 
@@ -161,7 +294,7 @@ def remove_mcp_clients():
         claude_path = home / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json"
         code_path = home / "Library" / "Application Support" / "Code" / "User" / "globalStorage"
         cursor_path = home / "Library" / "Application Support" / "Cursor" / "User" / "globalStorage"
-    else: # Linux
+    else:
         home = Path.home()
         claude_path = home / ".config" / "Claude" / "claude_desktop_config.json"
         code_path = home / ".config" / "Code" / "User" / "globalStorage"
@@ -175,7 +308,6 @@ def remove_mcp_clients():
         ("Continue (Global)", Path.home() / ".continue" / "mcpServers" / "config.json")
     ]
 
-    # Cline & Roo-Code extensions
     extensions = [
         ("VS Code Cline", code_path / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"),
         ("VS Code Roo-Code", code_path / "roovet.roo-cline" / settings_path()),
@@ -199,6 +331,46 @@ def remove_mcp_clients():
         except Exception as e:
             print(f"    Error updating config {name}: {e}")
 
+def remove_opencode_and_codex():
+    print("\nRemoving OpenCode, OMO, and Codex registrations...")
+    opencode_global_path = Path.home() / ".config" / "opencode" / "opencode.json"
+    local_opencode = Path.cwd() / "opencode.json"
+    
+    for path in [opencode_global_path, local_opencode]:
+        if path.exists():
+            try:
+                config = json.loads(path.read_text(encoding="utf-8"))
+                if "mcp" in config and SERVER_ID in config["mcp"]:
+                    del config["mcp"][SERVER_ID]
+                    path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+                    print(f"    Success: Removed '{SERVER_ID}' from OpenCode config {path.name}")
+            except Exception as e:
+                print(f"    Error updating OpenCode config {path}: {e}")
+
+    # Remove Codex block
+    codex_paths = [Path.home() / ".codex" / "config.toml", Path.cwd() / ".codex" / "config.toml"]
+    for path in codex_paths:
+        if path.exists():
+            try:
+                content = path.read_text(encoding="utf-8")
+                lines = content.splitlines()
+                new_lines = []
+                index = 0
+                while index < len(lines):
+                    line = lines[index]
+                    stripped = line.strip()
+                    if stripped == f"[mcp_servers.{SERVER_ID}]" or stripped.startswith(f"[mcp_servers.{SERVER_ID}."):
+                        index += 1
+                        while index < len(lines) and not lines[index].strip().startswith("["):
+                            index += 1
+                        continue
+                    new_lines.append(line)
+                    index += 1
+                path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+                print(f"    Success: Removed '{SERVER_ID}' from Codex config {path.parent.name}")
+            except Exception as e:
+                print(f"    Error: Failed to clean Codex config {path}: {e}")
+
 def remove_global_rules():
     print("\nRemoving global configuration and directories...")
     global_config_dir = Path.home() / ".gemini" / "config"
@@ -213,7 +385,6 @@ def remove_global_rules():
         except Exception as e:
             print(f"    Error updating global AGENTS.md: {e}")
             
-    # Remove ~/.agent-guidance directory
     agent_guidance_dir = Path.home() / ".agent-guidance"
     if agent_guidance_dir.exists() and agent_guidance_dir.is_dir():
         try:
@@ -225,6 +396,7 @@ def remove_global_rules():
 def run_uninstall() -> None:
     print("=== Agent Guidance MCP Uninstall ===")
     remove_mcp_clients()
+    remove_opencode_and_codex()
     remove_global_rules()
     print("\n=== Uninstall completed successfully! ===")
     print("Client configurations cleared. You can now safely uninstall the python package.")
