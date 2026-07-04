@@ -305,6 +305,39 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         )
 
     @mcp.tool()
+    def session_continuity(
+        operation: str,
+        project_path: str = ".",
+        task: str | None = None,
+        checklist: list[dict] | None = None,
+        current_step_index: int = 0,
+        metadata: dict | None = None,
+    ) -> dict[str, object]:
+        """Persist or recover task session state for continuity. Use operation='save' to save the current task checklist progress. Use operation='load' to resume after interruptions. Use operation='clear' when task is completed. Parameters: operation (str, required) — save/load/clear; project_path (str) — project root path; task (str) — task description; checklist (list[dict]) — list of checklist dicts (e.g. [{'title': '...', 'status': 'todo'/'done'}]); current_step_index (int) — index of current checklist step; metadata (dict) — optional context variables."""
+        from .session import save_session, load_session, clear_session
+        if operation == "save":
+            if not task:
+                return {"success": False, "error": "task is required for save operation"}
+            data = save_session(
+                project_path=project_path,
+                task=task,
+                checklist=checklist or [],
+                current_step_index=current_step_index,
+                metadata=metadata
+            )
+            return {"success": True, "session": data}
+        elif operation == "load":
+            data = load_session(project_path=project_path)
+            if data:
+                return {"success": True, "session_active": True, "session": data}
+            return {"success": True, "session_active": False, "message": "No active session found."}
+        elif operation == "clear":
+            cleared = clear_session(project_path=project_path)
+            return {"success": cleared}
+        else:
+            return {"success": False, "error": f"Invalid operation: {operation}"}
+
+    @mcp.tool()
     def token_stats() -> dict[str, object]:
         """Return token optimization statistics for this session. No parameters."""
         return get_tracker().summary()

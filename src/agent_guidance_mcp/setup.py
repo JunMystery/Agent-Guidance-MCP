@@ -22,6 +22,7 @@ AGENT_RULES_BLOCK = (
     "| Extract symbols | `project_context(operation=\"symbols\", relative_path=\"...\")` | Flat list of classes, functions, methods with signatures |\n"
     "| Find symbol references | `project_context(operation=\"references\", query=\"...\")` | Locate all usages of a symbol across the codebase |\n"
     "| Get UI/design guidance | `ui_ux(operation=\"search\", query=\"...\")` | Style, colors, typography, charts, slides |\n"
+    "| Persist/recover session | `session_continuity(operation=\"save\"/\"load\"/\"clear\")` | State recovery / task checklist continuity |\n"
     "| Browse project tree | `project_context(operation=\"tree\")` | Optimized directory tree view |\n\n"
     "### Six Mandatory Rules\n\n"
     "1. **Context First**: Call `task_pipeline` or `project_context` BEFORE any file read or code change.\n"
