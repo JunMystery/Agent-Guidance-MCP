@@ -71,7 +71,7 @@ if ($action -eq "3") {
 Write-Host ""
 
 # ── Step 1: Detect or Install 'uv' ────────────────────────────────────────────
-Write-Host "📦 Step 1/3 — Checking Python toolchain (uv)..." -ForegroundColor White
+Write-Host "📦 Step 1/4 — Checking Python toolchain (uv)..." -ForegroundColor White
 $uvBin = ""
 if (Get-Command "uv" -ErrorAction SilentlyContinue) {
     $uvBin = "uv"
@@ -92,7 +92,7 @@ if (Get-Command "uv" -ErrorAction SilentlyContinue) {
 
 # ── Step 2: Install the MCP server ────────────────────────────────────────────
 Write-Host ""
-Write-Host "🔧 Step 2/3 — Installing agent-guidance-mcp..." -ForegroundColor White
+Write-Host "🔧 Step 2/4 — Installing agent-guidance-mcp..." -ForegroundColor White
 
 if (Test-Path "pyproject.toml") {
     Write-Host "  📂 Found local project — installing from source..." -ForegroundColor Cyan
@@ -118,7 +118,7 @@ if (-not (Test-Path $toolBin)) {
 
 # ── Step 3: Post-install configuration ────────────────────────────────────────
 Write-Host ""
-Write-Host "⚙️  Step 3/3 — Configuring IDE clients..." -ForegroundColor White
+Write-Host "⚙️  Step 3/4 — Configuring IDE clients..." -ForegroundColor White
 $modeFlag = ""
 if ($action -eq "2") { $modeFlag = "--mode=ide" }
 
@@ -132,6 +132,35 @@ if (Test-Path $toolBin) {
     & $uvBin tool run agent-guidance-mcp --setup $modeFlag
     Write-Host "  ▶ Downloading skill catalog..." -ForegroundColor Magenta
     & $uvBin tool run agent-guidance-mcp --update
+}
+
+# ── Step 4: Install RTK (Rust Token Killer) ──────────────────────────────────
+Write-Host ""
+Write-Host "⚡ Step 4/4 — Installing RTK token optimizer..." -ForegroundColor White
+
+$rtkBin = "$HOME\.local\bin\rtk.exe"
+if (Get-Command "rtk" -ErrorAction SilentlyContinue) {
+    $rtkVer = & rtk --version 2>$null
+    Write-Host "  ✓ RTK already installed ($rtkVer)" -ForegroundColor Green
+} else {
+    $arch = if ([Environment]::Is64BitOperatingSystem) { "x86_64" } else { "i686" }
+    $rtkUrl = "https://github.com/rtk-ai/rtk/releases/latest/download/rtk-${arch}-pc-windows-msvc.zip"
+
+    Write-Host "  📥 Downloading RTK for Windows/${arch}..." -ForegroundColor Cyan
+    try {
+        $tmpDir = New-TemporaryFile | ForEach-Object { Remove-Item $_; New-Item $_ -ItemType Directory }
+        $zipPath = "$tmpDir\rtk.zip"
+        Invoke-WebRequest -Uri $rtkUrl -OutFile $zipPath -UseBasicParsing
+        Expand-Archive -Path $zipPath -DestinationPath $tmpDir -Force
+        $rtkExe = Get-ChildItem -Path $tmpDir -Name "rtk.exe" -Recurse | Select-Object -First 1
+        if ($rtkExe) {
+            Copy-Item "$tmpDir\$rtkExe" $rtkBin -Force
+            Write-Host "  ✓ RTK installed to $rtkBin" -ForegroundColor Green
+        }
+        Remove-Item -Recurse -Force $tmpDir
+    } catch {
+        Write-Host "  ⚠ RTK download failed — run agent-guidance-mcp --update later to retry" -ForegroundColor Yellow
+    }
 }
 
 # ── Footer ────────────────────────────────────────────────────────────────────

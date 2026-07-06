@@ -74,7 +74,7 @@ fi
 echo -e ""
 
 # ── Step 1: Detect or Install 'uv' ────────────────────────────────────────────
-echo -e "${BOLD}📦 Step 1/3 — Checking Python toolchain (uv)...${NC}"
+echo -e "${BOLD}📦 Step 1/4 — Checking Python toolchain (uv)...${NC}"
 UV_BIN=""
 if command -v uv &> /dev/null; then
     UV_BIN="uv"
@@ -93,7 +93,7 @@ fi
 
 # ── Step 2: Install the MCP server ────────────────────────────────────────────
 echo -e ""
-echo -e "${BOLD}🔧 Step 2/3 — Installing agent-guidance-mcp...${NC}"
+echo -e "${BOLD}🔧 Step 2/4 — Installing agent-guidance-mcp...${NC}"
 
 if [ -f "pyproject.toml" ]; then
     echo -e "  ${CYAN}📂${NC} Found local project — installing from source..."
@@ -117,7 +117,7 @@ fi
 
 # ── Step 3: Post-install configuration ────────────────────────────────────────
 echo -e ""
-echo -e "${BOLD}⚙️  Step 3/3 — Configuring IDE clients...${NC}"
+echo -e "${BOLD}⚙️  Step 3/4 — Configuring IDE clients...${NC}"
 MODE_FLAG=""
 if [ "$ACTION" = "2" ]; then
     MODE_FLAG="--mode=ide"
@@ -133,6 +133,51 @@ else
     "$UV_BIN" tool run agent-guidance-mcp --setup $MODE_FLAG
     echo -e "  ${PURPLE}▶${NC}  Downloading skill catalog..."
     "$UV_BIN" tool run agent-guidance-mcp --update
+fi
+
+# ── Step 4: Install RTK (Rust Token Killer) ──────────────────────────────────
+echo -e ""
+echo -e "${BOLD}⚡ Step 4/4 — Installing RTK token optimizer...${NC}"
+
+RTK_BIN="$HOME/.local/bin/rtk"
+if command -v rtk &> /dev/null; then
+    echo -e "  ${GREEN}✓${NC} RTK already installed ($(rtk --version 2>/dev/null || echo 'found'))"
+else
+    OS="$(uname -s)"
+    ARCH="$(uname -m)"
+    RTK_URL=""
+
+    case "$OS-$ARCH" in
+        Linux-x86_64)
+            RTK_URL="https://github.com/rtk-ai/rtk/releases/latest/download/rtk-x86_64-unknown-linux-musl.tar.gz"
+            ;;
+        Linux-aarch64|Linux-arm64)
+            RTK_URL="https://github.com/rtk-ai/rtk/releases/latest/download/rtk-aarch64-unknown-linux-gnu.tar.gz"
+            ;;
+        Darwin-x86_64)
+            RTK_URL="https://github.com/rtk-ai/rtk/releases/latest/download/rtk-x86_64-apple-darwin.tar.gz"
+            ;;
+        Darwin-arm64|Darwin-aarch64)
+            RTK_URL="https://github.com/rtk-ai/rtk/releases/latest/download/rtk-aarch64-apple-darwin.tar.gz"
+            ;;
+    esac
+
+    if [ -n "$RTK_URL" ]; then
+        echo -e "  ${CYAN}📥${NC} Downloading RTK for ${OS}/${ARCH}..."
+        TMP_DIR=$(mktemp -d)
+        curl -fsSL "$RTK_URL" -o "$TMP_DIR/rtk.tar.gz" 2>/dev/null
+        tar xzf "$TMP_DIR/rtk.tar.gz" -C "$TMP_DIR" 2>/dev/null
+        find "$TMP_DIR" -name rtk -type f -exec cp {} "$RTK_BIN" \; 2>/dev/null
+        chmod +x "$RTK_BIN" 2>/dev/null
+        rm -rf "$TMP_DIR"
+        if [ -f "$RTK_BIN" ]; then
+            echo -e "  ${GREEN}✓${NC} RTK installed to ${GRAY}$RTK_BIN${NC}"
+        else
+            echo -e "  ${YELLOW}⚠${NC}  RTK download failed — run ${CYAN}agent-guidance-mcp --update${NC} later to retry"
+        fi
+    else
+        echo -e "  ${YELLOW}⚠${NC}  No pre-built RTK binary for ${OS}/${ARCH} — build from source if needed"
+    fi
 fi
 
 # ── Footer ────────────────────────────────────────────────────────────────────
