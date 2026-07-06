@@ -8,7 +8,7 @@
 ![GitHub repo size](https://img.shields.io/github/repo-size/JunMystery/Agent-Guidance-MCP)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?logo=ko-fi&logoColor=white)](https://ko-fi.com/JunMystery)
 
-<img src="docs/images/hero-banner.png" alt="Agent Guidance MCP" width="65%">
+<img src="docs/images/hero-banner.png" alt="Agent Guidance MCP">
 
 MCP server serving AI agent guidance through a **168-skill catalog**, bundled guidance corpus, workflow prompts, bounded project-code context tools, and a **token optimization engine** — all over **Stdio** transport.
 
