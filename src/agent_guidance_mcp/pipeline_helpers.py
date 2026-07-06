@@ -206,3 +206,29 @@ def _wrap_response(
     if warnings:
         result["warnings"] = warnings
     return result
+
+
+def _detect_dependency_cycles(catalog: object, start_identifier: str) -> list[str]:
+    """Detect dependency cycles starting from start_identifier via DFS."""
+    visited: set[str] = set()
+    on_stack: set[str] = set()
+    cycles: list[str] = []
+
+    def _dfs(identifier: str) -> None:
+        if identifier in on_stack:
+            cycles.append(identifier)
+            return
+        if identifier in visited:
+            return
+        visited.add(identifier)
+        on_stack.add(identifier)
+        try:
+            entry = catalog.get_entry(identifier)
+            for dep in entry.dependencies:
+                _dfs(dep)
+        except KeyError:
+            pass
+        on_stack.discard(identifier)
+
+    _dfs(start_identifier)
+    return cycles

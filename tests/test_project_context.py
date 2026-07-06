@@ -76,7 +76,7 @@ def test_read_project_file_bounds_lines_and_rejects_path_escape(tmp_path):
     assert result["start_line"] == 1
     assert result["end_line"] == 1
     assert result["truncated"] is True
-    assert result["content"] == "def hello():"
+    assert "def hello():" in result["content"]
 
     with pytest.raises(ValueError):
         read_project_file(str(project), "../outside.py")

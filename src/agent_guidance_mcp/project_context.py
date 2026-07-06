@@ -166,10 +166,16 @@ def read_project_file(
     rtk_output = rtk_integration.filter_read(str(path), level="minimal", max_lines=max_lines)
     if rtk_output and rtk_output.strip():
         _record_savings(tracker, "project_context", "read", "", rtk_output)
+        rtk_lines = rtk_output.strip().splitlines()
+        rtk_end = min(start_line + len(rtk_lines) - 1, start_line + max_lines - 1)
         return {
             "project_root": str(root),
+            "path": relative_path(root, path),
             "file": relative_path(root, path),
             "language": language_hint(path),
+            "start_line": start_line,
+            "end_line": rtk_end,
+            "truncated": len(rtk_lines) > max_lines,
             "lines": {"start": start_line, "end": start_line + max_lines},
             "content": rtk_output,
             "source": "rtk",

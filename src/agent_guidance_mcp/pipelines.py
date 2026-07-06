@@ -18,6 +18,7 @@ UI_UX_OPERATIONS = ("search", "design_system", "slides")
 
 from .pipeline_helpers import (
     _detect_frameworks,
+    _detect_dependency_cycles,
     _is_ui_task,
     _unsupported_operation,
     _missing_argument,
@@ -63,6 +64,9 @@ def guidance(
             raw_content = catalog.read_entry(entry.identifier, optimize=False)
             result["content"] = catalog.read_entry(entry.identifier, config=config)
             _record_savings(tracker, "guidance", operation_key, raw_content, str(result["content"]))
+            cycles = _detect_dependency_cycles(catalog, entry.identifier)
+            if cycles:
+                result["dependency_cycles_detected"] = cycles
         return result
 
     if not query:

@@ -1,6 +1,7 @@
 """Incremental workspace indexing engine for CodeGraph intelligence."""
 
 import hashlib
+import threading
 import time
 from pathlib import Path
 from typing import Generator
@@ -16,6 +17,7 @@ class CodeGraphIndexer:
     def __init__(self, root: Path, db: CodeGraphDatabase):
         self.root = root
         self.db = db
+        self._db_lock = threading.Lock()
 
     def _compute_hash(self, path: Path) -> str:
         """Compute MD5 hash of file content."""
@@ -37,20 +39,20 @@ class CodeGraphIndexer:
         mtime = int(stat.st_mtime * 1000)
         size = stat.st_size
         rel = str(path.relative_to(self.root)).replace("\\", "/")
-        
-        # Check if file has changed
-        existing = self.db.get_file(rel)
+
+        # Check if file has changed (DB access — thread-safe via lock)
+        with self._db_lock:
+            existing = self.db.get_file(rel)
         if existing and existing["modified_at"] == mtime and existing["size"] == size:
-            # File is fresh
             return None
 
         content_hash = self._compute_hash(path)
         if existing and existing["content_hash"] == content_hash:
-            # Hash matches, just update stats
-            self.db.update_file(rel, content_hash, size, mtime, int(time.time() * 1000), existing["node_count"])
+            with self._db_lock:
+                self.db.update_file(rel, content_hash, size, mtime, int(time.time() * 1000), existing["node_count"])
             return None
 
-        # Re-parse symbols
+        # Re-parse symbols (CPU/IO-bound — safe to parallelize)
         try:
             extracted = extract_symbols(path, self.root)
             symbols_data = [

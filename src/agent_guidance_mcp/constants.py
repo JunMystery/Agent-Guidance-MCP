@@ -66,7 +66,7 @@ TASK_ANCHORS = {
     ),
     "ui": (
         "skills/frontend-patterns/SKILL.md",
-        "skills/ui-ux-pro-max/SKILL.md",
+        "skills/design-system/SKILL.md",
     ),
     "workflow": (
         "skills/verification-loop/SKILL.md",

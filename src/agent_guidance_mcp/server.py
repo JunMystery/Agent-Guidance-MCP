@@ -22,11 +22,15 @@ AGENT_INSTRUCTIONS = (
     "It returns recommendations, project tree, code search, and UI guidance in ONE call.\n\n"
     "Available tools:\n"
     "- task_pipeline: context prep (call first)\n"
-    "- guidance: standards, skills, live docs (operation=search/get/recommend/docs)\n"
+    "- guidance: standards, skills, live docs, reasoning frameworks\n"
     "- project_context: bounded file ops (read/search/tree/symbols/references/diff)\n"
     "- ui_ux: design guidance (search/design_system/slides)\n"
     "- session_continuity: persist task state (save/load/clear)\n"
     "- health_check / diagnose / token_stats: operational\n\n"
+    "LOADING SKILLS: guidance(operation='get', identifier='skill-name', include_content=True) "
+    "loads any of 168 skills on-demand. Search first: guidance(operation='search', "
+    "query='humanizer') then load with 'get'. The built-in skill tool only lists a few "
+    "external skills; use guidance for all Agent-Guidance-MCP skills.\n\n"
     "For detailed tool usage and the 6 mandatory rules, see AGENTS.md."
 )
 
@@ -252,27 +256,30 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         limit: int = 10,
         include_content: bool = False,
     ) -> dict[str, object] | list[dict[str, object]]:
-        """Standards catalog and skill lookup.
+        """Standards catalog and skill lookup. 168 skills available on-demand.
 
         Use guidance(operation='search') BEFORE implementing to find applicable
         coding standards, security rules, and skill workflows.
+        Use guidance(operation='get', identifier='skill-name') to load a specific
+        skill on-demand with its full content.
         Use guidance(operation='reason') for structured reasoning frameworks
         (decision, bug, architecture, security, performance).
         Use guidance(operation='docs') for live library/API documentation via Context7.
 
         Examples:
-          guidance(operation="search", query="JWT authentication middleware")
-          guidance(operation="docs", query="jsonwebtoken sign options", identifier="node-jsonwebtoken")
+          guidance(operation="search", query="humanizer writing")
+          guidance(operation="get", identifier="humanizer", include_content=True)
+          guidance(operation="docs", query="jsonwebtoken sign", identifier="node-jsonwebtoken")
 
         Args:
             operation: One of list, get, search, recommend, reason, docs (required).
             query: Search/recommend/reason query string, or technical question for docs.
-            identifier: Entry identifier for "get"; library/package name for "docs"
-                (e.g. "react", "nextjs", "express").
+            identifier: Skill/document identifier for "get"; library/package name for
+                "docs" (e.g. "react", "nextjs", "express").
             category: Filter entries by category.
             kind: Filter by kind — skill, doc, principle, etc.
             limit: Maximum results (default 10).
-            include_content: Include full body in "get" response (default False).
+            include_content: Set True for "get" to include full skill body (default False).
         """
         return pipelines.guidance(
             catalog=catalog,
