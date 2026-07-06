@@ -1,6 +1,8 @@
 """Session continuity and state recovery manager for Agent Guidance MCP."""
 
 import json
+import os
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -28,8 +30,19 @@ def save_session(
         "metadata": metadata or {},
     }
     
+    # Write atomically via tempfile + rename to prevent corruption on crash
     session_file = session_dir / SESSION_FILE_NAME
-    session_file.write_text(json.dumps(session_data, indent=2), encoding="utf-8")
+    tmp = tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", suffix=".tmp",
+        dir=str(session_dir), delete=False,
+    )
+    try:
+        json.dump(session_data, tmp, indent=2)
+        tmp.flush()
+        os.fsync(tmp.fileno())
+    finally:
+        tmp.close()
+    os.replace(tmp.name, str(session_file))
     return session_data
 
 def load_session(project_path: str) -> Optional[Dict[str, Any]]:

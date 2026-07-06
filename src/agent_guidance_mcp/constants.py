@@ -22,6 +22,9 @@ PROJECT_IGNORED_PARTS = frozenset({
     ".ruff_cache",
     ".cache",
     ".tox",
+    ".agent-context",
+    ".pytest_temp",
+    ".codegraph",
 })
 
 TASK_ANCHORS = {

@@ -17,6 +17,10 @@ class CodeGraphDatabase:
     def _init_db(self) -> None:
         """Initialize tables and run migrations if needed."""
         with self.conn:
+            # Concurrency safety for multi-agent access
+            self.conn.execute("PRAGMA journal_mode=WAL;")
+            self.conn.execute("PRAGMA busy_timeout=5000;")
+            self.conn.execute("PRAGMA synchronous=NORMAL;")
             # Enable foreign keys
             self.conn.execute("PRAGMA foreign_keys = ON;")
             

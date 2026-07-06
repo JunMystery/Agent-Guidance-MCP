@@ -137,24 +137,36 @@ def create_server(
         set_config(config)
     catalog = build_catalog(root)
 
-    # Auto-index project workspace on startup
+    # Auto-index project workspace on startup (watcher is optional & configurable)
     try:
         from .database import CodeGraphDatabase
         from .indexer import CodeGraphIndexer
         from .watcher import CodeGraphWatcher
-        
+
         project_root = Path(root or ".").resolve()
         db_path = project_root / ".agent-context" / "codegraph.db"
         db = CodeGraphDatabase(db_path)
-        
+
         indexer = CodeGraphIndexer(project_root, db)
         indexer.run()
-        
-        # Start file watcher for real-time incremental re-indexing
-        watcher = CodeGraphWatcher(project_root, db, interval_seconds=5.0)
-        watcher.start()
+
+        # File watcher is CPU-aware; disable via AGENT_WATCHER_ENABLED=false
+        watcher_enabled = os.environ.get("AGENT_WATCHER_ENABLED", "true").strip().lower()
+        if watcher_enabled not in ("0", "false", "no", "off"):
+            watcher_interval_raw = os.environ.get("AGENT_WATCHER_INTERVAL")
+            watcher_kwargs: dict[str, object] = {}
+            if watcher_interval_raw:
+                try:
+                    watcher_kwargs["interval_seconds"] = float(watcher_interval_raw)
+                except ValueError:
+                    pass
+            watcher = CodeGraphWatcher(project_root, db, **watcher_kwargs)  # type: ignore[arg-type]
+            watcher.start()
     except Exception:
         pass
+
+    # Belt-and-suspenders: all logging must go to stderr so MCP stdio frames stay intact
+    logging.basicConfig(level=logging.WARNING, stream=sys.stderr)
 
     mcp = FastMCP("Agent Guidance MCP", instructions=AGENT_INSTRUCTIONS, json_response=True)
     register_handlers(mcp, catalog)
@@ -211,7 +223,19 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         include_ui: bool = True,
         limit: int = 8,
     ) -> dict[str, object]:
-        """CALL FIRST before any coding task. Prepares recommendations, project tree, code search, and optional UI guidance in ONE optimized call. Use BEFORE codegraph, file reads, or implementation. Parameters: task (str, required) — description of the work; project_path (str) — root of the project to scan; focus (str) — domain focus like 'general', 'frontend', 'backend'; code_query (str|None) — optional code search override; include_tree (bool) — include project directory tree; include_ui (bool) — attach UI/UX guidance when task signals UI intent; limit (int) — max recommendations (default 8)."""
+        """CALL FIRST before any coding task. Prepares recommendations, project tree,
+        code search, and optional UI guidance in ONE optimized call. Use BEFORE
+        codegraph, file reads, or implementation.
+
+        Args:
+            task: Description of the work to perform (required).
+            project_path: Root of the project to scan (default ".").
+            focus: Domain focus — "general", "frontend", or "backend" (default "general").
+            code_query: Optional search override; auto-detected from task if omitted.
+            include_tree: Include project directory tree in result (default True).
+            include_ui: Attach UI/UX guidance when task signals UI intent (default True).
+            limit: Maximum number of recommendations to return (default 8).
+        """
         return pipelines.task_pipeline(
             catalog=catalog,
             task=task,
@@ -235,7 +259,24 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         limit: int = 10,
         include_content: bool = False,
     ) -> dict[str, object] | list[dict[str, object]]:
-        """Standards & skill lookup. Use guidance(operation='search') BEFORE implementing to find applicable coding standards, security rules, and skill workflows. Use guidance(operation='reason', query='...') for structured reasoning frameworks (decision/bug/architecture/security/performance). Use guidance(operation='docs', query='...', identifier='...') for live library/API documentation search via Context7. Parameters: operation (str, required) — one of list/get/search/recommend/reason/docs; query (str) — search/recommend/reason query string, or technical question for docs; identifier (str) — entry identifier for get, or library/package name (e.g., 'react', 'nextjs') for docs; category (str) — filter by category; kind (str) — filter by kind (skill/doc/principle/etc.); limit (int) — max results (default 10); include_content (bool) — include full body in get response (default False)."""
+        """Standards catalog and skill lookup.
+
+        Use guidance(operation='search') BEFORE implementing to find applicable
+        coding standards, security rules, and skill workflows.
+        Use guidance(operation='reason') for structured reasoning frameworks
+        (decision, bug, architecture, security, performance).
+        Use guidance(operation='docs') for live library/API documentation via Context7.
+
+        Args:
+            operation: One of list, get, search, recommend, reason, docs (required).
+            query: Search/recommend/reason query string, or technical question for docs.
+            identifier: Entry identifier for "get"; library/package name for "docs"
+                (e.g. "react", "nextjs", "express").
+            category: Filter entries by category.
+            kind: Filter by kind — skill, doc, principle, etc.
+            limit: Maximum results (default 10).
+            include_content: Include full body in "get" response (default False).
+        """
         return pipelines.guidance(
             catalog=catalog,
             operation=operation,
@@ -263,7 +304,35 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         max_total_bytes: int = project_context_helpers.DEFAULT_MAX_TOTAL_BYTES,
         limit: int = 20,
     ) -> dict[str, object]:
-        """Read & search project files with built-in token budgets. Use project_context(operation='read') for bounded file reading, project_context(operation='search') for codebase text search (primary fallback when codegraph is unavailable), project_context(operation='tree') for directory overview, project_context(operation='symbols') for symbol extraction (classes/functions/methods), project_context(operation='references') to find symbol usage across the codebase, project_context(operation='structure') for hierarchical file structure, project_context(operation='callers') to get symbol callers, project_context(operation='callees') to get symbol callees, project_context(operation='diff') to view the git diff of workspace changes. Parameters: operation (str, required) — one of tree/search/read/snapshot/symbols/references/structure/callers/callees/diff; project_path (str) — root of the project; query (str) — search query for grep, symbol name for references, or symbol ID for callers/callees; relative_path (str) — file path for read/symbols/structure; start_line (int) — line offset for read (default 1); max_lines (int) — max lines to read (default 300); max_depth (int) — directory tree depth (default 8); output_path (str) — snapshot output path; max_file_bytes (int) — per-file cap for snapshot; max_total_bytes (int) — total cap for snapshot; limit (int) — max search/reference results (default 20)."""
+        """Read and search project files with built-in token budgets.
+
+        Supported operations:
+        - read: Bounded file reading (capped at 300 lines).
+        - search: Codebase text search (primary fallback when codegraph unavailable).
+        - tree: Directory overview with file metadata.
+        - snapshot: Export project snapshot to disk.
+        - symbols: Extract classes, functions, methods from a file.
+        - references: Find symbol usage across the codebase.
+        - structure: Hierarchical file overview (classes, methods, functions).
+        - callers: Get all callers of a symbol from the CodeGraph database.
+        - callees: Get all callees of a symbol from the CodeGraph database.
+        - diff: View the git diff of workspace changes.
+
+        Args:
+            operation: One of tree, search, read, snapshot, symbols, references,
+                structure, callers, callees, diff (required).
+            project_path: Root of the project (default ".").
+            query: Search query for grep, symbol name for references, or symbol ID
+                for callers/callees.
+            relative_path: File path for read, symbols, or structure operations.
+            start_line: Line offset for read (default 1).
+            max_lines: Maximum lines to read (default 300).
+            max_depth: Directory tree depth (default 8).
+            output_path: Snapshot output path.
+            max_file_bytes: Per-file cap for snapshot (default 200000).
+            max_total_bytes: Total cap for snapshot (default 2000000).
+            limit: Maximum search or reference results (default 20).
+        """
         return pipelines.project_context(
             operation=operation,
             project_path=project_path,
@@ -290,7 +359,21 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         output_format: str = "markdown",
         limit: int = 3,
     ) -> dict[str, object]:
-        """UI/UX design guidance. Use for style recommendations, color palettes, typography pairings, chart selection, and slide layouts. Parameters: operation (str, required) — one of search/design_system/slides; query (str, required) — search query; domain (str) — UI domain filter (style/color/chart/landing/product/ux/typography/icons/react/web); stack (str) — framework stack filter (react/nextjs/vue/svelte/astro/etc.); project_name (str) — project name for design_system; output_format (str) — markdown or ascii (default markdown); limit (int) — max results (default 3)."""
+        """UI/UX design guidance.
+
+        Use for style recommendations, color palettes, typography pairings,
+        chart selection, and slide layouts.
+
+        Args:
+            operation: One of search, design_system, slides (required).
+            query: Search query (required).
+            domain: UI domain filter — style, color, chart, landing, product,
+                ux, typography, icons, react, web.
+            stack: Framework stack filter — react, nextjs, vue, svelte, astro, etc.
+            project_name: Project name used for design_system generation.
+            output_format: "markdown" or "ascii" (default "markdown").
+            limit: Maximum results (default 3).
+        """
         return pipelines.ui_ux(
             catalog=catalog,
             operation=operation,
@@ -313,7 +396,21 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         current_step_index: int = 0,
         metadata: dict | None = None,
     ) -> dict[str, object]:
-        """Persist or recover task session state for continuity. Use operation='save' to save the current task checklist progress. Use operation='load' to resume after interruptions. Use operation='clear' when task is completed. Parameters: operation (str, required) — save/load/clear; project_path (str) — project root path; task (str) — task description; checklist (list[dict]) — list of checklist dicts (e.g. [{'title': '...', 'status': 'todo'/'done'}]); current_step_index (int) — index of current checklist step; metadata (dict) — optional context variables."""
+        """Persist or recover task session state for continuity.
+
+        Use operation='save' to save the current task checklist progress.
+        Use operation='load' to resume after interruptions.
+        Use operation='clear' when the task is completed.
+
+        Args:
+            operation: One of save, load, clear (required).
+            project_path: Project root path (default ".").
+            task: Task description (required for save).
+            checklist: List of checklist dicts, e.g.
+                [{"title": "...", "status": "todo"|"done"}].
+            current_step_index: Index of current checklist step (default 0).
+            metadata: Optional context variables as a dict.
+        """
         from .session import save_session, load_session, clear_session
         if operation == "save":
             if not task:

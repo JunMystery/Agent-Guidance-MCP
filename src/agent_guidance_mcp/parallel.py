@@ -70,6 +70,6 @@ def parallel_run(
             key = futures[future]
             try:
                 results_map[key] = future.result()
-            except BaseException as exc:
+            except Exception as exc:
                 results_map[key] = exc
     return dict(zip(keys, [results_map[k] for k in keys]))

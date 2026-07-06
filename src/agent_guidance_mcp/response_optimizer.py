@@ -10,6 +10,7 @@ from .content_compressor import (
     detect_language,
     filter_content,
     filter_markdown,
+    smart_truncate,
 )
 from .token_config import TokenOptimizationConfig
 from .token_filter import FilterLevel
@@ -135,8 +136,13 @@ def optimize_source_content(
     language_hint: str,
     level: FilterLevel = FilterLevel.MINIMAL,
     config: TokenOptimizationConfig | None = None,
+    max_tokens: int | None = None,
 ) -> tuple[str, dict[str, int]]:
-    """Optimize source content and return token savings stats."""
+    """Optimize source content and return token savings stats.
+
+    When max_tokens is set, uses smart_truncate to preserve structural
+    lines (imports, signatures, constants) instead of a blind character cut.
+    """
     lang = _hint_to_language(language_hint)
     original_tokens = estimate_tokens(content)
     if config and not config.enabled:
@@ -148,6 +154,11 @@ def optimize_source_content(
     if config:
         level = _filter_level_from_config(config.source_filter_level)
     optimized = filter_content(content, lang, level)
+
+    if max_tokens is not None and estimate_tokens(optimized) > max_tokens:
+        max_lines = max(1, max_tokens // 2)
+        optimized = smart_truncate(optimized, max_lines, lang)
+
     optimized_tokens = estimate_tokens(optimized)
     savings_pct = round((1 - optimized_tokens / max(1, original_tokens)) * 100)
 
@@ -222,11 +233,9 @@ def optimize_snapshot_content(
 
         language_hint = str(file_entry.get("language_hint", "text"))
         optimized, stats = optimize_source_content(
-            content, language_hint, FilterLevel.MINIMAL, config=config
+            content, language_hint, FilterLevel.MINIMAL,
+            config=config, max_tokens=per_file_budget,
         )
-
-        if estimate_tokens(optimized) > per_file_budget:
-            optimized = truncate_to_budget(optimized, per_file_budget)
 
         final_tokens = estimate_tokens(optimized)
         if optimized_files and total_tokens + final_tokens > max_total_tokens:
