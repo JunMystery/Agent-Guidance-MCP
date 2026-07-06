@@ -165,6 +165,8 @@ def resolve_project_root(project_path: str) -> Path:
 
 def resolve_inside_project(root: Path, path_value: str) -> Path:
     path = Path(path_value).expanduser()
+    if ".." in path.parts:
+        raise ValueError(f"Path traversal blocked: {path_value!r}")
     resolved = path.resolve() if path.is_absolute() else (root / path).resolve()
     try:
         resolved.relative_to(root)

@@ -144,6 +144,12 @@ def download_and_extract(url: str, dest_dir: Path) -> Path:
         _strip_git_artifacts(tmp_dir)
 
         return tmp_dir
+    except urllib.error.URLError as e:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise RuntimeError(f"Network error downloading {url}: {e}")
+    except zipfile.BadZipFile as e:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise RuntimeError(f"Corrupt archive from {url}: {e}")
     except Exception as e:
         shutil.rmtree(tmp_dir, ignore_errors=True)
         raise RuntimeError(f"Failed to download or extract archive from {url}: {e}")

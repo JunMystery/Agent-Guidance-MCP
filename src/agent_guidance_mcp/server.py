@@ -120,7 +120,13 @@ def create_server(
         set_config(load_config_from_env())
     else:
         set_config(config)
-    catalog = build_catalog(root)
+    try:
+        catalog = build_catalog(root)
+    except Exception as e:
+        import sys as _sys
+        print(f"Warning: catalog build failed — {e}. Starting with empty catalog.", file=_sys.stderr)
+        from .catalog import StandardsCatalog
+        catalog = StandardsCatalog(Path(root or ".").resolve() if root else Path("."), [])
 
     # Auto-index project workspace on startup (watcher is optional & configurable)
     try:

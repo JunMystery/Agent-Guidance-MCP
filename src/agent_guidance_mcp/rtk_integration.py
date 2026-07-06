@@ -68,12 +68,12 @@ def version() -> str | None:
         return None
 
 
-def _run_rtk(args: list[str], stdin_text: str | None = None) -> str | None:
-    """Run rtk with given args, optionally piping stdin_text. Returns filtered
-    output or None on failure."""
+def _run_rtk(args: list[str], stdin_text: str | None = None) -> dict[str, object]:
+    """Run rtk with given args. Returns {'ok': True, 'output': str} or
+    {'ok': False, 'error': str, 'fallback': 'python'}."""
     path = _find_rtk()
     if not path:
-        return None
+        return {"ok": False, "error": "rtk not installed", "fallback": "python"}
     try:
         result = subprocess.run(
             [path, *args],
@@ -81,55 +81,56 @@ def _run_rtk(args: list[str], stdin_text: str | None = None) -> str | None:
             capture_output=True, text=True, timeout=10,
         )
         if result.returncode == 0:
-            return result.stdout
-        logger.debug("rtk %s exited %d: %s", args[0], result.returncode, result.stderr[:200])
-        return None
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
-        logger.debug("rtk %s failed: %s", args[0], exc)
-        return None
+            return {"ok": True, "output": result.stdout, "backend": "rtk"}
+        return {"ok": False, "error": result.stderr[:200], "fallback": "python", "exit_code": result.returncode}
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": "rtk subprocess timed out", "fallback": "python"}
+    except (FileNotFoundError, OSError) as exc:
+        return {"ok": False, "error": str(exc), "fallback": "python"}
 
 
 # ── Structured wrappers ──────────────────────────────────────────────────────
 
 
 def filter_read(path: str, level: str = "minimal", max_lines: int | None = None) -> str | None:
-    """Run `rtk read <path> --level <level>`. Returns filtered content."""
+    """Run `rtk read <path> --level <level>`. Returns filtered content or None."""
     args = ["read", path, "--level", level]
     if max_lines is not None:
         args.extend(["--max-lines", str(max_lines)])
-    return _run_rtk(args)
+    result = _run_rtk(args)
+    return result["output"] if result.get("ok") else None
 
 
 def filter_grep(pattern: str, directory: str, limit: int = 50) -> str | None:
-    """Run `rtk grep <pattern> <directory>`. Returns grouped search results."""
-    return _run_rtk(["grep", pattern, directory, "--max-results", str(limit)])
+    result = _run_rtk(["grep", pattern, directory, "--max-results", str(limit)])
+    return result["output"] if result.get("ok") else None
 
 
 def filter_diff(file_a: str, file_b: str) -> str | None:
-    """Run `rtk diff <file_a> <file_b>`. Returns condensed diff."""
-    return _run_rtk(["diff", file_a, file_b])
+    result = _run_rtk(["diff", file_a, file_b])
+    return result["output"] if result.get("ok") else None
 
 
 def filter_ls(directory: str) -> str | None:
-    """Run `rtk ls <directory>`. Returns compact directory tree."""
-    return _run_rtk(["ls", directory])
+    result = _run_rtk(["ls", directory])
+    return result["output"] if result.get("ok") else None
 
 
 def filter_find(pattern: str, directory: str, max_results: int = 50) -> str | None:
-    """Run `rtk find <pattern> <directory>`. Returns compact find results."""
-    return _run_rtk(["find", pattern, directory, "--max-results", str(max_results)])
+    result = _run_rtk(["find", pattern, directory, "--max-results", str(max_results)])
+    return result["output"] if result.get("ok") else None
 
 
 def filter_curl(url: str, timeout: int = 30) -> str | None:
-    """Run `rtk proxy curl -sL <url>`. Token-optimized HTTP fetch."""
-    return _run_rtk(["proxy", "curl", "-sL", "--max-time", str(timeout), url])
+    result = _run_rtk(["proxy", "curl", "-sL", "--max-time", str(timeout), url])
+    return result["output"] if result.get("ok") else None
 
 
 def filter_stdin(text: str, level: str = "minimal") -> str | None:
-    """Pipe text through `rtk read --level <level>` via stdin. Generic filter."""
-    return _run_rtk(["read", "--level", level], stdin_text=text)
+    result = _run_rtk(["read", "--level", level], stdin_text=text)
+    return result["output"] if result.get("ok") else None
 
 
 def filter_text(text: str, language: str = "unknown") -> str | None:
-    """Pipe text through `rtk read --level minimal` via stdin with language hint."""
-    return _run_rtk(["read", "--level", "minimal"], stdin_text=text)
+    result = _run_rtk(["read", "--level", "minimal"], stdin_text=text)
+    return result["output"] if result.get("ok") else None

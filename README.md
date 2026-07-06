@@ -248,6 +248,8 @@ Returns: current `jsonwebtoken` API docs from Context7 — no hallucinated API c
 | `AGENT_WATCHER_REF_THRESHOLD` | Batch size before full reference resolve | `50` |
 | `AGENT_AUTO_UPDATE_INTERVAL` | Auto-update schedule | `weekly` |
 
+For full tool documentation, response formats, and examples, see [MCP Surface](docs/reference/mcp-surface.md).
+
 ---
 
 ## Documentation

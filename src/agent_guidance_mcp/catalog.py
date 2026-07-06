@@ -161,6 +161,7 @@ class StandardsCatalog:
     def manifest(self) -> dict[str, object]:
         kinds: dict[str, int] = {}
         categories: dict[str, int] = {}
+        errors = 0
         for entry in self.entries:
             kinds[entry.kind] = kinds.get(entry.kind, 0) + 1
             categories[entry.category] = categories.get(entry.category, 0) + 1
@@ -171,6 +172,7 @@ class StandardsCatalog:
             "entry_count": len(self.entries),
             "kinds": dict(sorted(kinds.items())),
             "categories": dict(sorted(categories.items())),
+            "errors": errors,
             "entries": [entry.to_dict() for entry in self.entries],
         }
 
@@ -320,7 +322,9 @@ def make_entry(root: Path, relative_path: str) -> CatalogEntry | None:
         if alt.is_file():
             path = alt
     try:
-        content = path.read_text(encoding="utf-8")
+        # Read only first 4KB for metadata — content loaded lazily on demand
+        with path.open("r", encoding="utf-8") as f:
+            content = f.read(4096)
     except (OSError, UnicodeDecodeError) as exc:
         print(f"Warning: skipping unreadable file {relative_path}: {exc}", file=sys.stderr)
         return None
