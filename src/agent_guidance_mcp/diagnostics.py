@@ -114,7 +114,18 @@ def run_diagnostics(project_root: Path, catalog: StandardsCatalog) -> dict[str, 
         "version": rtk_integration.version(),
     }
 
-    # 6. Standards Catalog Stats
+    # 6. File Watcher Status
+    try:
+        from .watcher import CodeGraphWatcher
+        db_path = project_root / ".agent-context" / "codegraph.db"
+        diagnostics["watcher"] = {
+            "db_exists": db_path.is_file(),
+            "db_size": db_path.stat().st_size if db_path.is_file() else 0,
+        }
+    except Exception as e:
+        diagnostics["watcher"] = {"error": str(e)}
+
+    # 7. Standards Catalog Stats
     try:
         manifest = catalog.manifest()
         diagnostics["catalog"] = {

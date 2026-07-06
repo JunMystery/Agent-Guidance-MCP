@@ -116,7 +116,11 @@ def check_auto_update(interval: str = "weekly") -> bool:
             return False
 
     print(f"Auto-update ({label}): running scheduled update...")
-    run_update()
+    try:
+        run_update()
+    except Exception as e:
+        print(f"Auto-update ({label}): failed — {e}")
+        return False
     return True
 
 

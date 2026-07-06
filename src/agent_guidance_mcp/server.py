@@ -212,6 +212,8 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         code search, and optional UI guidance in ONE optimized call. Use BEFORE
         codegraph, file reads, or implementation.
 
+        Example: task_pipeline(task="Add JWT auth to Express API", focus="backend")
+
         Args:
             task: Description of the work to perform (required).
             project_path: Root of the project to scan (default ".").
