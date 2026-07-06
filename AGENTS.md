@@ -284,3 +284,17 @@ rtk pip list            rtk pnpm install        rtk npm run <script>
 - `rtk proxy <cmd>` runs command without filtering but tracks usage
 <!-- /headroom:rtk-instructions -->
 
+## Maintenance Commands
+
+When asked to update skills, refresh the MCP, or pull the latest from upstream repositories,
+run the orchestrator:
+
+| User says | Run this |
+|---|---|
+| "update MCP tools", "refresh skills", "update everything" | `python scripts/update_all.py` |
+| "update ECC skills" | `python scripts/update_ecc.py` |
+| "update UI/UX data" | `python scripts/update_ui_ux.py` |
+| "update RTK" | `python scripts/update_rtk.py` |
+
+The orchestrator (`update_all.py`) runs all three updaters in sequence and prints a pass/fail summary. Each updater downloads the latest snapshot from its upstream GitHub repo, strips non-essential files, and deploys the minimal vendored copy.
+
