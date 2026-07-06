@@ -8,7 +8,7 @@
 ![GitHub repo size](https://img.shields.io/github/repo-size/JunMystery/Agent-Guidance-MCP)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?logo=ko-fi&logoColor=white)](https://ko-fi.com/JunMystery)
 
-![Agent Guidance MCP](docs/images/hero-banner.png)
+<img src="docs/images/hero-banner.png" alt="Agent Guidance MCP" width="65%">
 
 MCP server serving AI agent guidance through a **168-skill catalog**, bundled guidance corpus, workflow prompts, bounded project-code context tools, and a **token optimization engine** — all over **Stdio** transport.
 
@@ -112,7 +112,7 @@ Works with any MCP-compatible client. Auto-configured by the installer:
 
 ## MCP Surface
 
-![MCP Tool Surface](docs/images/tool-surface.png)
+<img src="docs/images/tool-surface.png" alt="MCP Tool Surface" width="50%">
 
 ### Tools
 
@@ -154,7 +154,7 @@ AI coding agents burn context fast. Every file read, every grep, every web searc
 
 Measured on a typical 500-line React component refactor task:
 
-![Token Savings Comparison](docs/images/token-savings-chart.png)
+<img src="docs/images/token-savings-chart.png" alt="Token Savings Comparison" width="65%">
 
 ```
                     Without MCP          With Agent Guidance MCP
@@ -171,7 +171,7 @@ Time to first fix   ~4 minutes           ~45 seconds
 
 Every MCP response passes through an 8-stage filter before reaching your agent:
 
-![Token Optimization Pipeline](docs/images/token-pipeline.png)
+<img src="docs/images/token-pipeline.png" alt="Token Optimization Pipeline" width="40%">
 
 ```
 Raw Response
