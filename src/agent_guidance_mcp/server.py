@@ -1,8 +1,11 @@
 """MCP registration for Agent Guidance MCP."""
 
 
-from pathlib import Path
+import logging
+import os
+import sys
 import threading
+from pathlib import Path
 from typing import Any
 
 from .catalog import StandardsCatalog, build_catalog
