@@ -38,7 +38,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--update",
         action="store_true",
-        help="Download and update ECC skills and UI/UX data from GitHub.",
+        help="Download and update skill repositories from GitHub.",
+    )
+    parser.add_argument(
+        "--auto-update",
+        nargs="?",
+        const="weekly",
+        choices=["weekly", "monthly"],
+        help=(
+            "Enable scheduled automatic skill updates. Checks persisted state; "
+            "runs update if the configured interval has elapsed. "
+            "Default: weekly if no value given. "
+            "Set AGENT_AUTO_UPDATE_INTERVAL env var to override."
+        ),
     )
     parser.add_argument(
         "--uninstall",
@@ -77,6 +89,20 @@ def main() -> None:
             from .setup import run_uninstall
             run_uninstall()
             sys.exit(0)
+
+        # Compatibility check before server start
+        from .updater import check_compatibility
+        check_compatibility()
+
+        # Auto-update before server start (if enabled)
+        if args.auto_update:
+            import os
+            interval = os.environ.get("AGENT_AUTO_UPDATE_INTERVAL", args.auto_update)
+            if interval not in ("weekly", "monthly"):
+                interval = args.auto_update
+            from .updater import check_auto_update
+            check_auto_update(interval=interval)
+
         root = find_standards_root(args.root)
         config = TokenOptimizationConfig.disabled() if args.no_optimize else None
         server = create_server(root, config=config)

@@ -1,12 +1,20 @@
-"""Updater module to download and update skills and UI/UX data from GitHub."""
+"""Updater module — download skills/UI data, compatibility tracking, auto-update.
 
-import os
-import sys
+Features:
+- Compatibility tracking: save server version on update, warn on mismatch.
+- Auto-update: check persisted state, run update when interval has elapsed.
+"""
+
+import json
 import shutil
 import tempfile
 import urllib.request
 import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
+
+from . import __version__
 
 ECC_ZIP_URL = "https://github.com/affaan-m/ECC/archive/refs/heads/main.zip"
 UI_UX_ZIP_URL = "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill/archive/refs/heads/main.zip"
@@ -14,31 +22,119 @@ ANTHROPIC_ZIP_URL = "https://github.com/anthropics/skills/archive/refs/heads/mai
 OWASP_ZIP_URL = "https://github.com/OWASP/CheatSheetSeries/archive/refs/heads/master.zip"
 SYSTEM_DESIGN_ZIP_URL = "https://github.com/donnemartin/system-design-primer/archive/refs/heads/master.zip"
 
+_STATE_FILE = Path.home() / ".agent-guidance" / ".update-state.json"
+
+# ── State persistence ────────────────────────────────────────────────────────
+
+
+def _load_state() -> dict[str, Any]:
+    if _STATE_FILE.is_file():
+        try:
+            return json.loads(_STATE_FILE.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {}
+
+
+def _save_state(state: dict[str, Any]) -> None:
+    _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _STATE_FILE.write_text(json.dumps(state, indent=2), encoding="utf-8")
+
+
+# ── Compatibility check ──────────────────────────────────────────────────────
+
+
+def check_compatibility(dest_root: Path | None = None) -> bool:
+    """Check server version against last update version.  Returns True if
+    compatible; prints warnings otherwise."""
+    state = _load_state()
+    stored_version = state.get("server_version")
+    if stored_version is None:
+        return True
+
+    if stored_version != __version__:
+        print(
+            f"\n⚠  Compatibility note: skills were last updated with server "
+            f"v{stored_version}, but current server is v{__version__}. "
+            f"Run 'agent-guidance-mcp --update' to refresh."
+        )
+        return False
+    return True
+
+
+# ── Auto-update scheduler ────────────────────────────────────────────────────
+
+
+def check_auto_update(interval: str = "weekly") -> bool:
+    """Return True if an auto-update ran (or is pending and was executed).
+
+    interval: 'weekly' or 'monthly'.
+    Does NOT run the update if the state file indicates it was already done
+    within the interval window.
+    """
+    now = datetime.now(timezone.utc)
+    state = _load_state()
+    last_str = state.get("last_update")
+
+    if last_str:
+        try:
+            last_update = datetime.fromisoformat(last_str)
+        except (ValueError, TypeError):
+            last_update = None
+    else:
+        last_update = None
+
+    if interval == "monthly":
+        threshold_days = 30
+        label = "monthly"
+    else:
+        threshold_days = 7
+        label = "weekly"
+
+    if last_update is not None:
+        delta = (now - last_update).days
+        if delta < threshold_days:
+            remaining = threshold_days - delta
+            print(f"Auto-update ({label}): last update was {delta}d ago "
+                  f"({remaining}d until next check). Skipping.")
+            return False
+
+    print(f"Auto-update ({label}): running scheduled update...")
+    run_update()
+    return True
+
+
+# ── Download helpers ─────────────────────────────────────────────────────────
+
+
 def download_and_extract(url: str, dest_dir: Path) -> Path:
     headers = {"User-Agent": "agent-guidance-mcp-updater/1.0"}
     req = urllib.request.Request(url, headers=headers)
-    
-    # We use a temporary directory for extraction
+
     tmp_dir = Path(tempfile.mkdtemp())
     zip_path = tmp_dir / "archive.zip"
-    
+
     try:
         with urllib.request.urlopen(req, timeout=45) as response, open(zip_path, "wb") as out_file:
             shutil.copyfileobj(response, out_file)
-            
+
         with zipfile.ZipFile(zip_path, "r") as zip_ref:
             zip_ref.extractall(tmp_dir)
-            
+
         return tmp_dir
     except Exception as e:
         shutil.rmtree(tmp_dir, ignore_errors=True)
         raise RuntimeError(f"Failed to download or extract archive from {url}: {e}")
 
+
+# ── Per-updater functions ────────────────────────────────────────────────────
+
+
 def update_ecc_library(dest_root: Path) -> bool:
     print("Updating ECC Skills library...")
     target_skills_dir = dest_root / "skills"
     target_skills_dir.mkdir(parents=True, exist_ok=True)
-    
+
     tmp_dir = None
     try:
         tmp_dir = download_and_extract(ECC_ZIP_URL, target_skills_dir)
@@ -46,13 +142,12 @@ def update_ecc_library(dest_root: Path) -> bool:
         if not extracted_dirs:
             print("  Error: Could not find extracted ECC folder structure.")
             return False
-            
+
         src_skills_dir = extracted_dirs[0] / "skills"
         if not src_skills_dir.exists():
             print("  Error: 'skills' directory not found in the extracted repository.")
             return False
-            
-        # Copy only essential files (SKILL.md, scripts, examples, resources, references)
+
         skill_essentials = {"SKILL.md", "scripts", "examples", "resources", "references"}
         for item in src_skills_dir.iterdir():
             dest_item = target_skills_dir / item.name
@@ -60,7 +155,7 @@ def update_ecc_library(dest_root: Path) -> bool:
                 if dest_item.exists():
                     shutil.rmtree(dest_item)
                 dest_item.mkdir(parents=True, exist_ok=True)
-                
+
                 for sub_item in item.iterdir():
                     if sub_item.name in skill_essentials:
                         sub_dest = dest_item / sub_item.name
@@ -70,8 +165,8 @@ def update_ecc_library(dest_root: Path) -> bool:
                             shutil.copy2(sub_item, sub_dest)
             else:
                 shutil.copy2(item, dest_item)
-                
-        print("  ✓ ECC skills successfully updated!")
+
+        print("  \u2713 ECC skills successfully updated!")
         return True
     except Exception as e:
         print(f"  Error updating ECC: {e}")
@@ -79,6 +174,7 @@ def update_ecc_library(dest_root: Path) -> bool:
     finally:
         if tmp_dir:
             shutil.rmtree(tmp_dir, ignore_errors=True)
+
 
 def update_ui_ux_data(dest_root: Path) -> bool:
     print("Updating UI/UX Pro Max data...")
@@ -90,14 +186,14 @@ def update_ui_ux_data(dest_root: Path) -> bool:
         if not extracted_dirs:
             print("  Error: Could not find extracted folder structure.")
             return False
-            
+
         src_dir = extracted_dirs[0]
         essentials = {"SKILL.md", "data"}
-        
+
         if target_dir.exists():
             shutil.rmtree(target_dir)
         target_dir.mkdir(parents=True, exist_ok=True)
-        
+
         for item in src_dir.iterdir():
             if item.name not in essentials:
                 continue
@@ -106,8 +202,8 @@ def update_ui_ux_data(dest_root: Path) -> bool:
                 shutil.copytree(item, dest_item)
             else:
                 shutil.copy2(item, dest_item)
-                
-        print("  ✓ UI/UX Pro Max data successfully updated!")
+
+        print("  \u2713 UI/UX Pro Max data successfully updated!")
         return True
     except Exception as e:
         print(f"  Error updating UI/UX: {e}")
@@ -115,26 +211,6 @@ def update_ui_ux_data(dest_root: Path) -> bool:
     finally:
         if tmp_dir:
             shutil.rmtree(tmp_dir, ignore_errors=True)
-
-def run_update() -> None:
-    dest_root = Path.home() / ".agent-guidance"
-    dest_root.mkdir(parents=True, exist_ok=True)
-    print(f"Target directory for updates: {dest_root}")
-    
-    results = []
-    results.append(("ECC (168-skill catalog)", update_ecc_library(dest_root)))
-    results.append(("UI/UX Pro Max", update_ui_ux_data(dest_root)))
-    results.append(("Anthropic Skills", update_anthropic_skills(dest_root)))
-    results.append(("OWASP Cheat Sheets", update_owasp_cheatsheets(dest_root)))
-    results.append(("System Design Primer", update_system_design_primer(dest_root)))
-    
-    failures = [name for name, ok in results if not ok]
-    if not failures:
-        print(f"\n\u2713 All {len(results)} updates completed successfully!")
-        sys.exit(0)
-    else:
-        print(f"\n\u2717 {len(failures)} update(s) failed: {', '.join(failures)}")
-        sys.exit(1)
 
 
 def update_anthropic_skills(dest_root: Path) -> bool:
@@ -263,3 +339,33 @@ def update_system_design_primer(dest_root: Path) -> bool:
     finally:
         if tmp_dir:
             shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+# ── Main update entry point ──────────────────────────────────────────────────
+
+
+def run_update() -> None:
+    dest_root = Path.home() / ".agent-guidance"
+    dest_root.mkdir(parents=True, exist_ok=True)
+    print(f"Target directory for updates: {dest_root}")
+
+    results: list[tuple[str, bool]] = []
+    results.append(("ECC (168-skill catalog)", update_ecc_library(dest_root)))
+    results.append(("UI/UX Pro Max", update_ui_ux_data(dest_root)))
+    results.append(("Anthropic Skills", update_anthropic_skills(dest_root)))
+    results.append(("OWASP Cheat Sheets", update_owasp_cheatsheets(dest_root)))
+    results.append(("System Design Primer", update_system_design_primer(dest_root)))
+
+    # Save update state for compatibility checks and auto-update scheduling
+    _save_state({
+        "last_update": datetime.now(timezone.utc).isoformat(),
+        "server_version": __version__,
+    })
+
+    failures = [name for name, ok in results if not ok]
+    if not failures:
+        print(f"\n\u2713 All {len(results)} updates completed successfully!")
+        sys.exit(0)
+    else:
+        print(f"\n\u2717 {len(failures)} update(s) failed: {', '.join(failures)}")
+        sys.exit(1)
