@@ -1,76 +1,141 @@
 #!/usr/bin/env bash
 set -e
 
-echo "=== Agent Guidance MCP Installer (macOS/Linux) ==="
+# ── Colors ────────────────────────────────────────────────────────────────────
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+CYAN='\033[0;36m'; PURPLE='\033[0;35m'; BOLD='\033[1m'
+GRAY='\033[0;90m'; NC='\033[0m'
 
-# 1. Detect or Install 'uv'
+# ── Check for uninstall mode ──────────────────────────────────────────────────
+if [ "${1:-}" = "--uninstall" ]; then
+    echo -e ""
+    echo -e "${RED}${BOLD}╔══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${RED}${BOLD}║        Agent Guidance MCP Uninstaller (macOS/Linux)         ║${NC}"
+    echo -e "${RED}${BOLD}╚══════════════════════════════════════════════════════════════╝${NC}"
+    echo -e ""
+
+    TOOL_BIN="$HOME/.local/bin/agent-guidance-mcp"
+    if [ ! -f "$TOOL_BIN" ]; then
+        command -v agent-guidance-mcp &> /dev/null && TOOL_BIN="agent-guidance-mcp"
+    fi
+
+    echo -e "${BOLD}🗑️  Step 1/3 — Removing client registrations...${NC}"
+    if [ -f "$TOOL_BIN" ] || command -v agent-guidance-mcp &> /dev/null; then
+        "$TOOL_BIN" --uninstall 2>/dev/null && echo -e "  ${GREEN}✓${NC} IDE registrations removed" || echo -e "  ${GREEN}✓${NC} Cleanup completed"
+    else
+        echo -e "  ${YELLOW}⚠${NC}  MCP tool not found — skipping"
+    fi
+
+    echo -e ""
+    echo -e "${BOLD}📁 Step 2/3 — Removing skills data...${NC}"
+    if [ -d "$HOME/.agent-guidance" ]; then
+        rm -rf "$HOME/.agent-guidance"
+        echo -e "  ${GREEN}✓${NC} Removed ${GRAY}$HOME/.agent-guidance${NC}"
+    else
+        echo -e "  ${GRAY}•${NC}  Skills data not found"
+    fi
+
+    echo -e ""
+    echo -e "${BOLD}🔧 Step 3/3 — Removing MCP server binary...${NC}"
+    if command -v uv &> /dev/null; then
+        uv tool uninstall agent-guidance-mcp 2>/dev/null && echo -e "  ${GREEN}✓${NC} Uninstalled from uv" || echo -e "  ${GRAY}•${NC}  Not found in uv tools"
+    elif [ -f "$HOME/.local/bin/uv" ]; then
+        "$HOME/.local/bin/uv" tool uninstall agent-guidance-mcp 2>/dev/null && echo -e "  ${GREEN}✓${NC} Uninstalled from uv" || echo -e "  ${GRAY}•${NC}  Not found in uv tools"
+    fi
+
+    echo -e ""
+    echo -e "${GREEN}${BOLD}╔══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}${BOLD}║       ✓  Uninstallation completed successfully!            ║${NC}"
+    echo -e "${GREEN}${BOLD}╚══════════════════════════════════════════════════════════════╝${NC}"
+    echo -e ""
+    exit 0
+fi
+
+# ── Header ────────────────────────────────────────────────────────────────────
+echo -e ""
+echo -e "${PURPLE}${BOLD}╔══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${PURPLE}${BOLD}║         Agent Guidance MCP Installer (macOS/Linux)          ║${NC}"
+echo -e "${PURPLE}${BOLD}╚══════════════════════════════════════════════════════════════╝${NC}"
+echo -e ""
+
+# ── Step 1: Detect or Install 'uv' ────────────────────────────────────────────
+echo -e "${BOLD}📦 Step 1/3 — Checking Python toolchain (uv)...${NC}"
 UV_BIN=""
 if command -v uv &> /dev/null; then
     UV_BIN="uv"
-    echo "Found existing 'uv' installation."
+    echo -e "  ${GREEN}✓${NC} Found 'uv' in PATH"
 else
-    # Check ~/.local/bin/uv
     if [ -f "$HOME/.local/bin/uv" ]; then
         UV_BIN="$HOME/.local/bin/uv"
-        echo "Found 'uv' at $UV_BIN"
+        echo -e "  ${GREEN}✓${NC} Found 'uv' at ${GRAY}$UV_BIN${NC}"
     else
-        echo "'uv' toolchain not found. Installing uv (fast, zero-dependency Python package runner)..."
+        echo -e "  ${YELLOW}⚡${NC} Installing uv (fast Python package manager)..."
         curl -LsSf https://astral.sh/uv/install.sh | sh
         UV_BIN="$HOME/.local/bin/uv"
+        echo -e "  ${GREEN}✓${NC} uv installed"
     fi
 fi
 
-# 2. Install the Agent Guidance MCP tool
-echo "Installing agent-guidance-mcp..."
+# ── Step 2: Install the MCP server ────────────────────────────────────────────
+echo -e ""
+echo -e "${BOLD}🔧 Step 2/3 — Installing agent-guidance-mcp...${NC}"
 
-# Try local path first
 if [ -f "pyproject.toml" ]; then
-    echo "Found local pyproject.toml, installing from local path..."
+    echo -e "  ${CYAN}📂${NC} Found local project — installing from source..."
     if ! "$UV_BIN" tool install . --force -q; then
-        echo "Local installation failed, falling back to GitHub..."
+        echo -e "  ${YELLOW}⚠${NC}  Local install failed — falling back to GitHub..."
         "$UV_BIN" tool install git+https://github.com/JunMystery/Agent-Guidance-MCP.git --force
     fi
 else
-    echo "Installing from GitHub repository..."
+    echo -e "  ${CYAN}🌐${NC} Installing from GitHub repository..."
     "$UV_BIN" tool install git+https://github.com/JunMystery/Agent-Guidance-MCP.git --force
 fi
+echo -e "  ${GREEN}✓${NC} MCP server installed"
 
-# 3. Resolve the path of the installed tool to run the setup
+# ── Resolve tool binary path ──────────────────────────────────────────────────
 TOOL_BIN="$HOME/.local/bin/agent-guidance-mcp"
 if [ ! -f "$TOOL_BIN" ]; then
-    # Fallback to look up in path or cargo/uv default locations
     if command -v agent-guidance-mcp &> /dev/null; then
         TOOL_BIN="agent-guidance-mcp"
     fi
 fi
 
-echo "Running post-install configuration..."
-echo ""
-echo "Choose install mode:"
-echo "  [1] Auto Install — configure all detected clients automatically"
-echo "  [2] Manual — choose which clients to configure"
-echo ""
+# ── Step 3: Post-install configuration ────────────────────────────────────────
+echo -e ""
+echo -e "${BOLD}⚙️  Step 3/3 — Configuring IDE clients...${NC}"
 
 # When piped (curl | bash), redirect read from the terminal
 if [ -t 0 ]; then
-    read -p "Choice [1]: " MODE_CHOICE
+    read -p "  Choose install mode [1=Auto / 2=Manual] (default: 1): " MODE_CHOICE
 else
-    read -p "Choice [1]: " MODE_CHOICE < /dev/tty 2>/dev/null || MODE_CHOICE=""
+    read -p "  Choose install mode [1=Auto / 2=Manual] (default: 1): " MODE_CHOICE < /dev/tty 2>/dev/null || MODE_CHOICE=""
 fi
 MODE_CHOICE="${MODE_CHOICE:-1}"
 MODE_FLAG=""
 if [ "$MODE_CHOICE" = "2" ]; then
     MODE_FLAG="--mode=manual"
 fi
-echo ""
+
+echo -e ""
+echo -e "  ${PURPLE}▶${NC}  Registering with detected IDEs..."
 if [ -f "$TOOL_BIN" ] || command -v agent-guidance-mcp &> /dev/null; then
     "$TOOL_BIN" --setup $MODE_FLAG
+    echo -e "  ${PURPLE}▶${NC}  Downloading skill catalog..."
     "$TOOL_BIN" --update
 else
-    # Fallback: run via uv tool run directly
     "$UV_BIN" tool run agent-guidance-mcp --setup $MODE_FLAG
+    echo -e "  ${PURPLE}▶${NC}  Downloading skill catalog..."
     "$UV_BIN" tool run agent-guidance-mcp --update
 fi
 
-echo ""
-echo "✓ Installation completed successfully!"
+# ── Footer ────────────────────────────────────────────────────────────────────
+echo -e ""
+echo -e "${GREEN}${BOLD}╔══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}${BOLD}║         ✓  Installation completed successfully!             ║${NC}"
+echo -e "${GREEN}${BOLD}╚══════════════════════════════════════════════════════════════╝${NC}"
+echo -e ""
+echo -e "  ${BOLD}Next steps:${NC}"
+echo -e "    • Restart your IDE / MCP Client"
+echo -e "    • Run ${CYAN}agent-guidance-mcp --help${NC} to see options"
+echo -e "    • Update skills: ${CYAN}agent-guidance-mcp --update${NC}"
+echo -e ""

@@ -1,9 +1,19 @@
 #!/usr/bin/env bash
 set -e
 
-echo "=== Agent Guidance MCP Uninstaller (macOS/Linux) ==="
+# ── Colors ────────────────────────────────────────────────────────────────────
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+CYAN='\033[0;36m'; PURPLE='\033[0;35m'; BOLD='\033[1m'
+GRAY='\033[0;90m'; NC='\033[0m'
 
-# 1. Resolve path of the installed tool to run the clean-up
+# ── Header ────────────────────────────────────────────────────────────────────
+echo -e ""
+echo -e "${RED}${BOLD}╔══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${RED}${BOLD}║        Agent Guidance MCP Uninstaller (macOS/Linux)         ║${NC}"
+echo -e "${RED}${BOLD}╚══════════════════════════════════════════════════════════════╝${NC}"
+echo -e ""
+
+# ── Resolve tool binary ───────────────────────────────────────────────────────
 TOOL_BIN="$HOME/.local/bin/agent-guidance-mcp"
 if [ ! -f "$TOOL_BIN" ]; then
     if command -v agent-guidance-mcp &> /dev/null; then
@@ -11,26 +21,38 @@ if [ ! -f "$TOOL_BIN" ]; then
     fi
 fi
 
-# 2. Run setup's uninstall logic to remove integrations
-echo "Removing client registrations and local standards data..."
+# ── Step 1: Remove IDE registrations ──────────────────────────────────────────
+echo -e "${BOLD}🗑️  Step 1/3 — Removing client registrations...${NC}"
 if [ -f "$TOOL_BIN" ] || command -v agent-guidance-mcp &> /dev/null; then
     "$TOOL_BIN" --uninstall
+    echo -e "  ${GREEN}✓${NC} IDE registrations removed"
 else
-    # Fallback to run via uv tool run directly
-    if command -v uv &> /dev/null; then
-        uv tool run agent-guidance-mcp --uninstall
-    elif [ -f "$HOME/.local/bin/uv" ]; then
-        "$HOME/.local/bin/uv" tool run agent-guidance-mcp --uninstall
-    fi
+    echo -e "  ${YELLOW}⚠${NC}  MCP tool not found — skipping registration cleanup"
 fi
 
-# 3. Uninstall the tool from uv
-echo "Uninstalling agent-guidance-mcp tool..."
+# ── Step 2: Remove skills data ────────────────────────────────────────────────
+echo -e ""
+echo -e "${BOLD}📁 Step 2/3 — Removing skills data...${NC}"
+DATA_DIR="$HOME/.agent-guidance"
+if [ -d "$DATA_DIR" ]; then
+    rm -rf "$DATA_DIR"
+    echo -e "  ${GREEN}✓${NC} Removed ${GRAY}$DATA_DIR${NC}"
+else
+    echo -e "  ${GRAY}•${NC}  Skills data not found — nothing to remove"
+fi
+
+# ── Step 3: Uninstall tool from uv ────────────────────────────────────────────
+echo -e ""
+echo -e "${BOLD}🔧 Step 3/3 — Removing MCP server binary...${NC}"
 if command -v uv &> /dev/null; then
-    uv tool uninstall agent-guidance-mcp
+    uv tool uninstall agent-guidance-mcp 2>/dev/null && echo -e "  ${GREEN}✓${NC} Uninstalled from uv" || echo -e "  ${GRAY}•${NC}  Not found in uv tools"
 elif [ -f "$HOME/.local/bin/uv" ]; then
-    "$HOME/.local/bin/uv" tool uninstall agent-guidance-mcp
+    "$HOME/.local/bin/uv" tool uninstall agent-guidance-mcp 2>/dev/null && echo -e "  ${GREEN}✓${NC} Uninstalled from uv" || echo -e "  ${GRAY}•${NC}  Not found in uv tools"
 fi
 
-echo ""
-echo "✓ Uninstallation completed successfully!"
+# ── Footer ────────────────────────────────────────────────────────────────────
+echo -e ""
+echo -e "${GREEN}${BOLD}╔══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}${BOLD}║       ✓  Uninstallation completed successfully!            ║${NC}"
+echo -e "${GREEN}${BOLD}╚══════════════════════════════════════════════════════════════╝${NC}"
+echo -e ""
