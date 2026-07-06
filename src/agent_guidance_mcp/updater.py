@@ -10,6 +10,9 @@ from pathlib import Path
 
 ECC_ZIP_URL = "https://github.com/affaan-m/ECC/archive/refs/heads/main.zip"
 UI_UX_ZIP_URL = "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill/archive/refs/heads/main.zip"
+ANTHROPIC_ZIP_URL = "https://github.com/anthropics/skills/archive/refs/heads/main.zip"
+OWASP_ZIP_URL = "https://github.com/OWASP/CheatSheetSeries/archive/refs/heads/master.zip"
+SYSTEM_DESIGN_ZIP_URL = "https://github.com/donnemartin/system-design-primer/archive/refs/heads/master.zip"
 
 def download_and_extract(url: str, dest_dir: Path) -> Path:
     headers = {"User-Agent": "agent-guidance-mcp-updater/1.0"}
@@ -118,12 +121,145 @@ def run_update() -> None:
     dest_root.mkdir(parents=True, exist_ok=True)
     print(f"Target directory for updates: {dest_root}")
     
-    ecc_success = update_ecc_library(dest_root)
-    ui_success = update_ui_ux_data(dest_root)
+    results = []
+    results.append(("ECC (168-skill catalog)", update_ecc_library(dest_root)))
+    results.append(("UI/UX Pro Max", update_ui_ux_data(dest_root)))
+    results.append(("Anthropic Skills", update_anthropic_skills(dest_root)))
+    results.append(("OWASP Cheat Sheets", update_owasp_cheatsheets(dest_root)))
+    results.append(("System Design Primer", update_system_design_primer(dest_root)))
     
-    if ecc_success and ui_success:
-        print("\n✓ All updates completed successfully!")
+    failures = [name for name, ok in results if not ok]
+    if not failures:
+        print(f"\n\u2713 All {len(results)} updates completed successfully!")
         sys.exit(0)
     else:
-        print("\n✗ Some updates failed.")
+        print(f"\n\u2717 {len(failures)} update(s) failed: {', '.join(failures)}")
         sys.exit(1)
+
+
+def update_anthropic_skills(dest_root: Path) -> bool:
+    print("Updating Anthropic Skills...")
+    target_dir = dest_root / "skills" / "anthropic-skills"
+    tmp_dir = None
+    BLOCKLIST = {"docx", "pdf", "pptx", "xlsx"}
+    try:
+        tmp_dir = download_and_extract(ANTHROPIC_ZIP_URL, target_dir)
+        extracted_dirs = [p for p in tmp_dir.iterdir() if p.is_dir() and p.name.lower().startswith("skills")]
+        if not extracted_dirs:
+            print("  Error: Could not find extracted skills folder.")
+            return False
+        src_skills_dir = extracted_dirs[0] / "skills"
+        if not src_skills_dir.exists():
+            print("  Error: 'skills' directory not found.")
+            return False
+        if target_dir.exists():
+            shutil.rmtree(target_dir)
+        target_dir.mkdir(parents=True, exist_ok=True)
+        copied, skipped = 0, []
+        for item in sorted(src_skills_dir.iterdir()):
+            if not item.is_dir():
+                continue
+            if item.name in BLOCKLIST:
+                skipped.append(item.name)
+                continue
+            shutil.copytree(item, target_dir / item.name)
+            copied += 1
+        print(f"  Copied {copied} skill(s)")
+        if skipped:
+            print(f"  Skipped {len(skipped)} source-available: {', '.join(skipped)}")
+        print("  \u2713 Anthropic Skills successfully updated!")
+        return True
+    except Exception as e:
+        print(f"  Error updating Anthropic Skills: {e}")
+        return False
+    finally:
+        if tmp_dir:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def update_owasp_cheatsheets(dest_root: Path) -> bool:
+    EXCLUDE = {"Index.md", "IndexASVS.md", "IndexProactiveControls.md", "README.md"}
+    print("Updating OWASP Cheat Sheets...")
+    target_dir = dest_root / "skills" / "owasp-cheatsheets"
+    tmp_dir = None
+    try:
+        tmp_dir = download_and_extract(OWASP_ZIP_URL, target_dir)
+        extracted_dirs = [p for p in tmp_dir.iterdir() if p.is_dir() and p.name.lower().startswith("cheatsheetseries")]
+        if not extracted_dirs:
+            print("  Error: Could not find extracted folder.")
+            return False
+        src_dir = extracted_dirs[0] / "cheatsheets"
+        if not src_dir.exists():
+            print("  Error: 'cheatsheets' directory not found.")
+            return False
+        if target_dir.exists():
+            shutil.rmtree(target_dir)
+        target_dir.mkdir(parents=True, exist_ok=True)
+        copied, skipped = 0, []
+        for item in sorted(src_dir.iterdir()):
+            if not item.is_file() or not item.suffix == ".md":
+                continue
+            if item.name in EXCLUDE:
+                skipped.append(item.name)
+                continue
+            shutil.copy2(item, target_dir / item.name)
+            copied += 1
+        license_src = extracted_dirs[0] / "LICENSE"
+        if license_src.is_file():
+            shutil.copy2(license_src, target_dir / "LICENSE")
+        print(f"  Copied {copied} cheat sheet(s)")
+        print("  \u2713 OWASP Cheat Sheets successfully updated!")
+        return True
+    except Exception as e:
+        print(f"  Error updating OWASP Cheat Sheets: {e}")
+        return False
+    finally:
+        if tmp_dir:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def update_system_design_primer(dest_root: Path) -> bool:
+    print("Updating System Design Primer...")
+    target_dir = dest_root / "skills" / "system-design-primer"
+    tmp_dir = None
+    try:
+        tmp_dir = download_and_extract(SYSTEM_DESIGN_ZIP_URL, target_dir)
+        extracted_dirs = [p for p in tmp_dir.iterdir() if p.is_dir() and p.name.lower().startswith("system-design-primer")]
+        if not extracted_dirs:
+            print("  Error: Could not find extracted folder.")
+            return False
+        src_root = extracted_dirs[0]
+        if target_dir.exists():
+            shutil.rmtree(target_dir)
+        target_dir.mkdir(parents=True, exist_ok=True)
+        readme_src = src_root / "README.md"
+        if readme_src.is_file():
+            shutil.copy2(readme_src, target_dir / "README.md")
+        license_src = src_root / "LICENSE.txt"
+        if not license_src.is_file():
+            license_src = src_root / "LICENSE"
+        if license_src.is_file():
+            shutil.copy2(license_src, target_dir / "LICENSE")
+        solutions_src = src_root / "solutions" / "system_design"
+        if solutions_src.exists():
+            targets_dir = target_dir / "solutions"
+            targets_dir.mkdir(exist_ok=True)
+            copied = 0
+            for d in sorted(solutions_src.iterdir()):
+                if not d.is_dir():
+                    continue
+                readme = d / "README.md"
+                if not readme.is_file():
+                    continue
+                (targets_dir / d.name).mkdir(exist_ok=True)
+                shutil.copy2(readme, targets_dir / d.name / "README.md")
+                copied += 1
+            print(f"  Copied README + {copied} solution(s)")
+        print("  \u2713 System Design Primer successfully updated!")
+        return True
+    except Exception as e:
+        print(f"  Error updating System Design Primer: {e}")
+        return False
+    finally:
+        if tmp_dir:
+            shutil.rmtree(tmp_dir, ignore_errors=True)

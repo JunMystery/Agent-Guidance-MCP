@@ -50,7 +50,7 @@ echo "Choose install mode:"
 echo "  [1] Auto Install — configure all detected clients automatically"
 echo "  [2] Manual — choose which clients to configure"
 echo ""
-read -p "Choice [1]: " MODE_CHOICE
+read -p "Choice [1]: " MODE_CHOICE < /dev/tty 2>/dev/null || MODE_CHOICE="1"
 MODE_FLAG=""
 if [ "$MODE_CHOICE" = "2" ]; then
     MODE_FLAG="--mode=manual"
