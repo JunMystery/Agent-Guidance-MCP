@@ -20,6 +20,7 @@ dependencies = [
 dev = [
   "pytest>=8.0"
 ]
+# evals: requires Node.js — run `npm install -g promptfoo` or use `npx promptfoo`
 ast = [
   "tree-sitter>=0.21.0",
   "tree-sitter-languages>=1.10.0"
