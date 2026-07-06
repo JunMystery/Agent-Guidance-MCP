@@ -150,7 +150,9 @@ def read_project_file(
     config: TokenOptimizationConfig | None = None,
     tracker: TokenTracker | None = None,
 ) -> dict[str, object]:
-    """Read a bounded line range from one text file inside a project."""
+    """Read a bounded line range from one text file inside a project.
+
+    Delegates to rtk read when available for token-optimized output."""
     config = config or load_config_from_env()
     if not relative_path_value:
         raise ValueError("relative_path is required.")
@@ -158,6 +160,20 @@ def read_project_file(
     root = resolve_project_root(project_path)
     path = resolve_inside_project(root, relative_path_value)
     ensure_project_file_allowed(root, path)
+
+    # Try RTK first for token-optimized read
+    from . import rtk_integration
+    rtk_output = rtk_integration.filter_read(str(path), level="minimal", max_lines=max_lines)
+    if rtk_output and rtk_output.strip():
+        _record_savings(tracker, "project_context", "read", "", rtk_output)
+        return {
+            "project_root": str(root),
+            "file": relative_path(root, path),
+            "language": language_hint(path),
+            "lines": {"start": start_line, "end": start_line + max_lines},
+            "content": rtk_output,
+            "source": "rtk",
+        }
 
     start_line = max(1, start_line)
     max_lines = max(1, max_lines)
@@ -215,11 +231,24 @@ def _record_savings(
 def search_project_code(
     project_path: str = ".", query: str = "", limit: int = 20
 ) -> dict[str, object]:
-    """Search bounded text content in source files and return ranked snippets."""
+    """Search bounded text content in source files and return ranked snippets.
+
+    Delegates to rtk grep when available for grouped, token-optimized results."""
     root = resolve_project_root(project_path)
     limit = max(1, min(limit, 100))
     if not query:
         return {"project_root": str(root), "query": query, "matches": []}
+
+    # Try RTK grep first for grouped, compact results
+    from . import rtk_integration
+    rtk_output = rtk_integration.filter_grep(query, str(root), limit=limit)
+    if rtk_output:
+        return {
+            "project_root": str(root),
+            "query": query,
+            "matches": [{"path": "rtk grep output", "snippet": rtk_output}],
+            "source": "rtk",
+        }
 
     # Try SQLite FTS5 first
     db = _get_db(root)

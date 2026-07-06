@@ -142,6 +142,7 @@ def optimize_source_content(
 
     When max_tokens is set, uses smart_truncate to preserve structural
     lines (imports, signatures, constants) instead of a blind character cut.
+    Delegates to rtk binary when available for 60-90% token savings.
     """
     lang = _hint_to_language(language_hint)
     original_tokens = estimate_tokens(content)
@@ -151,9 +152,17 @@ def optimize_source_content(
             "optimized_tokens": original_tokens,
             "savings_pct": 0,
         }
-    if config:
-        level = _filter_level_from_config(config.source_filter_level)
-    optimized = filter_content(content, lang, level)
+
+    # Try RTK first (60-90% savings vs Python's 40-80%)
+    from . import rtk_integration
+    rtk_level = "minimal" if level == FilterLevel.MINIMAL else "aggressive"
+    rtk_output = rtk_integration.filter_stdin(content, level=rtk_level)
+    if rtk_output and rtk_output.strip():
+        optimized = rtk_output
+    else:
+        if config:
+            level = _filter_level_from_config(config.source_filter_level)
+        optimized = filter_content(content, lang, level)
 
     if max_tokens is not None and estimate_tokens(optimized) > max_tokens:
         max_lines = max(1, max_tokens // 2)

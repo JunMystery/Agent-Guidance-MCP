@@ -296,6 +296,10 @@ def build_catalog(root: str | Path | None = None) -> StandardsCatalog:
 def make_entry(root: Path, relative_path: str) -> CatalogEntry | None:
     from .text import parse_frontmatter
     path = root / relative_path
+    if not path.is_file():
+        alt = Path.home() / ".agent-guidance" / relative_path
+        if alt.is_file():
+            path = alt
     try:
         content = path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as exc:

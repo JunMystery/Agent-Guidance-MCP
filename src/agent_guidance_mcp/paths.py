@@ -76,10 +76,54 @@ def iter_content_files(root: Path) -> Iterable[str]:
                 continue
             yield path.relative_to(root).as_posix()
 
+    # Also scan ~/.agent-guidance/skills/ for 3rd party repos downloaded by updater
+    user_skills = Path.home() / ".agent-guidance" / "skills"
+    if user_skills.is_dir() and user_skills.resolve() != (root / "skills").resolve():
+        yield from _iter_user_skills(user_skills, root)
+
+
+def _iter_user_skills(user_skills: Path, root: Path) -> Iterable[str]:
+    """Yield content files from ~/.agent-guidance/skills/ for 3rd party repos."""
+    _OWASP = "owasp-cheatsheets"
+    _ANTHROPIC = "anthropic-skills"
+    _SYSDESIGN = "system-design-primer"
+
+    for entry in sorted(user_skills.iterdir()):
+        if not entry.is_dir():
+            continue
+        name = entry.name.lower()
+
+        if name == _OWASP:
+            for md in sorted(entry.glob("*.md")):
+                if md.name.startswith(("Index", "README")):
+                    continue
+                yield f"skills/owasp-cheatsheets/{md.name}"
+
+        elif name == _ANTHROPIC:
+            for skill_dir in sorted(entry.iterdir()):
+                if not skill_dir.is_dir():
+                    continue
+                skill_md = skill_dir / "SKILL.md"
+                if skill_md.is_file():
+                    yield f"skills/anthropic-skills/{skill_dir.name}/SKILL.md"
+
+        elif name == _SYSDESIGN:
+            for md in sorted(entry.rglob("*.md")):
+                if md.is_symlink():
+                    continue
+                rel = md.relative_to(user_skills)
+                yield f"skills/{rel.as_posix()}"
+
 
 def infer_kind(relative_path: str) -> str:
     parts = Path(relative_path).parts
-    if parts and parts[0] == "skills" and relative_path.endswith("SKILL.md"):
+    if parts and parts[0] == "skills":
+        if relative_path.endswith("SKILL.md"):
+            return "skill"
+        if "owasp-cheatsheets" in parts:
+            return "doc"
+        if "system-design-primer" in parts:
+            return "doc"
         return "skill"
     if parts and parts[0] == "docs":
         return "doc"
@@ -102,7 +146,11 @@ def infer_category(relative_path: str) -> str:
         return "root"
     if parts[0] == "agent-guidance":
         return "agent-guidance"
-    if parts[0] == "skills" and len(parts) > 1:
+    if parts[0] == "skills":
+        if "owasp-cheatsheets" in parts:
+            return "security"
+        if "system-design-primer" in parts:
+            return "architecture"
         return "skills"
     if parts[0] in {"karpathy", "docs", "references", "agents"}:
         return parts[0]
