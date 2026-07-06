@@ -89,5 +89,5 @@ These paths are configured in `pyproject.toml`.
 ## Related Docs
 
 - [Installation](installation.md)
-- [Client Configuration](client-configuration.md)
-- [MCP Surface Reference](mcp-surface.md)
+- [Client Setup](setup/client-configuration.md)
+- [MCP Surface](reference/mcp-surface.md)

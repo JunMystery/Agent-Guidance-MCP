@@ -75,6 +75,6 @@ For most coding tasks, start with:
 
 ## Related Docs
 
-- [Usage Guide](usage.md)
+- [Usage Guide](../usage.md)
 - [Project Context Tools](project-context-tools.md)
-- [Client Configuration](client-configuration.md)
+- [Client Setup](../setup/client-configuration.md)

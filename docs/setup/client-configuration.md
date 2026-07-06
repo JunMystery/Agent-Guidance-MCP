@@ -153,6 +153,6 @@ Project-context tools should receive an explicit `project_path` argument. Avoid 
 
 ## Related Docs
 
-- [Installation](installation.md)
-- [Usage Guide](usage.md)
-- [MCP Surface Reference](mcp-surface.md)
+- [Installation](../installation.md)
+- [Usage Guide](../usage.md)
+- [MCP Surface](../reference/mcp-surface.md)

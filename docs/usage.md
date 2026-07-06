@@ -88,10 +88,10 @@ Prefer narrow calls:
 - Use `max_lines=120` to `200` for file reads unless a broader range is necessary.
 - Avoid exporting full snapshots for small one-file tasks.
 
-See [Project Context Tools](project-context-tools.md) for details on snapshot freshness and token cost.
+See [Project Context Tools](reference/project-context-tools.md) for details on snapshot freshness and token cost.
 
 ## Related Docs
 
-- [MCP Surface Reference](mcp-surface.md)
-- [Project Context Tools](project-context-tools.md)
+- [MCP Surface](reference/mcp-surface.md)
+- [Project Context Tools](reference/project-context-tools.md)
 - [Development Guide](development.md)

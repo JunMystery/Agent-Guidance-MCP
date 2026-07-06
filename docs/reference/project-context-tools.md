@@ -203,6 +203,6 @@ These limits protect the agent context window, but a snapshot can still be much 
 
 ## Related Docs
 
-- [Usage Guide](usage.md)
-- [MCP Surface Reference](mcp-surface.md)
+- [Usage Guide](../usage.md)
+- [MCP Surface](mcp-surface.md)
 - [Repo Map For Agents](repo-map-for-agents.md)

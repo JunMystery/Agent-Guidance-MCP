@@ -85,7 +85,7 @@ YAML frontmatter (name, description)
 └── Verification — Exit criteria checklist
 ```
 
-See [skill-anatomy.md](skill-anatomy.md) for the full specification.
+See [skills/skill-anatomy.md](skills/skill-anatomy.md) for the full specification.
 
 ## Using Agents
 

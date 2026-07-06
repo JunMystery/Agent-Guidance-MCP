@@ -56,6 +56,6 @@ The target folder must contain:
 
 ## Related Docs
 
-- [Client Configuration](client-configuration.md)
+- [Client Setup](setup/client-configuration.md)
 - [Usage Guide](usage.md)
 - [Development Guide](development.md)

@@ -12,6 +12,8 @@ Third-party repositories and projects integrated into the Agent Guidance MCP cod
 | [andrej-karpathy-skills](https://github.com/forrestchang/andrej-karpathy-skills) | 6 core coding principles (Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution, DRY, Code Organization). Bundled in `karpathy/`. | MIT |
 | [ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) | UI/UX design data — palettes, fonts, landing patterns, charts, slide strategies. Synced via `scripts/update_ui_ux.py`. | MIT |
 | [anthropics/skills](https://github.com/anthropics/skills) | 17+ skill catalog — creative & design, development & technical, enterprise & communication. Synced via `scripts/update_anthropic_skills.py`. | Apache 2.0 |
+| [OWASP Cheat Sheets](https://github.com/OWASP/CheatSheetSeries) | ~100 security cheat sheets — SQL injection, XSS, CSRF, auth, cryptography, MCP security, AI agent security, and more. Synced via `scripts/update_owasp_cheatsheets.py`. | CC BY-SA 4.0 |
+| [System Design Primer](https://github.com/donnemartin/system-design-primer) | 356K-star study guide — scalability, load balancing, caching, sharding, CAP theorem, microservices, plus 8 design exercise solutions. Synced via `scripts/update_system_design_primer.py`. | CC BY 4.0 |
 | [rtk — Rust Token Killer](https://github.com/rtk-ai/rtk) | CLI proxy that filters/compresses command output, saving 60–90% tokens for LLM context. Bundled as a subproject in `rtk/`. | Apache 2.0 |
 
 ## Python Dependencies
