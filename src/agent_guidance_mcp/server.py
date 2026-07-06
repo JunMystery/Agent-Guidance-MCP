@@ -137,26 +137,34 @@ def create_server(
         from .database import CodeGraphDatabase
         from .indexer import CodeGraphIndexer
         from .watcher import CodeGraphWatcher
+        import threading
 
         project_root = Path(root or ".").resolve()
         db_path = project_root / ".agent-context" / "codegraph.db"
         db = CodeGraphDatabase(db_path)
 
-        indexer = CodeGraphIndexer(project_root, db)
-        indexer.run()
-
-        # File watcher is CPU-aware; disable via AGENT_WATCHER_ENABLED=false
         watcher_enabled = os.environ.get("AGENT_WATCHER_ENABLED", "true").strip().lower()
-        if watcher_enabled not in ("0", "false", "no", "off"):
-            watcher_interval_raw = os.environ.get("AGENT_WATCHER_INTERVAL")
-            watcher_kwargs: dict[str, object] = {}
-            if watcher_interval_raw:
-                try:
-                    watcher_kwargs["interval_seconds"] = float(watcher_interval_raw)
-                except ValueError:
-                    pass
-            watcher = CodeGraphWatcher(project_root, db, **watcher_kwargs)  # type: ignore[arg-type]
-            watcher.start()
+
+        def _run_initial_index_bg() -> None:
+            try:
+                indexer = CodeGraphIndexer(project_root, db)
+                indexer.run()
+
+                # File watcher is CPU-aware; disable via AGENT_WATCHER_ENABLED=false
+                if watcher_enabled not in ("0", "false", "no", "off"):
+                    watcher_interval_raw = os.environ.get("AGENT_WATCHER_INTERVAL")
+                    watcher_kwargs: dict[str, object] = {}
+                    if watcher_interval_raw:
+                        try:
+                            watcher_kwargs["interval_seconds"] = float(watcher_interval_raw)
+                        except ValueError:
+                            pass
+                    watcher = CodeGraphWatcher(project_root, db, **watcher_kwargs)  # type: ignore[arg-type]
+                    watcher.start()
+            except Exception:
+                pass
+
+        threading.Thread(target=_run_initial_index_bg, daemon=True).start()
     except Exception:
         pass
 
@@ -424,11 +432,18 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             metadata: Optional context variables as a dict.
         """
         from .session import save_session, load_session, clear_session
+        from .project_scan import resolve_project_root
+
+        try:
+            validated_root = str(resolve_project_root(project_path))
+        except Exception as e:
+            return {"success": False, "error": f"Invalid project_path: {e}"}
+
         if operation == "save":
             if not task:
                 return {"success": False, "error": "task is required for save operation"}
             data = save_session(
-                project_path=project_path,
+                project_path=validated_root,
                 task=task,
                 checklist=checklist or [],
                 current_step_index=current_step_index,
@@ -436,12 +451,12 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             )
             return {"success": True, "session": data}
         elif operation == "load":
-            data = load_session(project_path=project_path)
+            data = load_session(project_path=validated_root)
             if data:
                 return {"success": True, "session_active": True, "session": data}
             return {"success": True, "session_active": False, "message": "No active session found."}
         elif operation == "clear":
-            cleared = clear_session(project_path=project_path)
+            cleared = clear_session(project_path=validated_root)
             return {"success": cleared}
         else:
             return {"success": False, "error": f"Invalid operation: {operation}"}

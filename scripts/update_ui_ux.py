@@ -44,6 +44,11 @@ def update_skill():
                 return False
                 
             src_dir = extracted_dirs[0]
+            # Resolve to the actual skill subfolder if it exists in the .claude structure
+            alt_src_dir = src_dir / ".claude" / "skills" / "ui-ux-pro-max"
+            if alt_src_dir.is_dir():
+                src_dir = alt_src_dir
+
             print(f"Deploying skill files from {src_dir.name}...")
             
             # Copy all files from src_dir into target_dir

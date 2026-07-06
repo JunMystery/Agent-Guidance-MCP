@@ -1,6 +1,8 @@
 """UI/UX Pro Max search and recommendation helpers."""
 
 
+from __future__ import annotations
+
 import csv
 import json
 import re

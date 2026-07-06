@@ -2,79 +2,334 @@
 
 [Back to README](../README.md)
 
-This page lists the public MCP resources, grouped tools, and prompt exposed by the server.
+Complete reference for every public MCP tool, resource, and prompt exposed by the Agent Guidance MCP server.
 
-## Resources
+---
 
-| Resource | Description |
+## Tools (8)
+
+### 1. `task_pipeline` -- Call First
+
+One-stop context preparation. Returns standards recommendations, project tree, code search, and optional UI/UX guidance in a single optimized call. Uses parallel execution internally.
+
+```
+task_pipeline(
+    task: str,                         # required — description of work
+    project_path: str = ".",           # project root
+    focus: str = "general",            # "general" | "frontend" | "backend"
+    code_query: str | None = None,     # search override (auto-detected if omitted)
+    include_tree: bool = True,         # include directory tree
+    include_ui: bool = True,           # attach UI/UX guidance when task signals UI
+    limit: int = 8,                    # max recommendations
+) -> dict
+```
+
+**Returns:**
+- `task`, `focus` — echoed inputs
+- `recommendations` — skill/standard recommendations with reasons
+- `project_tree` — bounded directory tree (if `include_tree=True`)
+- `code_search` — ranked code matches (if auto-detected or provided query)
+- `ui_ux` — UI/UX guidance (if UI intent detected and `include_ui=True`)
+- `execution_sequence` — recommended skills sorted by lifecycle order
+
+**Example:**
+```
+task_pipeline(task="Add JWT auth to Express API", focus="backend")
+```
+
+---
+
+### 2. `guidance` -- Standards & Skill Catalog
+
+Standards catalog and skill lookup. 250 entries available on-demand. Supports 6 operations.
+
+```
+guidance(
+    operation: str,                    # required — list|get|search|recommend|reason|docs
+    query: str | None = None,          # search/recommend/reason/docs query
+    identifier: str | None = None,     # skill/document ID for "get"; library name for "docs"
+    category: str | None = None,       # filter by category
+    kind: str | None = None,           # filter by kind (skill, doc, principle, etc.)
+    limit: int = 10,                   # max results
+    include_content: bool = False,     # include full body for "get"
+) -> dict | list[dict]
+```
+
+#### Operations
+
+| Operation | Required Args | Description |
+|---|---|---|
+| `list` | -- | List all catalog entries (filterable by `category`, `kind`) |
+| `get` | `identifier` | Load a specific skill/document. Set `include_content=True` for full body. Detects dependency cycles. |
+| `search` | `query` | Full-text search across catalog. Returns ranked results with scores + snippets. |
+| `recommend` | `query` | Auto-recommend skills/standards for a task (keyword + TASK_ANCHORS matching) |
+| `reason` | `query` | Structured reasoning framework. Classifies task into: `decision`, `bug`, `architecture`, `security`, `performance`, `general`. Returns framework template, key questions, and skill URIs. |
+| `docs` | `query`, `identifier` | Live library/API documentation via Context7. `identifier` is the library name (e.g. `"react"`, `"nextjs"`, `"express"`). |
+
+**Examples:**
+```
+guidance(operation="search", query="humanizer writing")
+guidance(operation="get", identifier="humanizer", include_content=True)
+guidance(operation="reason", query="should I use microservices vs monolith")
+guidance(operation="docs", query="jsonwebtoken sign options", identifier="node-jsonwebtoken")
+```
+
+**Loading skills on-demand:** The built-in `skill` tool only lists a few external skills. Use `guidance(operation="get", identifier="skill-name", include_content=True)` to load any of the 250 Agent Guidance skills.
+
+---
+
+### 3. `project_context` -- Bounded File Operations
+
+Read, search, and explore project files with built-in token budgets. Supports 10 operations.
+
+```
+project_context(
+    operation: str,                    # required — see operations below
+    project_path: str = ".",
+    query: str | None = None,          # search query / symbol name / symbol ID
+    relative_path: str | None = None,  # file path for read/symbols/structure
+    start_line: int = 1,               # line offset for read
+    max_lines: int = 300,              # max lines to read
+    max_depth: int = 8,                # directory tree depth
+    output_path: str = ".agent-context/code-snapshot.json",
+    max_file_bytes: int = 200000,      # per-file cap for snapshot
+    max_total_bytes: int = 2000000,    # total cap for snapshot
+    limit: int = 20,                   # max search/reference results
+) -> dict
+```
+
+#### Operations
+
+| Operation | Required Args | Description |
+|---|---|---|
+| `tree` | -- | Directory tree with file metadata (path, type, language_hint, size_bytes) |
+| `search` | `query` | Codebase text search. Tiers: RTK grep -> SQLite FTS5 -> parallel scan. |
+| `read` | `relative_path` | Bounded file read (300 line cap). RTK-optimized. Path traversal protected. |
+| `snapshot` | -- | Export bounded JSON snapshot to `.agent-context/`. Must be within `.agent-context/` directory. |
+| `symbols` | `relative_path` | Extract classes, functions, methods from a file. Tree-sitter AST (7 langs) or regex fallback (13 langs). |
+| `references` | `query` | Find all usages of a symbol name across the codebase. |
+| `structure` | `relative_path` | Hierarchical file overview: classes with nested methods, standalone functions. |
+| `callers` | `query` | Get all callers of a symbol (from SQLite CodeGraph DB). `query` is the fully-qualified symbol ID. |
+| `callees` | `query` | Get all callees of a symbol (from SQLite CodeGraph DB). |
+| `diff` | -- | Git diff of workspace changes (staged + unstaged). Token-optimized. |
+
+**Examples:**
+```
+project_context(operation="read", relative_path="src/auth.js", max_lines=160)
+project_context(operation="search", query="JWT middleware")
+project_context(operation="symbols", relative_path="src/server.py")
+project_context(operation="references", query="build_catalog")
+project_context(operation="structure", relative_path="src/parallel.py")
+project_context(operation="callers", query="src/parallel.py::parallel_map::1")
+project_context(operation="diff")
+```
+
+---
+
+### 4. `ui_ux` -- Design Guidance
+
+UI/UX Pro Max design guidance. Supports 3 operations.
+
+```
+ui_ux(
+    operation: str,                    # required — search|design_system|slides
+    query: str,                        # required — search query
+    domain: str | None = None,         # style|color|chart|landing|product|ux|typography|icons|react|web
+    stack: str | None = None,          # react|nextjs|vue|svelte|astro|etc.
+    project_name: str | None = None,   # project name for design_system
+    output_format: str = "markdown",   # "markdown" | "ascii"
+    limit: int = 3,                    # max results
+) -> dict
+```
+
+#### Operations
+
+| Operation | Description |
 |---|---|
-| `standards://manifest` | JSON manifest for indexed standards, docs, skills, and root reference files. |
-| `standards://version` | JSON object with server name, version, and MCP protocol version. |
-| `standards://document/{identifier}` | Markdown content for a standards document by slug or identifier. |
-| `standards://skill/{name}` | Markdown content for a local on-demand skill capsule by name. |
+| `search` | Search UI/UX guidance by domain and stack |
+| `design_system` | Generate full design system (colors, typography, patterns, style) |
+| `slides` | Search slide/presentation guidance |
 
-## Tools
+**Examples:**
+```
+ui_ux(operation="search", query="minimalist dashboard design", domain="style")
+ui_ux(operation="design_system", query="SaaS landing page", project_name="MyApp")
+ui_ux(operation="slides", query="pitch deck", domain="landing")
+```
 
-| Tool | Description |
+---
+
+### 5. `session_continuity` -- Task State Persistence
+
+Persist or recover task session state for continuity across interruptions.
+
+```
+session_continuity(
+    operation: str,                    # required — save|load|clear
+    project_path: str = ".",
+    task: str | None = None,           # required for save
+    checklist: list[dict] | None = None,  # [{"title": "...", "status": "todo"|"done"}]
+    current_step_index: int = 0,
+    metadata: dict | None = None,      # optional context variables
+) -> dict
+```
+
+| Operation | Description |
 |---|---|
-| `task_pipeline(task, project_path=".", focus="general", code_query=None, include_tree=True, include_ui=True, limit=8)` | Recommended first call. Returns standards recommendations, hub skill suggestions, a bounded project tree, optional code-search matches, and optional UI/UX guidance for frontend/design tasks. |
-| `guidance(operation, query=None, identifier=None, category=None, kind=None, limit=10, include_content=False)` | Grouped standards catalog operations. |
-| `project_context(operation, project_path=".", query=None, relative_path=None, start_line=1, max_lines=300, max_depth=3, output_path=".agent-context/code-snapshot.json", max_file_bytes=200000, max_total_bytes=2000000, limit=20)` | Grouped project tree, search, read, and snapshot operations. |
-| `ui_ux(operation, query, domain=None, stack=None, project_name=None, output_format="markdown", limit=3)` | Grouped UI/UX Pro Max search, design-system, and slide guidance operations. |
-| `token_stats()` | Return token optimization statistics for this session. No parameters. |
-| `health_check()` | Return server health status and basic metadata. No parameters. |
+| `save` | Save task + checklist to `.agent-context/session.json` (atomic write via tempfile + rename) |
+| `load` | Load persisted session state. Returns `session_active: True/False`. |
+| `clear` | Delete session file |
 
-## Tool Operations
+---
 
-`guidance` supports:
+### 6. `token_stats` -- Session Statistics
 
-- `list`: replaces `list_entries(category, kind)`.
-- `get`: replaces `get_entry(identifier)`.
-- `search`: replaces `search_entries(query, limit, kind)`.
-- `recommend`: replaces `recommend_context(task, limit)`.
+```
+token_stats() -> dict
+```
 
-`project_context` supports:
+Returns token optimization statistics: `total_calls`, `total_original_tokens`, `total_optimized_tokens`, `total_saved_tokens`, `overall_savings_pct`, `recent_records`.
 
-- `tree`: replaces `get_project_tree(project_path, max_depth)`.
-- `search`: replaces `search_project_code(project_path, query, limit)`.
-- `read`: replaces `read_project_file(project_path, relative_path, start_line, max_lines)`.
-- `snapshot`: replaces `export_project_snapshot(project_path, output_path, max_file_bytes, max_total_bytes)`.
+---
 
-`ui_ux` supports:
+### 7. `health_check` -- Server Status
 
-- `search`: replaces `search_ui_ux_guidance(query, domain, stack, limit)`.
-- `design_system`: replaces `generate_ui_ux_design_system(query, project_name, output_format)`.
-- `slides`: replaces `search_slide_guidance(query, domain, limit)`.
+```
+health_check() -> dict
+```
 
-Unsupported operations return an error payload with `supported_operations`.
+Returns `status`, `server`, `version`, `entries` (catalog entry count).
 
-## Prompt
+---
 
-| Prompt | Description |
+### 8. `diagnose` -- Self-Diagnostics
+
+```
+diagnose() -> dict
+```
+
+Comprehensive diagnostics across 7 subsystems:
+
+| Key | Contents |
 |---|---|
-| `workflow_prompt(mode="plan", subject="", target="")` | Loads one workflow prompt by mode. Supported modes: `init`, `plan`, `design`, `visualize`, `code`, `run`, `test`, `deploy`, `debug`, `refactor`, `audit`, `rollback`, `recap`, `review`. |
+| `system` | OS, Python version, PID, project root |
+| `tree_sitter` | Installed status, supported languages (python, javascript, typescript, go, rust, java, csharp) |
+| `database` | CodeGraph DB path, exists, size, files_indexed, symbols_indexed, call_edges_indexed, status |
+| `context7_api` | DNS resolution, IP, TCP connection status |
+| `rtk` | Available, version |
+| `watcher` | DB exists, DB size |
+| `catalog` | Entry count, categories |
 
-The individual workflow prompts are no longer public MCP prompts. Use `workflow_prompt` with the desired `mode`.
+---
+
+## Resources (4)
+
+| URI | MIME | Description |
+|---|---|---|
+| `standards://manifest` | `application/json` | Full manifest: entry_count, kinds, categories, all entries with identifiers/paths/URIs |
+| `standards://version` | `application/json` | `{"server": "agent-guidance-mcp", "version": "1.0.0", "mcp_protocol": "2024-11-05"}` |
+| `standards://document/{identifier}` | `text/markdown` | Standards document content by slug (token-optimized) |
+| `standards://skill/{name}` | `text/markdown` | On-demand skill capsule by name (token-optimized) |
+
+---
+
+## Prompt (1)
+
+### `workflow_prompt`
+
+```
+workflow_prompt(
+    mode: str = "plan",        # workflow mode key
+    subject: str = "",         # optional subject to contextualize
+    target: str = "",          # optional target description
+) -> str
+```
+
+Loads a workflow prompt by mode. 20 supported modes:
+
+| Mode | Description |
+|---|---|
+| `init` | Project initialization |
+| `plan` | Planning workflow (default) |
+| `design` | Design phase |
+| `visualize` | Visualization |
+| `code` | Implementation |
+| `run` | Execution |
+| `test` | Testing |
+| `deploy` | Deployment |
+| `debug` | Debugging |
+| `refactor` | Refactoring |
+| `audit` | Audit |
+| `rollback` | Rollback |
+| `recap` | Recap |
+| `review` | Code review |
+| `next` | Next steps |
+| `help` | Help |
+| `readme` | README generation |
+| `customize` | Customization |
+| `brainstorm` | Brainstorming |
+| `save_brain` | Save brainstorm output |
+
+---
+
+## Internal Subsystems (12)
+
+These modules power the MCP tools but are not directly callable via the MCP protocol.
+
+| Subsystem | Module | Role |
+|---|---|---|
+| **CodeGraph Database** | `database.py` | SQLite FTS5 symbol index. Tables: `files`, `symbols`, `call_edges`, `symbols_fts` (virtual). WAL mode, thread-safe. |
+| **Indexer** | `indexer.py` | Incremental workspace scanner. Parallel file parsing with `parallel_map`. Thread-safe DB access via `threading.Lock`. Detects file changes via mtime + content hash. |
+| **Watcher** | `watcher.py` | Background daemon thread. Polls for file changes at configurable interval (`AGENT_WATCHER_INTERVAL`). Debounced, batched reference resolution. |
+| **Symbol Extractor** | `symbols.py` | Tree-sitter AST parsing (7 languages: Python, JS, TS, Go, Rust, Java, C#) with regex fallback (13 languages: + Ruby, PHP, Kotlin, Swift, C, C++). Graceful degradation when tree-sitter not installed. |
+| **Parallel Engine** | `parallel.py` | `ThreadPoolExecutor` helpers: `parallel_map` (order-preserving, None-filtering), `parallel_filter_map` (keep/discard), `parallel_run` (named concurrent tasks with exception isolation). |
+| **Reasoning Engine** | `reasoning.py` | 6 framework templates (decision/bug/architecture/security/performance/general). Keyword classifier maps task text to framework type. Returns framework markdown, key questions, skill URIs. |
+| **RTK Integration** | `rtk_integration.py` | Rust Token Killer subprocess wrappers. Detects `rtk` binary in PATH or known locations. Provides: `filter_read`, `filter_grep`, `filter_diff`, `filter_ls`, `filter_find`, `filter_curl`. Falls back to Python when RTK not installed. |
+| **Context7 Client** | `docs.py` | HTTP client for live library documentation. Resolves library ID, fetches context, token-optimizes response. Retries with exponential backoff. Cached library ID resolution. |
+| **Diagnostics** | `diagnostics.py` | 7-subsystem health check: system info, tree-sitter status, CodeGraph DB stats, Context7 connectivity, RTK availability, watcher status, catalog stats. |
+| **Token Optimizer** | `response_optimizer.py` | 8-stage filter pipeline: ANSI strip, regex replace, match short-circuit, line filter, smart truncation (preserves imports/signatures/constants), head/tail keep, max lines cap, empty guard. 40-80% token reduction. |
+| **Setup/Uninstall** | `setup.py` | Post-install IDE registration (Claude, Gemini, Cursor, VS Code, Continue, OpenCode, Codex, Cline/Roo-Code). Global rules, workspace rules, uninstall. |
+| **Auto-Updater** | `updater.py` | Skill repository updates from GitHub. Scheduled auto-update (weekly/monthly) via `AGENT_AUTO_UPDATE_INTERVAL`. |
+
+---
+
+## Environment Variables
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `AGENT_GUIDANCE_ROOT` | Bundled corpus | Custom standards corpus path |
+| `AGENT_PROJECT_ROOT` | `.` (cwd) | Override project root for context tools |
+| `AGENT_PROJECT_ALLOWED_ROOTS` | All user dirs | Whitelist directories for security |
+| `AGENT_WATCHER_ENABLED` | `true` | Enable/disable CodeGraph file watcher |
+| `AGENT_WATCHER_INTERVAL` | `30` | Watcher poll interval (seconds) |
+| `AGENT_WATCHER_DEBOUNCE_MULTIPLIER` | `2.0` | Debounce multiplier after changes |
+| `AGENT_WATCHER_REF_THRESHOLD` | `50` | Batch size before full reference resolve |
+| `AGENT_AUTO_UPDATE_INTERVAL` | `weekly` | Auto-update schedule (weekly/monthly) |
+| `CONTEXT7_API_KEY` | -- | Optional API key for Context7 docs |
+
+---
 
 ## Recommended Ordering
 
 For most coding tasks, start with:
 
-1. `task_pipeline(task, project_path, code_query=None)`
-2. `project_context(operation="search", project_path=..., query=...)` when more code context is needed.
-3. `project_context(operation="read", project_path=..., relative_path=...)` before editing a target file.
-4. `ui_ux(operation="search" | "design_system" | "slides", query=...)` for frontend, brand, dashboard, landing page, or presentation work.
-5. `health_check()` for server status verification.
-6. `token_stats()` for session token optimization statistics.
-7. Edit only the files needed.
-8. Run targeted verification.
+1. `task_pipeline(task, project_path)` -- context prep (call first)
+2. `guidance(operation="search", query="...")` -- find applicable standards/skills before implementing
+3. `project_context(operation="search", query="...")` -- when more code context is needed
+4. `project_context(operation="read", relative_path="...")` -- before editing a target file
+5. `guidance(operation="get", identifier="skill-name", include_content=True)` -- load a specific skill
+6. `ui_ux(operation="search" | "design_system" | "slides", query="...")` -- for frontend/design work
+7. `guidance(operation="docs", query="...", identifier="lib")` -- for live API documentation
+8. `session_continuity(operation="save", task="...", checklist=[...])` -- persist progress
+9. Edit only the files needed
+10. Run targeted verification
+11. `session_continuity(operation="clear")` -- when task is complete
 
-## Skill Recommendations
-
-`task_pipeline` is the recommended first call. It auto-discovers relevant skills from the 168-skill catalog using task-keyword matching and TASK_ANCHORS. Individual skills are directly loadable by identifier via `guidance(operation="get", identifier=...)` or via the `standards://skill/{name}` resource.
+---
 
 ## Related Docs
 
 - [Usage Guide](../usage.md)
 - [Project Context Tools](project-context-tools.md)
 - [Client Setup](../setup/client-configuration.md)
+- [Skills Overview](../skills/SKILLS_OVERVIEW.md)

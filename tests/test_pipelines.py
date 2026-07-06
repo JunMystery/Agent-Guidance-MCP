@@ -158,3 +158,18 @@ def test_parse_frontmatter_quoted_list():
     content = '---\nitems: ["a, b", "c"]\n---\n'
     data = parse_frontmatter(content)
     assert data["items"] == ["a, b", "c"]
+
+
+def test_task_pipeline_exception_safety(tmp_path, monkeypatch):
+    catalog = _make_catalog(tmp_path)
+    
+    def mock_get_project_tree(*args, **kwargs):
+        raise RuntimeError("Simulated project tree error")
+        
+    monkeypatch.setattr(pipelines.project_context_helpers, "get_project_tree", mock_get_project_tree)
+    
+    result = pipelines.task_pipeline(catalog=catalog, task="fix the login bug", project_path=str(tmp_path))
+    assert isinstance(result, dict)
+    assert "project_tree" in result
+    assert "error" in result["project_tree"]
+    assert "Simulated project tree error" in result["project_tree"]["error"]

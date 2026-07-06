@@ -216,6 +216,11 @@ def update_ui_ux_data(dest_root: Path) -> bool:
             return False
 
         src_dir = extracted_dirs[0]
+        # Resolve to the actual skill subfolder if it exists in the .claude structure
+        alt_src_dir = src_dir / ".claude" / "skills" / "ui-ux-pro-max"
+        if alt_src_dir.is_dir():
+            src_dir = alt_src_dir
+
         essentials = {"SKILL.md", "data"}
 
         if target_dir.exists():

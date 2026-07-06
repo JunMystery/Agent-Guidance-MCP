@@ -341,7 +341,7 @@ def task_pipeline(
     concurrent_results = parallel_run(concurrent_tasks)
 
     recommendations = concurrent_results.get("recommendations", {})
-    if not isinstance(recommendations, dict):
+    if not isinstance(recommendations, dict) or isinstance(recommendations, Exception):
         recommendations = {"error": str(recommendations), "recommendations": []}
 
     result: dict[str, object] = {
@@ -350,9 +350,17 @@ def task_pipeline(
         "recommendations": recommendations,
     }
     if "project_tree" in concurrent_results:
-        result["project_tree"] = concurrent_results["project_tree"]
+        tree_res = concurrent_results["project_tree"]
+        if isinstance(tree_res, Exception):
+            result["project_tree"] = {"error": f"Failed to build project tree: {tree_res}"}
+        else:
+            result["project_tree"] = tree_res
     if "code_search" in concurrent_results:
-        result["code_search"] = concurrent_results["code_search"]
+        search_res = concurrent_results["code_search"]
+        if isinstance(search_res, Exception):
+            result["code_search"] = {"error": f"Failed to perform code search: {search_res}", "matches": []}
+        else:
+            result["code_search"] = search_res
 
     # Dynamic Intent Routing: Check UI signals in prompt and code query
     ui_search_text = " ".join([task, focus, active_code_query or ""])
