@@ -8,11 +8,11 @@
 ![GitHub repo size](https://img.shields.io/github/repo-size/JunMystery/Agent-Guidance-MCP)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?logo=ko-fi&logoColor=white)](https://ko-fi.com/JunMystery)
 
+![Agent Guidance MCP](docs/images/hero-banner.png)
+
 MCP server serving AI agent guidance through a **168-skill catalog**, bundled guidance corpus, workflow prompts, bounded project-code context tools, and a **token optimization engine** — all over **Stdio** transport.
 
 Skills are sourced from [Everything Claude Code (ECC) v2.0.0](https://github.com/affaan-m/ECC) and community contributions, covering backend, frontend, testing, security, DevOps, data, research, and 12+ language ecosystems.
-
-![Agent Guidance MCP Architecture Flowchart](docs/images/architecture-flowchart.png)
 
 ---
 
@@ -30,54 +30,54 @@ curl -fsSL https://raw.githubusercontent.com/JunMystery/Agent-Guidance-MCP/main/
 powershell -Command "irm https://raw.githubusercontent.com/JunMystery/Agent-Guidance-MCP/main/scripts/install.ps1 | iex"
 ```
 
-*This requires no prior Python installation; the script will automatically bootstrap `uv` (a single-binary Python toolchain) to run the server if Python is not present.*
+*No prior Python installation required — the script bootstraps `uv` (a single-binary Python toolchain) automatically.*
+
+### Verify Installation
+
+Test locally with MCP Inspector:
+
+```bash
+DANGEROUSLY_OMIT_AUTH=true npx @modelcontextprotocol/inspector .venv/bin/python -m agent_guidance_mcp
+```
+
+Then call `task_pipeline(...)` to load guidance and bounded project context. See [Usage Guide](docs/usage.md) for workflows.
 
 ### Upgrading
 
-**To update the server and refresh your IDE registrations:**
-Simply rerun the installation command.
+**Server + IDE registrations:** rerun the install command above.
 
-**To update the standards catalog & skills only (one line):**
+**Standards catalog & skills only:**
 ```bash
 agent-guidance-mcp --update
 ```
 
-**To update the executable code package only:**
+**Executable package only:**
 ```bash
 uv tool update agent-guidance-mcp
 ```
 
 ### Scheduled Auto-Update
 
-Enable automatic weekly or monthly skill sync:
-
 ```bash
 agent-guidance-mcp --auto-update          # weekly (default)
 agent-guidance-mcp --auto-update monthly  # monthly
 ```
 
-Or set via environment variable:
-```bash
-AGENT_AUTO_UPDATE_INTERVAL=weekly agent-guidance-mcp --auto-update
-```
-
-The server checks persisted state and only runs updates when the interval has elapsed. Compatibility warnings appear automatically when the server version differs from the last-update version.
+Or via environment variable: `AGENT_AUTO_UPDATE_INTERVAL=weekly`
 
 ### Uninstalling
 
-**Linux / macOS (Bash):**
+**Linux / macOS:**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/JunMystery/Agent-Guidance-MCP/main/scripts/uninstall.sh | bash
 ```
 
-**Windows (CMD / PowerShell):**
+**Windows:**
 ```cmd
 powershell -Command "irm https://raw.githubusercontent.com/JunMystery/Agent-Guidance-MCP/main/scripts/uninstall.ps1 | iex"
 ```
 
-*This will automatically remove the server registration from all detected IDE client configurations, clean up the global rules in `AGENTS.md`, remove the database/skills directory (`~/.agent-guidance`), and uninstall the executable.*
-
-### Manual / Local Developer Install
+### Manual / Developer Install
 
 ```bash
 python -m venv .venv
@@ -85,21 +85,58 @@ python -m venv .venv
 .venv\Scripts\pip install -e ".[dev]"  # Windows
 ```
 
-Run the server module:
-
 ```bash
 agent-guidance-mcp
 .venv/bin/python -m agent_guidance_mcp          # Linux / macOS
 .venv\Scripts\python.exe -m agent_guidance_mcp  # Windows
 ```
 
-To point the server to a different standards corpus, set:
-
+Custom corpus path:
 ```bash
 AGENT_GUIDANCE_ROOT=/path/to/Agent-Guidance
 ```
 
-Platform notes and client-specific setup are covered in [Installation](docs/installation.md) and [Client Setup](docs/setup/client-configuration.md).
+Platform notes: [Installation](docs/installation.md) · [Client Setup](docs/setup/client-configuration.md)
+
+---
+
+## Supported IDEs
+
+Works with any MCP-compatible client. Auto-configured by the installer:
+
+| Claude Desktop / Claude Code | Cursor | VS Code (Copilot) |
+| OpenCode / OMO | Gemini CLI | Windsurf |
+| Cline / Roo-Code | Continue.dev | Antigravity |
+
+---
+
+## MCP Surface
+
+![MCP Tool Surface](docs/images/tool-surface.png)
+
+### Tools
+
+| Tool | Role | Key Operations |
+|---|---|---|
+| `task_pipeline` | **Call first** — one-stop context prep | Recommendations + tree + search + UI + execution sequence |
+| `guidance` | Standards & skill catalog | `list`, `get`, `search`, `recommend`, `reason`, `docs` (Context7) |
+| `project_context` | Bounded project file ops | `tree`, `search`, `read`, `symbols`, `references`, `structure`, `callers`, `callees`, `diff`, `snapshot` |
+| `ui_ux` | Design guidance | `search`, `design_system`, `slides` |
+| `session_continuity` | Task state persistence | `save`, `load`, `clear` |
+| `health_check` / `diagnose` / `token_stats` | Operational | Server status, self-diagnostics, token savings |
+
+### Resources
+
+| URI | Description |
+|---|---|
+| `standards://manifest` | Indexed standards manifest (JSON) |
+| `standards://skill/{name}` | On-demand skill capsule (Markdown) |
+| `standards://document/{identifier}` | Standards document by slug (Markdown) |
+| `standards://version` | Server version info (JSON) |
+
+### Prompt
+
+`workflow_prompt(mode, subject, target)` — Load workflow by mode: plan, test, deploy, debug, etc.
 
 ---
 
@@ -117,6 +154,8 @@ AI coding agents burn context fast. Every file read, every grep, every web searc
 
 Measured on a typical 500-line React component refactor task:
 
+![Token Savings Comparison](docs/images/token-savings-chart.png)
+
 ```
                     Without MCP          With Agent Guidance MCP
                     ─────────────        ──────────────────────
@@ -131,6 +170,8 @@ Time to first fix   ~4 minutes           ~45 seconds
 ### Token Optimization Pipeline
 
 Every MCP response passes through an 8-stage filter before reaching your agent:
+
+![Token Optimization Pipeline](docs/images/token-pipeline.png)
 
 ```
 Raw Response
@@ -194,36 +235,6 @@ Returns: current `jsonwebtoken` API docs from Context7 — no hallucinated API c
 
 ---
 
-## Supported IDEs
-
-Works with any MCP-compatible client:
-
-| IDE / Client | Auto-Configured |
-|---|---|
-| Claude Desktop / Claude Code | ✅ |
-| Cursor | ✅ |
-| VS Code (Copilot) | ✅ |
-| OpenCode / OMO | ✅ |
-| Gemini CLI | ✅ |
-| Windsurf | ✅ |
-| Cline / Roo-Code | ✅ |
-| Continue.dev | ✅ |
-| Antigravity | ✅ |
-
----
-
-## Quick Start
-
-Run the server through an MCP client, or verify it locally with MCP Inspector:
-
-```bash
-DANGEROUSLY_OMIT_AUTH=true npx @modelcontextprotocol/inspector .venv/bin/python -m agent_guidance_mcp
-```
-
-Then call `task_pipeline(...)` to load task guidance and bounded project context before editing. See [Usage Guide](docs/usage.md) for practical workflows.
-
----
-
 ## Environment Variables
 
 | Variable | Purpose | Default |
@@ -252,32 +263,6 @@ Then call `task_pipeline(...)` to load task guidance and bounded project context
 - [Potential Integrations](docs/integrations/potential-integrations.md) — candidates for future inclusion.
 - [Development Guide](docs/development.md) — tests, project structure, maintainer notes.
 - [MCP Integrations Guide](agent-guidance/mcp-integrations/README.md) — SQLite caching, CodeGraph, Context7 docs.
-
----
-
-## MCP Surface
-
-### Tools
-
-| Tool | Role | Key Operations |
-|---|---|---|
-| `task_pipeline` | **Call first** — one-stop context prep | Recommendations + tree + search + UI + execution sequence |
-| `guidance` | Standards & skill catalog | `list`, `get`, `search`, `recommend`, `reason`, `docs` (Context7) |
-| `project_context` | Bounded project file ops | `tree`, `search`, `read`, `symbols`, `references`, `structure`, `callers`, `callees`, `diff`, `snapshot` |
-| `ui_ux` | Design guidance | `search`, `design_system`, `slides` |
-| `session_continuity` | Task state persistence | `save`, `load`, `clear` |
-| `health_check` / `diagnose` / `token_stats` | Operational | Server status, self-diagnostics, token savings |
-
-### Resources
-
-- `standards://manifest` — Indexed standards manifest (JSON)
-- `standards://skill/{name}` — On-demand skill capsule (Markdown)
-- `standards://document/{identifier}` — Standards document by slug (Markdown)
-- `standards://version` — Server version info (JSON)
-
-### Prompt
-
-- `workflow_prompt(mode, subject, target)` — Load a workflow prompt by mode (plan, test, deploy, debug, etc.)
 
 ---
 
