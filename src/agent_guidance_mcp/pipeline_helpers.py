@@ -183,3 +183,26 @@ def _detect_frameworks(project_path: str) -> list[str]:
     result = list(dict.fromkeys(detected))
     _FRAMEWORK_CACHE[cache_key] = list(result)
     return result
+
+
+def _wrap_response(
+    data: dict[str, object] | list[dict[str, object]],
+    tool: str = "",
+    operation: str = "",
+    backend: str = "python",
+    warnings: list[str] | None = None,
+    error: str | None = None,
+) -> dict[str, object]:
+    """Wrap tool output in a standard response envelope."""
+    result: dict[str, object] = {
+        "data": data,
+        "metadata": {
+            "tool": tool,
+            "operation": operation,
+            "backend": backend,
+        },
+        "error": error,
+    }
+    if warnings:
+        result["warnings"] = warnings
+    return result
