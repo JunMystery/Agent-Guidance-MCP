@@ -48,12 +48,23 @@ if (-not (Test-Path $toolBin)) {
 }
 
 Write-Host "Running post-install configuration..." -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Choose install mode:"
+Write-Host "  [1] Auto Install — configure all detected clients automatically"
+Write-Host "  [2] Manual — choose which clients to configure"
+Write-Host ""
+$modeChoice = Read-Host "Choice [1]"
+$modeFlag = ""
+if ($modeChoice -eq "2") {
+    $modeFlag = "--mode=manual"
+}
+Write-Host ""
 if (Test-Path $toolBin) {
-    & $toolBin --setup
+    & $toolBin --setup $modeFlag
     & $toolBin --update
 } else {
     # Fallback to uv tool run
-    & $uvBin tool run agent-guidance-mcp --setup
+    & $uvBin tool run agent-guidance-mcp --setup $modeFlag
     & $uvBin tool run agent-guidance-mcp --update
 }
 

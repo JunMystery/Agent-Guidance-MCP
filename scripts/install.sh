@@ -45,12 +45,23 @@ if [ ! -f "$TOOL_BIN" ]; then
 fi
 
 echo "Running post-install configuration..."
+echo ""
+echo "Choose install mode:"
+echo "  [1] Auto Install — configure all detected clients automatically"
+echo "  [2] Manual — choose which clients to configure"
+echo ""
+read -p "Choice [1]: " MODE_CHOICE
+MODE_FLAG=""
+if [ "$MODE_CHOICE" = "2" ]; then
+    MODE_FLAG="--mode=manual"
+fi
+echo ""
 if [ -f "$TOOL_BIN" ] || command -v agent-guidance-mcp &> /dev/null; then
-    "$TOOL_BIN" --setup
+    "$TOOL_BIN" --setup $MODE_FLAG
     "$TOOL_BIN" --update
 else
     # Fallback: run via uv tool run directly
-    "$UV_BIN" tool run agent-guidance-mcp --setup
+    "$UV_BIN" tool run agent-guidance-mcp --setup $MODE_FLAG
     "$UV_BIN" tool run agent-guidance-mcp --update
 fi
 

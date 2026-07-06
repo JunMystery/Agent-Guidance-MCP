@@ -271,17 +271,98 @@ def configure_workspace_rules():
         except Exception as e:
             print(f"    Error: Failed to configure {name}: {e}")
 
-def run_setup() -> None:
+def run_setup(mode: str = "auto", selected: set[int] | None = None) -> None:
+    """Run post-install configuration.
+
+    Args:
+        mode: 'auto' (configure all) or 'manual' (show menu)
+        selected: set of component indices to configure (manual mode only)
+    """
     print("=== Agent Guidance MCP Setup ===")
     exe = get_executable_path()
     print(f"Using executable: {exe}")
-    configure_mcp_clients(exe)
-    configure_opencode(exe)
-    configure_codex(exe)
-    configure_global_rules()
-    configure_workspace_rules()
+
+    # All setup steps in order, with recommended defaults marked
+    steps = [
+        (1, "MCP Clients (Claude, Gemini, Cursor, VS Code, Continue)", lambda: configure_mcp_clients(exe), True),
+        (2, "OpenCode & OMO", lambda: configure_opencode(exe), True),
+        (3, "Codex (global + project-local)", lambda: configure_codex(exe), False),
+        (4, "Global Agent Rules", configure_global_rules, True),
+        (5, "Workspace Rules (.cursorrules, .clinerules, etc.)", configure_workspace_rules, False),
+    ]
+
+    if mode == "manual":
+        selected = manual_select_components(steps)
+
+    for index, _, fn, _ in steps:
+        if selected is None or index in selected:
+            fn()
+
     print("\n=== Setup completed successfully! ===")
     print("Restart your IDE / MCP Client to apply the configuration.")
+
+
+PAGE_SIZE = 9
+
+
+def manual_select_components(steps: list[tuple[int, str, object, bool]]) -> set[int]:
+    """Interactive paginated checklist for manual install mode.
+
+    Pages items in groups of PAGE_SIZE. 'n' for next page, '0' to go back.
+    Returns set of selected component indices.
+    """
+    selected: set[int] = {idx for idx, _, _, rec in steps if rec}
+    page = 0
+    total_pages = (len(steps) + PAGE_SIZE - 1) // PAGE_SIZE
+
+    while True:
+        start = page * PAGE_SIZE
+        page_items = steps[start:start + PAGE_SIZE]
+
+        print(f"\n  ── Page {page + 1}/{total_pages} ──")
+        for i, (idx, name, _, rec) in enumerate(page_items):
+            mark = "\u2713" if idx in selected else " "
+            tag = " (recommended)" if rec else ""
+            print(f"  [{i + 1}]  {mark}  {name}{tag}")
+
+        if total_pages > 1:
+            if page > 0:
+                print(f"  [0]  ── back ──")
+            if page < total_pages - 1:
+                print(f"  [n]  ── next page ──")
+        print(f"\n  Enter numbers to toggle, or press Enter to confirm: ")
+
+        try:
+            choice = input("> ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print("\n  Cancelled.")
+            return selected
+
+        if choice == "":
+            break
+        if choice == "n" and page < total_pages - 1:
+            page += 1
+            continue
+        if choice == "0" and page > 0:
+            page -= 1
+            continue
+        if choice == "0" and page == 0:
+            print("  Returning to main menu...")
+            return set()
+
+        for token in choice.split():
+            try:
+                num = int(token)
+                if 1 <= num <= len(page_items):
+                    real_idx = steps[start + num - 1][0]
+                    if real_idx in selected:
+                        selected.discard(real_idx)
+                    else:
+                        selected.add(real_idx)
+            except ValueError:
+                pass
+
+    return selected
 
 def remove_mcp_clients():
     print("\nRemoving MCP Clients registrations...")

@@ -45,9 +45,26 @@ def main():
     repo_root = Path(__file__).resolve().parents[1]
     venv_dir = repo_root / ".venv"
     
-    print("=== Agent Guidance MCP Auto-Installer ===")
+    print("=== Agent Guidance MCP Installer ===")
+    print("")
+    print("Choose install mode:")
+    print("  [1] Auto Install — configure all detected clients automatically")
+    print("  [2] Manual — choose which clients to configure")
+    print("  [0] Exit")
+    print("")
+    try:
+        choice = input("Choice [1]: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print("\nCancelled.")
+        sys.exit(1)
+    if choice == "0":
+        print("Exiting.")
+        sys.exit(0)
     
-    # 1. Setup virtual environment
+    manual_mode = choice == "2"
+    selected: set[int] | None = None
+    
+    # 1. Setup virtual environment (always)
     if not venv_dir.exists():
         print("Creating virtual environment (.venv)...")
         subprocess.run([sys.executable, "-m", "venv", str(venv_dir)], check=True)
@@ -58,11 +75,42 @@ def main():
     else:
         python_exe = venv_dir / "bin" / "python"
         
-    # 2. Install dependencies
+    # 2. Install dependencies (always)
     print("Installing packages and dependencies in editable mode...")
     subprocess.run([str(python_exe), "-m", "pip", "install", "-e", "."], cwd=str(repo_root), check=True)
     
-    # 3. Locate and configure targets
+    # 3. Build config step list
+    steps = [
+        (1, "MCP Clients (Claude, Gemini, Cursor, VS Code, Continue, Cline/Roo-Code)",
+         lambda: configure_targets(python_exe, repo_root), True),
+        (2, "OpenCode & OMO", lambda: configure_opencode(python_exe, repo_root), True),
+        (3, "Codex (global + project-local)", lambda: configure_codex(python_exe, repo_root), False),
+        (4, "Global Agent Rules", lambda: configure_global_agents_rules(), True),
+        (5, "Supporting Agent Rules", lambda: configure_supporting_agents(repo_root), False),
+        (6, "Workspace Rules (.cursorrules, .clinerules, .copilotrules)",
+         lambda: configure_workspace_rules(repo_root), False),
+        (7, "OpenCode .opencode/ directory", lambda: configure_opencode_directory(repo_root), False),
+        (8, "UI/UX Skill Update", lambda: update_ui_ux_skill(repo_root), True),
+        (9, "Gitignore Rules", lambda: configure_gitignore(repo_root), False),
+    ]
+    
+    if manual_mode:
+        from agent_guidance_mcp.setup import manual_select_components
+        selected = manual_select_components(steps)
+        if not selected:
+            print("\nNo components selected. Exiting.")
+            sys.exit(0)
+        print("")
+    
+    for idx, name, fn, _ in steps:
+        if selected is None or idx in selected:
+            fn()
+    
+    print("\n=== Installation Completed Successfully! ===")
+    print("Restart your IDE / MCP Client to start using the server.")
+
+
+def configure_targets(python_exe, repo_root):
     if sys.platform == "win32":
         appdata = Path(os.environ.get("APPDATA", ""))
         claude_path = appdata / "Claude" / "claude_desktop_config.json"
@@ -73,82 +121,55 @@ def main():
         claude_path = home / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json"
         code_path = home / "Library" / "Application Support" / "Code" / "User" / "globalStorage"
         cursor_path = home / "Library" / "Application Support" / "Cursor" / "User" / "globalStorage"
-    else: # Linux
+    else:
         home = Path.home()
         claude_path = home / ".config" / "Claude" / "claude_desktop_config.json"
         code_path = home / ".config" / "Code" / "User" / "globalStorage"
         cursor_path = home / ".config" / "Cursor" / "User" / "globalStorage"
 
     targets = []
-    # Always attempt to configure Claude Desktop and Gemini-compatible MCP config.
     targets.append(("Claude Desktop", claude_path, True))
-    
-    # Gemini-compatible MCP config path (cross-platform)
     gemini_mcp_path = Path.home() / ".gemini" / "config" / "mcp_config.json"
     targets.append(("Gemini MCP config", gemini_mcp_path, True))
-
-    # Cursor Native config path (cross-platform)
     cursor_native_path = Path.home() / ".cursor" / "mcp.json"
     targets.append(("Cursor Native", cursor_native_path, True))
-
-    # VS Code Native User config path (cross-platform)
     vscode_native_user_path = code_path.parent / "mcp.json"
     targets.append(("VS Code Native (User)", vscode_native_user_path, True))
-
-    # VS Code Native Workspace config path
     vscode_native_workspace_path = repo_root / ".vscode" / "mcp.json"
     targets.append(("VS Code Native (Workspace)", vscode_native_workspace_path, True))
-
-    # Continue Global config path (cross-platform)
     continue_global_path = Path.home() / ".continue" / "mcpServers" / "config.json"
     targets.append(("Continue (Global)", continue_global_path, True))
-
-    # Continue Workspace config path
     continue_workspace_path = repo_root / ".continue" / "mcpServers" / "config.json"
     targets.append(("Continue (Workspace)", continue_workspace_path, True))
-
-    # OpenCode Workspace config
     opencode_workspace_path = repo_root / "opencode.json"
     targets.append(("OpenCode", opencode_workspace_path, True))
 
-
-    # Cline & Roo-Code for VS Code and Cursor
     extensions = [
         ("VS Code Cline", code_path / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"),
         ("VS Code Roo-Code", code_path / "roovet.roo-cline" / "settings" / "cline_mcp_settings.json"),
         ("Cursor Cline", cursor_path / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"),
         ("Cursor Roo-Code", cursor_path / "roovet.roo-cline" / "settings" / "cline_mcp_settings.json"),
     ]
-    
-    for name, path, *rest in [e + (False,) for e in extensions]:
-        # Only configure if the parent directory exists (extension is installed)
+    for name, path in extensions:
         if path.parent.parent.exists():
             targets.append((name, path, False))
 
     print("\nConfiguring MCP Clients...")
     for name, path, force_create in targets:
         print(f"  Configuring {name}...")
-        
-        # Load or initialize config
         config = {}
         if path.exists():
             try:
                 config = json.loads(path.read_text(encoding="utf-8"))
             except Exception as e:
                 print(f"    Warning: Failed to read existing config: {e}. Starting fresh.")
-                
+
         is_vscode_native = "VS Code Native" in name
         is_opencode = "OpenCode" in name
-        
-        if is_opencode:
-            config_key = "mcp"
-        else:
-            config_key = "servers" if is_vscode_native else "mcpServers"
-
+        config_key = "mcp" if is_opencode else ("servers" if is_vscode_native else "mcpServers")
         if config_key not in config:
             config[config_key] = {}
-            
-        # Determine command and env PYTHONPATH to write
+
         if name == "VS Code Native (Workspace)":
             python_exe_str = "${workspaceFolder}/.venv/Scripts/python.exe" if os.name == "nt" else "${workspaceFolder}/.venv/bin/python"
             pythonpath_str = "${workspaceFolder}/src"
@@ -168,11 +189,10 @@ def main():
                     "AGENT_PROJECT_ROOT": project_root_str
                 }
             }
-            # Add instructions so OpenCode loads AGENTS.md as system prompt
             instructions = config.get("instructions", [])
-            agends_md = "AGENTS.md"
-            if agends_md not in instructions:
-                instructions.append(agends_md)
+            agents_md = "AGENTS.md"
+            if agents_md not in instructions:
+                instructions.append(agents_md)
                 config["instructions"] = instructions
         else:
             config[config_key][SERVER_ID] = {
@@ -184,34 +204,20 @@ def main():
                 }
             }
 
-        
-        # Write back config
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(config, indent=2), encoding="utf-8")
             print(f"    Success: Configured '{SERVER_ID}' server.")
         except Exception as e:
             print(f"    Error: Failed to write config file: {e}")
-            
-    # 4. Configure Codex (config.toml)
-    configure_codex(python_exe, repo_root)
 
-    # 5. Configure Global Agents Rules
-    configure_global_agents_rules()
 
-    # 6. Configure Supporting Agents Rules
-    configure_supporting_agents(repo_root)
-
-    # 7. Configure Workspace Rules for common Coding Agents
-    configure_workspace_rules(repo_root)
-
-    # 8. Configure OpenCode .opencode/ directory (agents, skills)
+def configure_opencode(python_exe, repo_root):
+    configure_opencode_global(python_exe, repo_root)
     configure_opencode_directory(repo_root)
 
-    # 9. Configure OpenCode global config (~/.config/opencode/opencode.json)
-    configure_opencode_global(python_exe, repo_root)
 
-    # 10. Update UI/UX skill from GitHub
+def update_ui_ux_skill(repo_root):
     print("\nUpdating UI/UX Pro Max skill...")
     try:
         import importlib
@@ -220,12 +226,6 @@ def main():
         update_ui_ux.update_skill()
     except Exception as e:
         print(f"  Warning: Failed to auto-update UI/UX skill: {e}")
-        
-    # 11. Configure gitignore rules
-    configure_gitignore(repo_root)
-            
-    print("\n=== Installation Completed Successfully! ===")
-    print("Restart your IDE / MCP Client to start using the server.")
 
 def configure_opencode_directory(repo_root):
     opencode_dir = repo_root / ".opencode"

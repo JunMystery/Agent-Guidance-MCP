@@ -25,6 +25,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Run post-install setup to register server in IDE client configs.",
     )
     parser.add_argument(
+        "--mode",
+        choices=["auto", "manual"],
+        default="auto",
+        help="Setup mode: auto (all clients) or manual (interactive menu). Default: auto.",
+    )
+    parser.add_argument(
+        "--clients",
+        default="",
+        help="Comma-separated client indices for --mode=manual (non-interactive escape hatch).",
+    )
+    parser.add_argument(
         "--update",
         action="store_true",
         help="Download and update ECC skills and UI/UX data from GitHub.",
@@ -53,7 +64,10 @@ def main() -> None:
         args = parse_args()
         if args.setup:
             from .setup import run_setup
-            run_setup()
+            selected = None
+            if args.clients:
+                selected = {int(c.strip()) for c in args.clients.split(",") if c.strip().isdigit()}
+            run_setup(mode=args.mode, selected=selected)
             sys.exit(0)
         if args.update:
             from .updater import run_update
