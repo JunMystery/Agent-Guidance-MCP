@@ -86,9 +86,22 @@ def _detect_frameworks(project_path: str) -> list[str]:
     base_path = resolve_project_root(project_path)
     key = str(base_path.resolve())
     
-    pkg_json = base_path / "package.json"
-    mtime = pkg_json.stat().st_mtime if pkg_json.is_file() else base_path.stat().st_mtime
-    cache_key = (key, mtime)
+    # Track modification times of any common project manifest files
+    manifests = [
+        "package.json", "pyproject.toml", "requirements.txt", "Cargo.toml", "Gemfile",
+        "pubspec.yaml", "go.mod", "composer.json", "build.gradle", "build.gradle.kts",
+        "pom.xml", "Podfile", "Package.swift"
+    ]
+    max_mtime = base_path.stat().st_mtime
+    for manifest in manifests:
+        p = base_path / manifest
+        if p.is_file():
+            try:
+                max_mtime = max(max_mtime, p.stat().st_mtime)
+            except OSError:
+                pass
+                
+    cache_key = (key, max_mtime)
     if cache_key in _FRAMEWORK_CACHE:
         val = _FRAMEWORK_CACHE.pop(cache_key)
         _FRAMEWORK_CACHE[cache_key] = val
@@ -99,6 +112,8 @@ def _detect_frameworks(project_path: str) -> list[str]:
     
     detected: list[str] = []
     
+    # 1. Javascript/Node (package.json)
+    pkg_json = base_path / "package.json"
     if pkg_json.is_file():
         try:
             with open(pkg_json, "r", encoding="utf-8") as f:
@@ -125,6 +140,7 @@ def _detect_frameworks(project_path: str) -> list[str]:
         except (OSError, json.JSONDecodeError):
             pass
 
+    # 2. Python (pyproject.toml / requirements.txt)
     pyproject = base_path / "pyproject.toml"
     req_txt = base_path / "requirements.txt"
     py_content = ""
@@ -153,6 +169,7 @@ def _detect_frameworks(project_path: str) -> list[str]:
             if dep_key in py_content_lower:
                 detected.append(tag)
 
+    # 3. Rust (Cargo.toml)
     cargo_toml = base_path / "Cargo.toml"
     if cargo_toml.is_file():
         try:
@@ -169,6 +186,7 @@ def _detect_frameworks(project_path: str) -> list[str]:
         except (OSError, json.JSONDecodeError):
             pass
 
+    # 4. Ruby (Gemfile)
     gemfile = base_path / "Gemfile"
     if gemfile.is_file():
         try:
@@ -179,6 +197,79 @@ def _detect_frameworks(project_path: str) -> list[str]:
                 detected.append("sinatra")
         except (OSError, json.JSONDecodeError):
             pass
+
+    # 5. Flutter/Dart (pubspec.yaml)
+    pubspec = base_path / "pubspec.yaml"
+    if pubspec.is_file():
+        try:
+            content = pubspec.read_text(encoding="utf-8").lower()
+            detected.append("dart")
+            if "flutter" in content:
+                detected.append("flutter")
+        except OSError:
+            pass
+
+    # 6. Go (go.mod)
+    go_mod = base_path / "go.mod"
+    if go_mod.is_file():
+        try:
+            content = go_mod.read_text(encoding="utf-8").lower()
+            detected.append("go")
+            detected.append("golang")
+            if "gin-gonic" in content or "github.com/gin-gonic" in content:
+                detected.append("gin")
+        except OSError:
+            pass
+
+    # 7. PHP (composer.json)
+    composer = base_path / "composer.json"
+    if composer.is_file():
+        try:
+            with open(composer, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            reqs = data.get("require", {}) or {}
+            detected.append("php")
+            if "laravel/framework" in reqs:
+                detected.append("laravel")
+            elif "symfony/framework-bundle" in reqs or "symfony/symfony" in reqs:
+                detected.append("symfony")
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    # 8. JVM (Java/Kotlin) (build.gradle / build.gradle.kts / pom.xml)
+    gradle = base_path / "build.gradle"
+    gradle_kts = base_path / "build.gradle.kts"
+    pom = base_path / "pom.xml"
+    jvm_content = ""
+    for path in (gradle, gradle_kts, pom):
+        if path.is_file():
+            try:
+                jvm_content += path.read_text(encoding="utf-8").lower()
+            except OSError:
+                pass
+    if jvm_content:
+        detected.append("java")
+        if "kotlin" in jvm_content:
+            detected.append("kotlin")
+        if "spring-boot" in jvm_content or "springboot" in jvm_content:
+            detected.append("springboot")
+        if "com.android.tools" in jvm_content or "android" in jvm_content:
+            detected.append("android")
+
+    # 9. iOS/Swift (Podfile / Package.swift / xcodeproj check)
+    podfile = base_path / "Podfile"
+    pkg_swift = base_path / "Package.swift"
+    has_xcodeproj = any(base_path.glob("*.xcodeproj"))
+    if podfile.is_file() or pkg_swift.is_file() or has_xcodeproj:
+        detected.append("swift")
+        detected.append("ios")
+        if pkg_swift.is_file():
+            try:
+                content = pkg_swift.read_text(encoding="utf-8").lower()
+                if "swiftui" in content:
+                    detected.append("swiftui")
+            except OSError:
+                pass
 
     result = list(dict.fromkeys(detected))
     _FRAMEWORK_CACHE[cache_key] = list(result)

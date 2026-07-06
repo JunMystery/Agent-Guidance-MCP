@@ -36,6 +36,7 @@ def guidance(
     kind: str | None = None,
     limit: int = 10,
     include_content: bool = False,
+    resolve_dependencies: bool = False,
     config: TokenOptimizationConfig | None = None,
     tracker: TokenTracker | None = None,
 ) -> dict[str, object]:
@@ -64,6 +65,26 @@ def guidance(
             raw_content = catalog.read_entry(entry.identifier, optimize=False)
             result["content"] = catalog.read_entry(entry.identifier, config=config)
             _record_savings(tracker, "guidance", operation_key, raw_content, str(result["content"]))
+            
+            # Resolve transitive dependencies if requested
+            if resolve_dependencies:
+                resolved: dict[str, str] = {}
+                def _resolve(dep_id: str) -> None:
+                    if dep_id == entry.identifier or dep_id in resolved:
+                        return
+                    try:
+                        dep_entry = catalog.get_entry(dep_id)
+                        dep_content = catalog.read_entry(dep_id, config=config)
+                        resolved[dep_id] = dep_content
+                        for sub_dep in dep_entry.dependencies:
+                            _resolve(sub_dep)
+                    except KeyError:
+                        pass
+                for dep in entry.dependencies:
+                    _resolve(dep)
+                if resolved:
+                    result["resolved_dependencies"] = resolved
+
             cycles = _detect_dependency_cycles(catalog, entry.identifier)
             if cycles:
                 result["dependency_cycles_detected"] = cycles

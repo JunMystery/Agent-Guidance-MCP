@@ -263,6 +263,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         kind: str | None = None,
         limit: int = 10,
         include_content: bool = False,
+        resolve_dependencies: bool = False,
     ) -> dict[str, object] | list[dict[str, object]]:
         """Standards catalog and skill lookup. 168 skills available on-demand.
 
@@ -288,6 +289,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             kind: Filter by kind — skill, doc, principle, etc.
             limit: Maximum results (default 10).
             include_content: Set True for "get" to include full skill body (default False).
+            resolve_dependencies: Set True for "get" to recursively load transitive dependencies (default False).
         """
         return pipelines.guidance(
             catalog=catalog,
@@ -298,6 +300,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             kind=kind,
             limit=limit,
             include_content=include_content,
+            resolve_dependencies=resolve_dependencies,
             config=get_config(),
             tracker=get_tracker(),
         )

@@ -297,8 +297,23 @@ def infer_task_keywords(task: str, custom_triggers: dict[str, set[str]] | None =
                 merged_triggers[label_key] = triggers
                 
     for label, triggers in merged_triggers.items():
-        if task_terms & triggers:
-            keywords.extend([label, *sorted(triggers & task_terms)])
+        matched_triggers = set()
+        for trigger in triggers:
+            for term in task_terms:
+                if term == trigger:
+                    matched_triggers.add(trigger)
+                elif len(trigger) >= 4 and len(term) >= 4:
+                    if term.startswith(trigger) or trigger.startswith(term):
+                        matched_triggers.add(trigger)
+                    elif (term.rstrip('s') == trigger.rstrip('s') or
+                          term.rstrip('es') == trigger.rstrip('es') or
+                          term.removesuffix('ing') == trigger.removesuffix('ing') or
+                          term.removesuffix('ed') == trigger.removesuffix('ed')):
+                        matched_triggers.add(trigger)
+                    elif len(trigger) >= 6 and len(term) >= 6 and term[:6] == trigger[:6]:
+                        matched_triggers.add(trigger)
+        if matched_triggers:
+            keywords.extend([label, *sorted(matched_triggers)])
 
     return list(dict.fromkeys(keywords))
 

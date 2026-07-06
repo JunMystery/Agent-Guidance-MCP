@@ -173,3 +173,92 @@ def test_task_pipeline_exception_safety(tmp_path, monkeypatch):
     assert "project_tree" in result
     assert "error" in result["project_tree"]
     assert "Simulated project tree error" in result["project_tree"]["error"]
+
+
+def test_infer_task_keywords_lemma_variations():
+    from agent_guidance_mcp.text import infer_task_keywords
+    
+    # "testing" should trigger "tests"
+    kw_testing = infer_task_keywords("run testing suite")
+    assert "tests" in kw_testing
+    
+    # "authentication" should trigger "security"
+    kw_auth = infer_task_keywords("perform authentication check")
+    assert "security" in kw_auth
+    
+    # "accessible" should trigger "accessibility"
+    kw_access = infer_task_keywords("make dashboard accessible")
+    assert "accessibility" in kw_access
+    
+    # "databases" should trigger "backend"
+    kw_db = infer_task_keywords("query databases")
+    assert "backend" in kw_db
+
+
+def test_detect_frameworks_extended(tmp_path):
+    from agent_guidance_mcp.pipeline_helpers import _detect_frameworks
+    
+    # 1. Test Flutter detection
+    flutter_dir = tmp_path / "flutter_proj"
+    flutter_dir.mkdir()
+    (flutter_dir / "pubspec.yaml").write_text("name: my_app\ndependencies:\n  flutter:\n    sdk: flutter", encoding="utf-8")
+    tags = _detect_frameworks(str(flutter_dir))
+    assert "flutter" in tags
+    assert "dart" in tags
+
+    # 2. Test Go/Gin detection
+    go_dir = tmp_path / "go_proj"
+    go_dir.mkdir()
+    (go_dir / "go.mod").write_text("module my_go_app\nrequire github.com/gin-gonic/gin v1.7.0", encoding="utf-8")
+    tags = _detect_frameworks(str(go_dir))
+    assert "go" in tags
+    assert "golang" in tags
+    assert "gin" in tags
+
+    # 3. Test PHP/Laravel detection
+    php_dir = tmp_path / "php_proj"
+    php_dir.mkdir()
+    (php_dir / "composer.json").write_text('{"require": {"laravel/framework": "^9.0"}}', encoding="utf-8")
+    tags = _detect_frameworks(str(php_dir))
+    assert "php" in tags
+    assert "laravel" in tags
+
+    # 4. Test JVM/Android/SpringBoot detection
+    jvm_dir = tmp_path / "jvm_proj"
+    jvm_dir.mkdir()
+    (jvm_dir / "build.gradle.kts").write_text('dependencies {\n    implementation("org.springframework.boot:spring-boot-starter-web")\n    implementation("org.jetbrains.kotlin:kotlin-stdlib")\n}', encoding="utf-8")
+    tags = _detect_frameworks(str(jvm_dir))
+    assert "java" in tags
+    assert "kotlin" in tags
+    assert "springboot" in tags
+
+
+def test_guidance_resolve_dependencies(tmp_path):
+    (tmp_path / "karpathy").mkdir()
+    (tmp_path / "karpathy" / "principles.md").write_text("# Principles", encoding="utf-8")
+    (tmp_path / "SKILL-REFERENCE.md").write_text("# Skill Reference", encoding="utf-8")
+    (tmp_path / "agent-guidance").mkdir()
+    (tmp_path / "agent-guidance" / "INDEX.md").write_text("# Index", encoding="utf-8")
+    (tmp_path / "skills").mkdir()
+    
+    # create skill A depending on skill B
+    (tmp_path / "skills" / "skill-a").mkdir()
+    (tmp_path / "skills" / "skill-a" / "SKILL.md").write_text(
+        "---\nname: skill-a\ndescription: Skill A\ndependencies: [skill-b]\n---\n\n# Skill A\nContent of A.",
+        encoding="utf-8",
+    )
+    # create skill B depending on nothing
+    (tmp_path / "skills" / "skill-b").mkdir()
+    (tmp_path / "skills" / "skill-b" / "SKILL.md").write_text(
+        "---\nname: skill-b\ndescription: Skill B\n---\n\n# Skill B\nContent of B.",
+        encoding="utf-8",
+    )
+
+    catalog = build_catalog(str(tmp_path))
+    result = pipelines.guidance(
+        catalog=catalog, operation="get", identifier="skill-a", include_content=True, resolve_dependencies=True
+    )
+    assert isinstance(result, dict)
+    assert "resolved_dependencies" in result
+    assert "skill-b" in result["resolved_dependencies"]
+    assert "Content of B" in result["resolved_dependencies"]["skill-b"]
