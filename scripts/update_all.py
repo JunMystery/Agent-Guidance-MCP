@@ -17,6 +17,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 UPDATERS = [
     ("update_ecc.py", "ECC (168-skill catalog)"),
     ("update_ui_ux.py", "UI/UX Pro Max (design data)"),
+    ("update_anthropic_skills.py", "Anthropic Skills (creative, dev, enterprise)"),
     ("update_rtk.py", "RTK — Rust Token Killer (subproject)"),
 ]
 

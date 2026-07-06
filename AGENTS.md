@@ -294,7 +294,8 @@ run the orchestrator:
 | "update MCP tools", "refresh skills", "update everything" | `python scripts/update_all.py` |
 | "update ECC skills" | `python scripts/update_ecc.py` |
 | "update UI/UX data" | `python scripts/update_ui_ux.py` |
+| "update Anthropic skills" | `python scripts/update_anthropic_skills.py` |
 | "update RTK" | `python scripts/update_rtk.py` |
 
-The orchestrator (`update_all.py`) runs all three updaters in sequence and prints a pass/fail summary. Each updater downloads the latest snapshot from its upstream GitHub repo, strips non-essential files, and deploys the minimal vendored copy.
+The orchestrator (`update_all.py`) runs all four updaters in sequence and prints a pass/fail summary. Each updater downloads the latest snapshot from its upstream GitHub repo, strips non-essential files, and deploys the minimal vendored copy.
 
