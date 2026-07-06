@@ -16,6 +16,93 @@ Skills are sourced from [Everything Claude Code (ECC) v2.0.0](https://github.com
 
 ---
 
+## Installation
+
+Install the Agent Guidance MCP server and configure all local IDE clients with a single command:
+
+**Linux / macOS (Bash):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/JunMystery/Agent-Guidance-MCP/main/scripts/install.sh | bash
+```
+
+**Windows (CMD / PowerShell):**
+```cmd
+powershell -Command "irm https://raw.githubusercontent.com/JunMystery/Agent-Guidance-MCP/main/scripts/install.ps1 | iex"
+```
+
+*This requires no prior Python installation; the script will automatically bootstrap `uv` (a single-binary Python toolchain) to run the server if Python is not present.*
+
+### Upgrading
+
+**To update the server and refresh your IDE registrations:**
+Simply rerun the installation command.
+
+**To update the standards catalog & skills only (one line):**
+```bash
+agent-guidance-mcp --update
+```
+
+**To update the executable code package only:**
+```bash
+uv tool update agent-guidance-mcp
+```
+
+### Scheduled Auto-Update
+
+Enable automatic weekly or monthly skill sync:
+
+```bash
+agent-guidance-mcp --auto-update          # weekly (default)
+agent-guidance-mcp --auto-update monthly  # monthly
+```
+
+Or set via environment variable:
+```bash
+AGENT_AUTO_UPDATE_INTERVAL=weekly agent-guidance-mcp --auto-update
+```
+
+The server checks persisted state and only runs updates when the interval has elapsed. Compatibility warnings appear automatically when the server version differs from the last-update version.
+
+### Uninstalling
+
+**Linux / macOS (Bash):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/JunMystery/Agent-Guidance-MCP/main/scripts/uninstall.sh | bash
+```
+
+**Windows (CMD / PowerShell):**
+```cmd
+powershell -Command "irm https://raw.githubusercontent.com/JunMystery/Agent-Guidance-MCP/main/scripts/uninstall.ps1 | iex"
+```
+
+*This will automatically remove the server registration from all detected IDE client configurations, clean up the global rules in `AGENTS.md`, remove the database/skills directory (`~/.agent-guidance`), and uninstall the executable.*
+
+### Manual / Local Developer Install
+
+```bash
+python -m venv .venv
+.venv/bin/pip install -e ".[dev]"      # Linux / macOS
+.venv\Scripts\pip install -e ".[dev]"  # Windows
+```
+
+Run the server module:
+
+```bash
+agent-guidance-mcp
+.venv/bin/python -m agent_guidance_mcp          # Linux / macOS
+.venv\Scripts\python.exe -m agent_guidance_mcp  # Windows
+```
+
+To point the server to a different standards corpus, set:
+
+```bash
+AGENT_GUIDANCE_ROOT=/path/to/Agent-Guidance
+```
+
+Platform notes and client-specific setup are covered in [Installation](docs/installation.md) and [Client Setup](docs/setup/client-configuration.md).
+
+---
+
 ## Why Agent Guidance MCP
 
 AI coding agents burn context fast. Every file read, every grep, every web search eats into the context window — and when it's gone, the agent forgets everything. Agent Guidance MCP solves this with three layers:
@@ -122,93 +209,6 @@ Works with any MCP-compatible client:
 | Cline / Roo-Code | ✅ |
 | Continue.dev | ✅ |
 | Antigravity | ✅ |
-
----
-
-## Installation
-
-Install the Agent Guidance MCP server and configure all local IDE clients with a single command:
-
-**Linux / macOS (Bash):**
-```bash
-curl -fsSL https://raw.githubusercontent.com/JunMystery/Agent-Guidance-MCP/main/scripts/install.sh | bash
-```
-
-**Windows (CMD / PowerShell):**
-```cmd
-powershell -Command "irm https://raw.githubusercontent.com/JunMystery/Agent-Guidance-MCP/main/scripts/install.ps1 | iex"
-```
-
-*This requires no prior Python installation; the script will automatically bootstrap `uv` (a single-binary Python toolchain) to run the server if Python is not present.*
-
-### Upgrading
-
-**To update the server and refresh your IDE registrations:**
-Simply rerun the installation command.
-
-**To update the standards catalog & skills only (one line):**
-```bash
-agent-guidance-mcp --update
-```
-
-**To update the executable code package only:**
-```bash
-uv tool update agent-guidance-mcp
-```
-
-### Scheduled Auto-Update
-
-Enable automatic weekly or monthly skill sync:
-
-```bash
-agent-guidance-mcp --auto-update          # weekly (default)
-agent-guidance-mcp --auto-update monthly  # monthly
-```
-
-Or set via environment variable:
-```bash
-AGENT_AUTO_UPDATE_INTERVAL=weekly agent-guidance-mcp --auto-update
-```
-
-The server checks persisted state and only runs updates when the interval has elapsed. Compatibility warnings appear automatically when the server version differs from the last-update version.
-
-### Uninstalling
-
-**Linux / macOS (Bash):**
-```bash
-curl -fsSL https://raw.githubusercontent.com/JunMystery/Agent-Guidance-MCP/main/scripts/uninstall.sh | bash
-```
-
-**Windows (CMD / PowerShell):**
-```cmd
-powershell -Command "irm https://raw.githubusercontent.com/JunMystery/Agent-Guidance-MCP/main/scripts/uninstall.ps1 | iex"
-```
-
-*This will automatically remove the server registration from all detected IDE client configurations, clean up the global rules in `AGENTS.md`, remove the database/skills directory (`~/.agent-guidance`), and uninstall the executable.*
-
-### Manual / Local Developer Install
-
-```bash
-python -m venv .venv
-.venv/bin/pip install -e ".[dev]"      # Linux / macOS
-.venv\Scripts\pip install -e ".[dev]"  # Windows
-```
-
-Run the server module:
-
-```bash
-agent-guidance-mcp
-.venv/bin/python -m agent_guidance_mcp          # Linux / macOS
-.venv\Scripts\python.exe -m agent_guidance_mcp  # Windows
-```
-
-To point the server to a different standards corpus, set:
-
-```bash
-AGENT_GUIDANCE_ROOT=/path/to/Agent-Guidance
-```
-
-Platform notes and client-specific setup are covered in [Installation](docs/installation.md) and [Client Setup](docs/setup/client-configuration.md).
 
 ---
 
