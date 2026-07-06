@@ -32,17 +32,20 @@ def save_session(
     
     # Write atomically via tempfile + rename to prevent corruption on crash
     session_file = session_dir / SESSION_FILE_NAME
-    tmp = tempfile.NamedTemporaryFile(
-        mode="w", encoding="utf-8", suffix=".tmp",
-        dir=str(session_dir), delete=False,
-    )
     try:
-        json.dump(session_data, tmp, indent=2)
-        tmp.flush()
-        os.fsync(tmp.fileno())
-    finally:
-        tmp.close()
-    os.replace(tmp.name, str(session_file))
+        tmp = tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", suffix=".tmp",
+            dir=str(session_dir), delete=False,
+        )
+        try:
+            json.dump(session_data, tmp, indent=2)
+            tmp.flush()
+            os.fsync(tmp.fileno())
+        finally:
+            tmp.close()
+        os.replace(tmp.name, str(session_file))
+    except OSError as e:
+        return {"success": False, "error": f"Failed to save session: {e}"}
     return session_data
 
 def load_session(project_path: str) -> Optional[Dict[str, Any]]:

@@ -128,7 +128,8 @@ def iter_project_files(
             yield path
 
 
-_SYSTEM_DIR_PARTS = frozenset({"etc", "proc", "sys", "var", "Windows", "System32", ".ssh", ".gnupg", ".config"})
+_SYSTEM_DIR_PARTS = frozenset({"etc", "proc", "sys", "var", "Windows", "System32", ".ssh", ".gnupg", ".config", "dev", "boot", "root"})
+_SENSITIVE_PATHS = frozenset({"/etc", "/proc", "/sys", "/dev", "/boot", "/root", "/tmp"})
 
 
 def _is_project_path_allowed(root: Path) -> bool:
@@ -142,8 +143,11 @@ def _is_project_path_allowed(root: Path) -> bool:
             except ValueError:
                 continue
         return False
-    parts = set(root.resolve().parts)
+    resolved = root.resolve()
+    parts = set(resolved.parts)
     if parts & _SYSTEM_DIR_PARTS and not any(p.startswith("home") or p.startswith("Users") for p in parts):
+        return False
+    if str(resolved) in _SENSITIVE_PATHS or any(str(resolved).startswith(p + "/") for p in _SENSITIVE_PATHS):
         return False
     return True
 
