@@ -1,485 +1,372 @@
 #!/usr/bin/env python3
+"""Agent Guidance MCP - Cross-platform installer (mirrors install.sh / install.ps1).
+
+Usage:
+    python scripts/install-mcp.py              # interactive
+    python scripts/install-mcp.py --uninstall   # uninstall everything
+"""
 import os
 import sys
-import json
+import shutil
+import platform
 import subprocess
+import tempfile
+import urllib.request
+import zipfile
+import tarfile
 from pathlib import Path
 
 SERVER_ID = "agent-guidance-mcp"
-MODULE_NAME = "agent_guidance_mcp"
+GITHUB_URL = "git+https://github.com/JunMystery/Agent-Guidance-MCP.git"
+RTK_BASE_URL = "https://github.com/rtk-ai/rtk/releases/latest/download"
 
 
-def owns_json_server_config(server_config):
-    if not isinstance(server_config, dict):
+# -- ANSI colors (Windows 10+ supports them) ----------------------------------
+
+def _supports_color():
+    try:
+        return sys.stdout.isatty() and os.environ.get("TERM") != "dumb"
+    except Exception:
         return False
-    args = server_config.get("args", [])
-    return isinstance(args, list) and MODULE_NAME in args
+
+_HAS_COLOR = _supports_color()
+
+def c(text, color=""):
+    if not _HAS_COLOR:
+        return text
+    codes = {"red": "31", "green": "32", "yellow": "33", "cyan": "36", "magenta": "35", "gray": "90", "bold": "1"}
+    code = codes.get(color, "")
+    return f"\033[{code}m{text}\033[0m" if code else text
 
 
-AGENT_RULES_BLOCK = (
-    "\n"
-    "## Agent Guidance MCP — Tool Selection Priority\n\n"
-    "| You need to... | Use THIS tool first | Why |\n"
-    "|---|---|---|\n"
-    "| Start any coding task | `task_pipeline(task=\"...\")` | Recommendations + tree + code search + UI in ONE call |\n"
-    "| Check coding standards | `guidance(operation=\"search\", query=\"...\")` | No other tool provides standards or skill lookup |\n"
-    "| Read a file | `project_context(operation=\"read\", relative_path=\"...\")` | Token-capped at 300 lines — prevents context blowout |\n"
-    "| Search codebase text | `project_context(operation=\"search\", query=\"...\")` | Ranked, bounded results. Fallback when codegraph unavailable |\n"
-    "| Understand code structure | `project_context(operation=\"structure\", relative_path=\"...\")` | Hierarchical view of classes, methods, functions in a file |\n"
-    "| Extract symbols | `project_context(operation=\"symbols\", relative_path=\"...\")` | Flat list of classes, functions, methods with signatures |\n"
-    "| Find symbol references | `project_context(operation=\"references\", query=\"...\")` | Locate all usages of a symbol across the codebase |\n"
-    "| Get UI/design guidance | `ui_ux(operation=\"search\", query=\"...\")` | Style, colors, typography, charts, slides |\n"
-    "| Browse project tree | `project_context(operation=\"tree\")` | Optimized directory tree view |\n\n"
-    "### Six Mandatory Rules\n\n"
-    "1. **Context First**: Call `task_pipeline` or `project_context` BEFORE any file read or code change.\n"
-    "2. **Standards Check**: Use `guidance(operation=\"search\")` BEFORE implementing.\n"
-    "3. **Token Budget**: Prefer MCP tools over raw file reads — built-in limits prevent context blowout.\n"
-    "4. **No Direct FS**: Never manually read/search files when MCP tools do it with optimization.\n"
-    "5. **Ground & Plan**: Verify files/functions/symbols via search BEFORE proposing changes. Never guess.\n"
-    "6. **300 LOC Cap**: Split files exceeding 300 lines of code. No monolithic files.\n\n"
-    "**CRITICAL: All 6 rules apply to EVERY coding action without exception.**\n"
-)
+# -- Helpers ------------------------------------------------------------------
 
+def header():
+    print()
+    print(c("=" + "=" * 62, "magenta"))
+    print(c("        Agent Guidance MCP Installer", "magenta"))
+    print(c("=" + "=" * 62, "magenta"))
+    print()
+
+
+def step(num, total, msg):
+    print(c(f"Step {num}/{total} - {msg}", "bold"))
+
+
+def ok(msg=""):
+    print(f"  {c('v', 'green')} {msg}")
+
+
+def warn(msg=""):
+    print(f"  {c('!', 'yellow')} {msg}")
+
+
+def info(msg=""):
+    print(f"  {c('>', 'magenta')} {msg}")
+
+
+def run(cmd, **kwargs):
+    """Run a command, exit on failure."""
+    result = subprocess.run(cmd, **kwargs)
+    if result.returncode != 0:
+        print(c(f"Command failed: {' '.join(str(c) for c in cmd)}", "red"), file=sys.stderr)
+        sys.exit(1)
+    return result
+
+
+def find_uv():
+    """Find uv binary or return None."""
+    uv_path = shutil.which("uv")
+    if uv_path:
+        return uv_path
+    if os.name == "nt":
+        candidate = Path.home() / ".local" / "bin" / "uv.exe"
+    else:
+        candidate = Path.home() / ".local" / "bin" / "uv"
+    if candidate.is_file():
+        return str(candidate)
+    return None
+
+
+def install_uv():
+    """Install uv via official installer."""
+    print(c("   Installing uv (fast Python package manager)...", "yellow"))
+    if os.name == "nt":
+        # Windows: use PowerShell installer
+        ps_script = (
+            "powershell -ExecutionPolicy Bypass -Command "
+            "\"irm https://astral.sh/uv/install.ps1 | iex\""
+        )
+        os.system(ps_script)
+    else:
+        # Unix: use curl
+        os.system("curl -LsSf https://astral.sh/uv/install.sh | sh")
+    return find_uv()
+
+
+def find_tool_bin():
+    """Find agent-guidance-mcp binary."""
+    exe_name = "agent-guidance-mcp.exe" if os.name == "nt" else "agent-guidance-mcp"
+    path = shutil.which(exe_name)
+    if path:
+        return path
+    if os.name == "nt":
+        candidate = Path.home() / ".local" / "bin" / exe_name
+    else:
+        candidate = Path.home() / ".local" / "bin" / exe_name
+    if candidate.is_file():
+        return str(candidate)
+    return None
+
+
+# -- RTK installer ------------------------------------------------------------
+
+def install_rtk():
+    """Download and install RTK (Rust Token Killer) binary."""
+    step(4, 4, "Installing RTK token optimizer...")
+    rtk_path = shutil.which("rtk")
+    if rtk_path:
+        try:
+            ver = subprocess.run([rtk_path, "--version"], capture_output=True, text=True, timeout=5)
+            ok(f"RTK already installed ({ver.stdout.strip()})")
+        except Exception:
+            ok("RTK already installed")
+        return
+
+    system = platform.system()
+    machine = platform.machine().lower()
+
+    rtk_url = None
+    if system == "Windows" and machine in ("amd64", "x86_64"):
+        rtk_url = f"{RTK_BASE_URL}/rtk-x86_64-pc-windows-msvc.zip"
+    elif system == "Linux" and machine in ("x86_64", "amd64"):
+        rtk_url = f"{RTK_BASE_URL}/rtk-x86_64-unknown-linux-musl.tar.gz"
+    elif system == "Linux" and machine in ("aarch64", "arm64"):
+        rtk_url = f"{RTK_BASE_URL}/rtk-aarch64-unknown-linux-gnu.tar.gz"
+    elif system == "Darwin" and machine in ("x86_64", "amd64"):
+        rtk_url = f"{RTK_BASE_URL}/rtk-x86_64-apple-darwin.tar.gz"
+    elif system == "Darwin" and machine in ("arm64", "aarch64"):
+        rtk_url = f"{RTK_BASE_URL}/rtk-aarch64-apple-darwin.tar.gz"
+
+    if not rtk_url:
+        warn(f"No pre-built RTK binary for {system}/{machine} - build from source if needed")
+        return
+
+    bin_dir = Path.home() / ".local" / "bin"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    rtk_dest = bin_dir / ("rtk.exe" if os.name == "nt" else "rtk")
+
+    print(f"  {c('', 'cyan')} Downloading RTK for {system}/{machine}...")
+    try:
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".archive")
+        urllib.request.urlretrieve(rtk_url, tmp.name)
+        tmp.close()
+
+        extract_dir = tempfile.mkdtemp()
+        if rtk_url.endswith(".zip"):
+            with zipfile.ZipFile(tmp.name) as z:
+                z.extractall(extract_dir)
+        else:
+            with tarfile.open(tmp.name, "r:gz") as t:
+                t.extractall(extract_dir)
+
+        # Find rtk binary
+        for root, dirs, files in os.walk(extract_dir):
+            for f in files:
+                if f == "rtk" or f == "rtk.exe":
+                    shutil.copy2(os.path.join(root, f), rtk_dest)
+                    if os.name != "nt":
+                        rtk_dest.chmod(0o755)
+                    break
+
+        os.unlink(tmp.name)
+        shutil.rmtree(extract_dir, ignore_errors=True)
+
+        if rtk_dest.is_file():
+            ok(f"RTK installed to {c(str(rtk_dest), 'gray')}")
+        else:
+            warn("RTK download failed - run 'agent-guidance-mcp --update' later to retry")
+    except Exception as e:
+        warn(f"RTK download failed ({e}) - run 'agent-guidance-mcp --update' later to retry")
+
+
+# -- Uninstall ----------------------------------------------------------------
+
+def do_uninstall():
+    """Uninstall Agent Guidance MCP completely."""
+    print()
+    print(c("[DEL]  Uninstalling Agent Guidance MCP...", "red"))
+    print()
+
+    tool_bin = find_tool_bin()
+
+    # Step 1: Remove IDE registrations
+    step(1, 3, "Removing IDE registrations...")
+    if tool_bin:
+        try:
+            subprocess.run([tool_bin, "--uninstall"], capture_output=True, timeout=30)
+            ok("Done")
+        except Exception:
+            ok("Done (tool ran)")
+    else:
+        warn("Tool not found - skipping")
+
+    # Step 2: Remove skills data
+    print()
+    step(2, 3, "Removing skills data...")
+    agent_dir = Path.home() / ".agent-guidance"
+    if agent_dir.exists():
+        shutil.rmtree(agent_dir, ignore_errors=True)
+        ok(f"Removed {c(str(agent_dir), 'gray')}")
+    else:
+        print(f"  {c('', 'gray')} Not found")
+
+    # Step 3: Remove MCP server
+    print()
+    step(3, 3, "Removing MCP server...")
+    uv = find_uv()
+    if uv:
+        try:
+            subprocess.run([uv, "tool", "uninstall", SERVER_ID], capture_output=True, timeout=30)
+            ok("Uninstalled from uv")
+        except Exception:
+            print(f"  {c('', 'gray')} Not found in uv")
+    else:
+        print(f"  {c('', 'gray')} uv not found")
+
+    # Remove RTK
+    rtk_path = shutil.which("rtk")
+    if not rtk_path:
+        rtk_path = str(Path.home() / ".local" / "bin" / ("rtk.exe" if os.name == "nt" else "rtk"))
+    if Path(rtk_path).is_file():
+        try:
+            Path(rtk_path).unlink()
+            ok("RTK removed")
+        except Exception:
+            pass
+
+    print()
+    print(c("=" + "=" * 62, "green"))
+    print(c("        Uninstallation complete!", "green"))
+    print(c("=" + "=" * 62, "green"))
+    print()
+
+
+# -- Install ------------------------------------------------------------------
+
+def do_install(action="1"):
+    """Install Agent Guidance MCP."""
+    print()
+
+    # Step 1: Detect or install uv
+    step(1, 4, "Checking Python toolchain (uv)...")
+    uv = find_uv()
+    if uv:
+        ok(f"Found 'uv' in PATH")
+    else:
+        uv = install_uv()
+        if uv:
+            ok("uv installed")
+        else:
+            print(c("  Failed to install uv. Please install manually: https://docs.astral.sh/uv/", "red"))
+            sys.exit(1)
+
+    # Step 2: Install the MCP server
+    print()
+    step(2, 4, "Installing agent-guidance-mcp...")
+
+    has_pyproject = Path("pyproject.toml").exists() or (Path(__file__).resolve().parents[1] / "pyproject.toml").exists()
+    repo_root = Path(__file__).resolve().parents[1] if has_pyproject else None
+
+    if repo_root and (repo_root / "pyproject.toml").exists():
+        print(f"  {c('', 'cyan')} Found local project - installing from source...")
+        result = subprocess.run([uv, "tool", "install", str(repo_root), "--force", "-q"],
+                                capture_output=True, text=True)
+        if result.returncode != 0:
+            warn("Local install failed - falling back to GitHub...")
+            run([uv, "tool", "install", GITHUB_URL, "--force"])
+    else:
+        print(f"  {c('[NET]', 'cyan')} Installing from GitHub repository...")
+        run([uv, "tool", "install", GITHUB_URL, "--force"])
+    ok("MCP server installed")
+
+    # Resolve tool binary
+    tool_bin = find_tool_bin()
+
+    # Step 3: Post-install configuration
+    print()
+    step(3, 4, "Configuring IDE clients...")
+    mode_flag = "--mode=ide" if action == "2" else ""
+
+    print()
+    info("Registering with detected IDEs...")
+    if tool_bin:
+        cmd = [tool_bin, "--setup"]
+        if mode_flag:
+            cmd.append(mode_flag)
+        subprocess.run(cmd)
+        print()
+        info("Downloading skill catalog...")
+        subprocess.run([tool_bin, "--update"])
+    else:
+        cmd = [uv, "tool", "run", SERVER_ID, "--setup"]
+        if mode_flag:
+            cmd.append(mode_flag)
+        subprocess.run(cmd)
+        print()
+        info("Downloading skill catalog...")
+        subprocess.run([uv, "tool", "run", SERVER_ID, "--update"])
+
+    # Step 4: Install RTK
+    print()
+    install_rtk()
+
+    # Footer
+    print()
+    print(c("=" + "=" * 62, "green"))
+    print(c("          Installation completed successfully!", "green"))
+    print(c("=" + "=" * 62, "green"))
+    print()
+    print("  Next steps:")
+    print("     Restart your IDE / MCP Client")
+    print(f"     Run {c('agent-guidance-mcp --help', 'cyan')} to see options")
+    print(f"     Update skills: {c('agent-guidance-mcp --update', 'cyan')}")
+    print()
+
+
+# -- Main ---------------------------------------------------------------------
 
 def main():
-    repo_root = Path(__file__).resolve().parents[1]
-    venv_dir = repo_root / ".venv"
-    
-    print("=== Agent Guidance MCP Installer ===")
-    print("")
-    print("Choose install mode:")
-    print("  [1] Auto Install — configure all detected clients automatically")
-    print("  [2] Manual — choose which clients to configure")
-    print("  [0] Exit")
-    print("")
+    header()
+
+    # Check for --uninstall flag
+    if "--uninstall" in sys.argv:
+        do_uninstall()
+        return
+
+    # Choose mode
+    print(c("What would you like to do", "bold"))
+    print(f"  {c('[1]', 'green')}  Install - auto-configure all detected IDEs")
+    print(f"  {c('[2]', 'cyan')}  Install - manual (choose which IDEs to configure)")
+    print(f"  {c('[3]', 'red')}  Uninstall - remove everything")
+    print()
+
     try:
-        choice = input("Choice [1]: ").strip()
+        action = input("Choice [1]: ").strip()
     except (EOFError, KeyboardInterrupt):
         print("\nCancelled.")
         sys.exit(1)
-    if choice == "0":
-        print("Exiting.")
-        sys.exit(0)
-    
-    manual_mode = choice == "2"
-    selected: set[int] | None = None
-    
-    # 1. Setup virtual environment (always)
-    if not venv_dir.exists():
-        print("Creating virtual environment (.venv)...")
-        subprocess.run([sys.executable, "-m", "venv", str(venv_dir)], check=True)
-    
-    # Determine python executable path in venv
-    if os.name == "nt":
-        python_exe = venv_dir / "Scripts" / "python.exe"
+
+    if not action:
+        action = "1"
+
+    if action == "3":
+        do_uninstall()
+    elif action in ("1", "2"):
+        do_install(action)
     else:
-        python_exe = venv_dir / "bin" / "python"
-        
-    # 2. Install dependencies (always)
-    print("Installing packages and dependencies in editable mode...")
-    subprocess.run([str(python_exe), "-m", "pip", "install", "-e", "."], cwd=str(repo_root), check=True)
-    
-    # 3. Build config step list
-    steps = [
-        (1, "MCP Clients (Claude, Gemini, Cursor, VS Code, Continue, Cline/Roo-Code)",
-         lambda: configure_targets(python_exe, repo_root), True),
-        (2, "OpenCode & OMO", lambda: configure_opencode(python_exe, repo_root), True),
-        (3, "Codex (global + project-local)", lambda: configure_codex(python_exe, repo_root), False),
-        (4, "Global Agent Rules", lambda: configure_global_agents_rules(), True),
-        (5, "Supporting Agent Rules", lambda: configure_supporting_agents(repo_root), False),
-        (6, "Workspace Rules (.cursorrules, .clinerules, .copilotrules)",
-         lambda: configure_workspace_rules(repo_root), False),
-        (7, "OpenCode .opencode/ directory", lambda: configure_opencode_directory(repo_root), False),
-        (8, "UI/UX Skill Update", lambda: update_ui_ux_skill(repo_root), True),
-        (9, "Gitignore Rules", lambda: configure_gitignore(repo_root), False),
-    ]
-    
-    if manual_mode:
-        from agent_guidance_mcp.setup import manual_select_components
-        selected = manual_select_components(steps)
-        if not selected:
-            print("\nNo components selected. Exiting.")
-            sys.exit(0)
-        print("")
-    
-    for idx, name, fn, _ in steps:
-        if selected is None or idx in selected:
-            fn()
-    
-    print("\n=== Installation Completed Successfully! ===")
-    print("Restart your IDE / MCP Client to start using the server.")
-
-
-def configure_targets(python_exe, repo_root):
-    if sys.platform == "win32":
-        appdata = Path(os.environ.get("APPDATA", ""))
-        claude_path = appdata / "Claude" / "claude_desktop_config.json"
-        code_path = appdata / "Code" / "User" / "globalStorage"
-        cursor_path = appdata / "Cursor" / "User" / "globalStorage"
-    elif sys.platform == "darwin":
-        home = Path.home()
-        claude_path = home / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json"
-        code_path = home / "Library" / "Application Support" / "Code" / "User" / "globalStorage"
-        cursor_path = home / "Library" / "Application Support" / "Cursor" / "User" / "globalStorage"
-    else:
-        home = Path.home()
-        claude_path = home / ".config" / "Claude" / "claude_desktop_config.json"
-        code_path = home / ".config" / "Code" / "User" / "globalStorage"
-        cursor_path = home / ".config" / "Cursor" / "User" / "globalStorage"
-
-    targets = []
-    targets.append(("Claude Desktop", claude_path, True))
-    gemini_mcp_path = Path.home() / ".gemini" / "config" / "mcp_config.json"
-    targets.append(("Gemini MCP config", gemini_mcp_path, True))
-    cursor_native_path = Path.home() / ".cursor" / "mcp.json"
-    targets.append(("Cursor Native", cursor_native_path, True))
-    vscode_native_user_path = code_path.parent / "mcp.json"
-    targets.append(("VS Code Native (User)", vscode_native_user_path, True))
-    vscode_native_workspace_path = repo_root / ".vscode" / "mcp.json"
-    targets.append(("VS Code Native (Workspace)", vscode_native_workspace_path, True))
-    continue_global_path = Path.home() / ".continue" / "mcpServers" / "config.json"
-    targets.append(("Continue (Global)", continue_global_path, True))
-    continue_workspace_path = repo_root / ".continue" / "mcpServers" / "config.json"
-    targets.append(("Continue (Workspace)", continue_workspace_path, True))
-    opencode_workspace_path = repo_root / "opencode.json"
-    targets.append(("OpenCode", opencode_workspace_path, True))
-
-    extensions = [
-        ("VS Code Cline", code_path / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"),
-        ("VS Code Roo-Code", code_path / "roovet.roo-cline" / "settings" / "cline_mcp_settings.json"),
-        ("Cursor Cline", cursor_path / "saoudrizwan.claude-dev" / "settings" / "cline_mcp_settings.json"),
-        ("Cursor Roo-Code", cursor_path / "roovet.roo-cline" / "settings" / "cline_mcp_settings.json"),
-    ]
-    for name, path in extensions:
-        if path.parent.parent.exists():
-            targets.append((name, path, False))
-
-    print("\nConfiguring MCP Clients...")
-    for name, path, force_create in targets:
-        print(f"  Configuring {name}...")
-        config = {}
-        if path.exists():
-            try:
-                config = json.loads(path.read_text(encoding="utf-8"))
-            except Exception as e:
-                print(f"    Warning: Failed to read existing config: {e}. Starting fresh.")
-
-        is_vscode_native = "VS Code Native" in name
-        is_opencode = "OpenCode" in name
-        config_key = "mcp" if is_opencode else ("servers" if is_vscode_native else "mcpServers")
-        if config_key not in config:
-            config[config_key] = {}
-
-        if name == "VS Code Native (Workspace)":
-            python_exe_str = "${workspaceFolder}/.venv/Scripts/python.exe" if os.name == "nt" else "${workspaceFolder}/.venv/bin/python"
-            pythonpath_str = "${workspaceFolder}/src"
-            project_root_str = "${workspaceFolder}"
-        else:
-            python_exe_str = str(python_exe)
-            pythonpath_str = str(repo_root / "src")
-            project_root_str = str(repo_root)
-
-        if is_opencode:
-            config[config_key][SERVER_ID] = {
-                "type": "local",
-                "command": [python_exe_str, "-m", MODULE_NAME],
-                "enabled": True,
-                "environment": {
-                    "PYTHONPATH": pythonpath_str,
-                    "AGENT_PROJECT_ROOT": project_root_str
-                }
-            }
-            instructions = config.get("instructions", [])
-            agents_md = "AGENTS.md"
-            if agents_md not in instructions:
-                instructions.append(agents_md)
-                config["instructions"] = instructions
-        else:
-            config[config_key][SERVER_ID] = {
-                "command": python_exe_str,
-                "args": ["-m", MODULE_NAME],
-                "env": {
-                    "PYTHONPATH": pythonpath_str,
-                    "AGENT_PROJECT_ROOT": project_root_str
-                }
-            }
-
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps(config, indent=2), encoding="utf-8")
-            print(f"    Success: Configured '{SERVER_ID}' server.")
-        except Exception as e:
-            print(f"    Error: Failed to write config file: {e}")
-
-
-def configure_opencode(python_exe, repo_root):
-    configure_opencode_global(python_exe, repo_root)
-    configure_opencode_directory(repo_root)
-
-
-def update_ui_ux_skill(repo_root):
-    print("\nUpdating UI/UX Pro Max skill...")
-    try:
-        import importlib
-        sys.path.append(str(repo_root / "scripts"))
-        update_ui_ux = importlib.import_module("update_ui_ux")
-        update_ui_ux.update_skill()
-    except Exception as e:
-        print(f"  Warning: Failed to auto-update UI/UX skill: {e}")
-
-def configure_opencode_directory(repo_root):
-    opencode_dir = repo_root / ".opencode"
-
-    print("  Configuring OpenCode .opencode/ directory...")
-
-    # Copy agent persona files to .opencode/agents/
-    agents_src = repo_root / "agents"
-    agents_dst = opencode_dir / "agents"
-    if agents_src.exists() and agents_src.is_dir():
-        agents_dst.mkdir(parents=True, exist_ok=True)
-        copied = 0
-        for agent_file in agents_src.glob("*.md"):
-            try:
-                content = agent_file.read_text(encoding="utf-8")
-                dest_file = agents_dst / agent_file.name
-                dest_file.write_text(content, encoding="utf-8")
-                copied += 1
-            except Exception as e:
-                print(f"    Error: Failed to copy agent {agent_file.name}: {e}")
-        if copied > 0:
-            print(f"    Success: Copied {copied} agent(s) to .opencode/agents/")
-        else:
-            print("    Note: No agent files found to copy.")
-    else:
-        print("    Note: No agents/ directory in repo root.")
-
-    # Ensure .opencode/skills reference exists
-    skills_ref = opencode_dir / "skills"
-    expected_ref = "../skills/"
-    if skills_ref.exists():
-        current = skills_ref.read_text(encoding="utf-8").strip()
-        if current != expected_ref:
-            skills_ref.write_text(expected_ref + "\n", encoding="utf-8")
-            print(f"    Success: Updated .opencode/skills reference.")
-        else:
-            print(f"    Note: .opencode/skills reference already correct.")
-    else:
-        skills_ref.write_text(expected_ref + "\n", encoding="utf-8")
-        print(f"    Success: Created .opencode/skills reference.")
-
-
-def configure_opencode_global(python_exe, repo_root):
-    opencode_global_dir = Path.home() / ".config" / "opencode"
-    opencode_global_path = opencode_global_dir / "opencode.json"
-
-    print("  Configuring OpenCode global config (~/.config/opencode/opencode.json)...")
-
-    python_exe_str = str(python_exe)
-    pythonpath_str = str(repo_root / "src")
-
-    config = {}
-    if opencode_global_path.exists():
-        try:
-            config = json.loads(opencode_global_path.read_text(encoding="utf-8"))
-        except Exception as e:
-            print(f"    Warning: Failed to read existing global config: {e}. Starting fresh.")
-
-    if "mcp" not in config:
-        config["mcp"] = {}
-
-    config["mcp"][SERVER_ID] = {
-        "type": "local",
-        "command": [python_exe_str, "-m", MODULE_NAME],
-        "enabled": True,
-        "environment": {
-            "PYTHONPATH": pythonpath_str,
-            "AGENT_PROJECT_ROOT": str(repo_root)
-        }
-    }
-
-    if "$schema" not in config:
-        config["$schema"] = "https://opencode.ai/config.json"
-
-    try:
-        opencode_global_dir.mkdir(parents=True, exist_ok=True)
-        opencode_global_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
-        print(f"    Success: Configured 'agent-guidance-mcp' server in global OpenCode config.")
-    except Exception as e:
-        print(f"    Error: Failed to write global OpenCode config: {e}")
-
-
-def configure_workspace_rules(repo_root):
-    targets = [
-        (".cursorrules", repo_root / ".cursorrules"),
-        (".clinerules", repo_root / ".clinerules"),
-        (".copilotrules", repo_root / ".copilotrules")
-    ]
-    print("  Configuring Workspace Coding Agent Rules...")
-    for name, path in targets:
-        try:
-            content = ""
-            if path.exists():
-                content = path.read_text(encoding="utf-8")
-            
-            if "Agent Guidance MCP — Tool Selection Priority" not in content:
-                with path.open("a", encoding="utf-8") as f:
-                    if content and not content.endswith("\n"):
-                        f.write("\n")
-                    f.write(AGENT_RULES_BLOCK)
-                print(f"    Success: Appended global agent rules to {name}")
-            else:
-                print(f"    Note: Agent rules already present in {name}")
-        except Exception as e:
-            print(f"    Error: Failed to configure {name}: {e}")
-
-def configure_supporting_agents(repo_root):
-
-    agents_dir = repo_root / "agents"
-    if not agents_dir.exists() or not agents_dir.is_dir():
-        print("  No supporting agents directory found.")
-        return
-        
-    print("  Configuring Supporting Agents MCP Rules...")
-    for agent_file in agents_dir.glob("*.md"):
-        try:
-            content = agent_file.read_text(encoding="utf-8")
-            if "Agent Guidance MCP — Tool Selection Priority" not in content:
-                with agent_file.open("a", encoding="utf-8") as f:
-                    if content and not content.endswith("\n"):
-                        f.write("\n")
-                    f.write(AGENT_RULES_BLOCK)
-                print(f"    Success: Appended global agent rules to {agent_file.name}")
-            else:
-                print(f"    Note: Agent rules already present in {agent_file.name}")
-        except Exception as e:
-            print(f"    Error: Failed to configure supporting agent {agent_file.name}: {e}")
-
-def configure_global_agents_rules():
-
-    global_agents_md = Path.home() / ".gemini" / "config" / "AGENTS.md"
-    print("  Configuring Global Agent Guidance MCP Rules...")
-    try:
-        global_agents_md.parent.mkdir(parents=True, exist_ok=True)
-        content = ""
-        if global_agents_md.exists():
-            content = global_agents_md.read_text(encoding="utf-8")
-        
-        if "Agent Guidance MCP — Tool Selection Priority" not in content:
-            with global_agents_md.open("a", encoding="utf-8") as f:
-                if content and not content.endswith("\n"):
-                    f.write("\n")
-                f.write(AGENT_RULES_BLOCK)
-            print(f"    Success: Appended global agent rules to {global_agents_md}")
-        else:
-            print(f"    Note: Global agent rules already present in {global_agents_md}")
-    except Exception as e:
-        print(f"    Error: Failed to configure Global Agent Guidance MCP Rules: {e}")
-
-
-def configure_codex(python_exe, repo_root):
-    targets = [
-        ("Global Codex config", Path.home() / ".codex" / "config.toml"),
-        ("Project-local Codex config", repo_root / ".codex" / "config.toml")
-    ]
-    
-    python_exe_str = str(python_exe).replace("\\", "\\\\")
-    pythonpath_str = str(repo_root / "src").replace("\\", "\\\\")
-    project_root_str = str(repo_root).replace("\\", "\\\\")
-    
-    new_block = [
-        f"[mcp_servers.{SERVER_ID}]",
-        f'command = "{python_exe_str}"',
-        f'args = ["-m", "{MODULE_NAME}"]',
-        "",
-        f"[mcp_servers.{SERVER_ID}.env]",
-        f'PYTHONPATH = "{pythonpath_str}"',
-        f'AGENT_PROJECT_ROOT = "{project_root_str}"',
-        ""
-    ]
-    
-    for name, config_path in targets:
-        print(f"  Configuring {name}...")
-        try:
-            config_path.parent.mkdir(parents=True, exist_ok=True)
-            content = ""
-            if config_path.exists():
-                content = config_path.read_text(encoding="utf-8")
-                
-            # Parse and replace owned current blocks while preserving unrelated blocks.
-            lines = content.splitlines()
-            new_lines = []
-            block_found = False
-    
-            def matching_server_id(header):
-                header_stripped = header.strip("[]")
-                if header_stripped == f"mcp_servers.{SERVER_ID}" or header_stripped.startswith(f"mcp_servers.{SERVER_ID}."):
-                    return SERVER_ID
-                return None
-    
-            index = 0
-            while index < len(lines):
-                line = lines[index]
-                stripped = line.strip()
-                server_id = matching_server_id(stripped)
-                if server_id is None:
-                    new_lines.append(line)
-                    index += 1
-                    continue
-    
-                block_lines = [line]
-                index += 1
-                while index < len(lines) and not lines[index].strip().startswith("["):
-                    block_lines.append(lines[index])
-                    index += 1
-    
-                block_text = "\n".join(block_lines)
-                if server_id == SERVER_ID:
-                    if not block_found:
-                        block_found = True
-                        new_lines.extend(new_block[:-1]) # add new block without the trailing newline
-                    continue
-                new_lines.extend(block_lines)
-                
-            if not block_found:
-                if new_lines and new_lines[-1] != "":
-                    new_lines.append("")
-                new_lines.extend(new_block)
-                
-            config_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
-            print(f"    Success: Configured '{SERVER_ID}' server in {name}.")
-        except Exception as e:
-            print(f"    Error: Failed to configure {name}: {e}")
-
-
-def configure_gitignore(repo_root):
-    print("  Configuring gitignore for local database and cache folders...")
-    gitignore_path = repo_root / ".gitignore"
-    rules_to_add = [
-        ".agent-context/",
-        ".omo/"
-    ]
-    
-    try:
-        content = ""
-        if gitignore_path.exists():
-            content = gitignore_path.read_text(encoding="utf-8")
-            
-        lines = [line.strip() for line in content.splitlines()]
-        
-        added_any = False
-        with gitignore_path.open("a", encoding="utf-8") as f:
-            for rule in rules_to_add:
-                if rule not in lines and rule.strip("/") not in lines:
-                    if not added_any and content and not content.endswith("\n"):
-                        f.write("\n")
-                    f.write(f"{rule}\n")
-                    print(f"    Success: Added '{rule}' to .gitignore")
-                    added_any = True
-                    
-        if not added_any:
-            print("    Note: Local databases and cache rules are already ignored.")
-    except Exception as e:
-        print(f"    Error: Failed to update .gitignore: {e}")
+        print(c(f"Invalid choice: {action}", "red"))
+        sys.exit(1)
 
 
 if __name__ == "__main__":
