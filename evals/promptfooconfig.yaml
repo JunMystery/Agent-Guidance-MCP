@@ -1,0 +1,81 @@
+# Agent Evaluation Configuration (promptfoo)
+# Run: npx promptfoo@latest eval
+
+prompts:
+  - file://evals/prompts/code-review.txt
+  - file://evals/prompts/security-audit.txt
+
+providers:
+  - id: openai:gpt-4o
+    config:
+      temperature: 0
+
+defaultTest:
+  assert:
+    - type: contains
+    - type: not-contains
+    - type: javascript
+
+tests:
+  # ── Code Review: Bug Detection ──
+  - description: "Detects SQL injection vulnerability"
+    vars:
+      file: file://evals/fixtures/sql-injection.py
+      task: "Review this code for security issues"
+    assert:
+      - type: contains
+        value: "SQL injection"
+      - type: contains
+        value: "parameterized"
+
+  - description: "Detects missing null check"
+    vars:
+      file: file://evals/fixtures/null-pointer.js
+      task: "Review this code for bugs"
+    assert:
+      - type: contains
+        value: "null"
+      - type: contains
+        value: "undefined"
+
+  - description: "Detects hardcoded credentials"
+    vars:
+      file: file://evals/fixtures/hardcoded-secret.py
+      task: "Review this code for security issues"
+    assert:
+      - type: contains
+        value: "hardcoded"
+      - type: contains
+        value: "secret" 
+
+  # ── Security Audit: Vulnerability Detection ──
+  - description: "Identifies XSS vulnerability in JS"
+    vars:
+      file: file://evals/fixtures/xss-vulnerable.js
+      task: "Audit this code for security vulnerabilities"
+    assert:
+      - type: contains
+        value: "XSS"
+      - type: contains
+        value: "innerHTML"
+
+  - description: "Identifies unsafe deserialization"
+    vars:
+      file: file://evals/fixtures/unsafe-deserialize.py
+      task: "Audit this code for security issues"
+    assert:
+      - type: contains
+        value: "pickle"
+      - type: contains
+        value: "deserialization"
+
+  # ── Code Quality: Style Compliance ──
+  - description: "Suggests splitting oversized function"
+    vars:
+      file: file://evals/fixtures/oversized-function.py
+      task: "Review this code for quality issues"
+    assert:
+      - type: contains
+        value: "split"
+      - type: contains
+        value: "function"

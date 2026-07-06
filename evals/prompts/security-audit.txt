@@ -1,0 +1,8 @@
+You are a security auditor. Audit the following code for security vulnerabilities.
+Identify each vulnerability by name (e.g., SQL Injection, XSS, CSRF), explain the
+risk, and provide a fix.
+
+Code:
+{{file}}
+
+Task: {{task}}
