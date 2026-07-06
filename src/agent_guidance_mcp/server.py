@@ -254,6 +254,10 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         (decision, bug, architecture, security, performance).
         Use guidance(operation='docs') for live library/API documentation via Context7.
 
+        Examples:
+          guidance(operation="search", query="JWT authentication middleware")
+          guidance(operation="docs", query="jsonwebtoken sign options", identifier="node-jsonwebtoken")
+
         Args:
             operation: One of list, get, search, recommend, reason, docs (required).
             query: Search/recommend/reason query string, or technical question for docs.
@@ -305,6 +309,10 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         - callees: Get all callees of a symbol from the CodeGraph database.
         - diff: View the git diff of workspace changes.
 
+        Examples:
+          project_context(operation="read", relative_path="src/auth.js")
+          project_context(operation="search", query="JWT middleware")
+
         Args:
             operation: One of tree, search, read, snapshot, symbols, references,
                 structure, callers, callees, diff (required).
@@ -350,6 +358,10 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
 
         Use for style recommendations, color palettes, typography pairings,
         chart selection, and slide layouts.
+
+        Examples:
+          ui_ux(operation="search", query="minimalist dashboard design", domain="style")
+          ui_ux(operation="design_system", query="SaaS landing page", project_name="MyApp")
 
         Args:
             operation: One of search, design_system, slides (required).
