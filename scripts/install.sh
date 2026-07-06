@@ -6,12 +6,31 @@ RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; PURPLE='\033[0;35m'; BOLD='\033[1m'
 GRAY='\033[0;90m'; NC='\033[0m'
 
-# ── Check for uninstall mode ──────────────────────────────────────────────────
-if [ "${1:-}" = "--uninstall" ]; then
+# ── Header ────────────────────────────────────────────────────────────────────
+echo -e ""
+echo -e "${PURPLE}${BOLD}╔══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${PURPLE}${BOLD}║           Agent Guidance MCP (macOS/Linux)                  ║${NC}"
+echo -e "${PURPLE}${BOLD}╚══════════════════════════════════════════════════════════════╝${NC}"
+echo -e ""
+
+# ── Choose mode FIRST ─────────────────────────────────────────────────────────
+echo -e "${BOLD}What would you like to do?${NC}"
+echo -e "  ${GREEN}[1]${NC} Install — auto-configure all detected IDEs"
+echo -e "  ${CYAN}[2]${NC} Install — manual (choose which IDEs to configure)"
+echo -e "  ${RED}[3]${NC} Uninstall — remove everything"
+echo -e ""
+
+if [ -t 0 ]; then
+    read -p "Choice [1]: " ACTION
+else
+    read -p "Choice [1]: " ACTION < /dev/tty 2>/dev/null || ACTION=""
+fi
+ACTION="${ACTION:-1}"
+
+# ── Uninstall path ────────────────────────────────────────────────────────────
+if [ "$ACTION" = "3" ]; then
     echo -e ""
-    echo -e "${RED}${BOLD}╔══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${RED}${BOLD}║        Agent Guidance MCP Uninstaller (macOS/Linux)         ║${NC}"
-    echo -e "${RED}${BOLD}╚══════════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${RED}${BOLD}🗑️  Uninstalling Agent Guidance MCP...${NC}"
     echo -e ""
 
     TOOL_BIN="$HOME/.local/bin/agent-guidance-mcp"
@@ -19,43 +38,39 @@ if [ "${1:-}" = "--uninstall" ]; then
         command -v agent-guidance-mcp &> /dev/null && TOOL_BIN="agent-guidance-mcp"
     fi
 
-    echo -e "${BOLD}🗑️  Step 1/3 — Removing client registrations...${NC}"
+    echo -e "${BOLD}Step 1/3 — Removing IDE registrations...${NC}"
     if [ -f "$TOOL_BIN" ] || command -v agent-guidance-mcp &> /dev/null; then
-        "$TOOL_BIN" --uninstall 2>/dev/null && echo -e "  ${GREEN}✓${NC} IDE registrations removed" || echo -e "  ${GREEN}✓${NC} Cleanup completed"
+        "$TOOL_BIN" --uninstall 2>/dev/null && echo -e "  ${GREEN}✓${NC} Done" || echo -e "  ${GREEN}✓${NC} Done"
     else
-        echo -e "  ${YELLOW}⚠${NC}  MCP tool not found — skipping"
+        echo -e "  ${YELLOW}⚠${NC}  Tool not found — skipping"
     fi
 
     echo -e ""
-    echo -e "${BOLD}📁 Step 2/3 — Removing skills data...${NC}"
+    echo -e "${BOLD}Step 2/3 — Removing skills data...${NC}"
     if [ -d "$HOME/.agent-guidance" ]; then
         rm -rf "$HOME/.agent-guidance"
         echo -e "  ${GREEN}✓${NC} Removed ${GRAY}$HOME/.agent-guidance${NC}"
     else
-        echo -e "  ${GRAY}•${NC}  Skills data not found"
+        echo -e "  ${GRAY}•${NC}  Not found"
     fi
 
     echo -e ""
-    echo -e "${BOLD}🔧 Step 3/3 — Removing MCP server binary...${NC}"
+    echo -e "${BOLD}Step 3/3 — Removing MCP server...${NC}"
     if command -v uv &> /dev/null; then
-        uv tool uninstall agent-guidance-mcp 2>/dev/null && echo -e "  ${GREEN}✓${NC} Uninstalled from uv" || echo -e "  ${GRAY}•${NC}  Not found in uv tools"
+        uv tool uninstall agent-guidance-mcp 2>/dev/null && echo -e "  ${GREEN}✓${NC} Uninstalled from uv" || echo -e "  ${GRAY}•${NC}  Not found in uv"
     elif [ -f "$HOME/.local/bin/uv" ]; then
-        "$HOME/.local/bin/uv" tool uninstall agent-guidance-mcp 2>/dev/null && echo -e "  ${GREEN}✓${NC} Uninstalled from uv" || echo -e "  ${GRAY}•${NC}  Not found in uv tools"
+        "$HOME/.local/bin/uv" tool uninstall agent-guidance-mcp 2>/dev/null && echo -e "  ${GREEN}✓${NC} Uninstalled from uv" || echo -e "  ${GRAY}•${NC}  Not found in uv"
     fi
 
     echo -e ""
     echo -e "${GREEN}${BOLD}╔══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}${BOLD}║       ✓  Uninstallation completed successfully!            ║${NC}"
+    echo -e "${GREEN}${BOLD}║       ✓  Uninstallation complete!                           ║${NC}"
     echo -e "${GREEN}${BOLD}╚══════════════════════════════════════════════════════════════╝${NC}"
     echo -e ""
     exit 0
 fi
 
-# ── Header ────────────────────────────────────────────────────────────────────
-echo -e ""
-echo -e "${PURPLE}${BOLD}╔══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${PURPLE}${BOLD}║         Agent Guidance MCP Installer (macOS/Linux)          ║${NC}"
-echo -e "${PURPLE}${BOLD}╚══════════════════════════════════════════════════════════════╝${NC}"
+# ── Install path ──────────────────────────────────────────────────────────────
 echo -e ""
 
 # ── Step 1: Detect or Install 'uv' ────────────────────────────────────────────
@@ -103,16 +118,8 @@ fi
 # ── Step 3: Post-install configuration ────────────────────────────────────────
 echo -e ""
 echo -e "${BOLD}⚙️  Step 3/3 — Configuring IDE clients...${NC}"
-
-# When piped (curl | bash), redirect read from the terminal
-if [ -t 0 ]; then
-    read -p "  Choose install mode [1=Auto / 2=Manual] (default: 1): " MODE_CHOICE
-else
-    read -p "  Choose install mode [1=Auto / 2=Manual] (default: 1): " MODE_CHOICE < /dev/tty 2>/dev/null || MODE_CHOICE=""
-fi
-MODE_CHOICE="${MODE_CHOICE:-1}"
 MODE_FLAG=""
-if [ "$MODE_CHOICE" = "2" ]; then
+if [ "$ACTION" = "2" ]; then
     MODE_FLAG="--mode=manual"
 fi
 

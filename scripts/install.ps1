@@ -1,18 +1,28 @@
 # Self-contained PowerShell Installer/Uninstaller for Agent Guidance MCP on Windows
-# Usage: irm ... | iex                    (install)
-#        irm ... | iex ; Uninstall-MCP    (uninstall after sourcing)
-#        & ([scriptblock]::Create((irm ...))) -Uninstall   (uninstall mode)
-
-param([switch]$Uninstall)
+# Usage: irm https://.../install.ps1 | iex
 
 $ErrorActionPreference = "Stop"
 
-# ── Uninstall Mode ────────────────────────────────────────────────────────────
-if ($Uninstall) {
+# ── Header ────────────────────────────────────────────────────────────────────
+Write-Host ""
+Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Magenta
+Write-Host "║           Agent Guidance MCP (Windows)                       ║" -ForegroundColor Magenta
+Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
+Write-Host ""
+
+# ── Choose mode FIRST ─────────────────────────────────────────────────────────
+Write-Host "What would you like to do?"
+Write-Host "  [1] Install — auto-configure all detected IDEs" -ForegroundColor Green
+Write-Host "  [2] Install — manual (choose which IDEs to configure)" -ForegroundColor Cyan
+Write-Host "  [3] Uninstall — remove everything" -ForegroundColor Red
+Write-Host ""
+$action = Read-Host "Choice [1]"
+if (-not $action) { $action = "1" }
+
+# ── Uninstall path ────────────────────────────────────────────────────────────
+if ($action -eq "3") {
     Write-Host ""
-    Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Red
-    Write-Host "║        Agent Guidance MCP Uninstaller (Windows)              ║" -ForegroundColor Red
-    Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Red
+    Write-Host "🗑️  Uninstalling Agent Guidance MCP..." -ForegroundColor Red
     Write-Host ""
 
     $toolBin = "$HOME\.local\bin\agent-guidance-mcp.exe"
@@ -20,25 +30,25 @@ if ($Uninstall) {
         if (Get-Command "agent-guidance-mcp" -ErrorAction SilentlyContinue) { $toolBin = "agent-guidance-mcp" }
     }
 
-    Write-Host "🗑️  Step 1/3 — Removing client registrations..." -ForegroundColor White
+    Write-Host "Step 1/3 — Removing IDE registrations..."
     if (Test-Path $toolBin) {
         & $toolBin --uninstall 2>$null
-        Write-Host "  ✓ IDE registrations removed" -ForegroundColor Green
+        Write-Host "  ✓ Done" -ForegroundColor Green
     } else {
-        Write-Host "  ⚠ MCP tool not found — skipping" -ForegroundColor Yellow
+        Write-Host "  ⚠ Tool not found — skipping" -ForegroundColor Yellow
     }
 
     Write-Host ""
-    Write-Host "📁 Step 2/3 — Removing skills data..." -ForegroundColor White
+    Write-Host "Step 2/3 — Removing skills data..."
     if (Test-Path "$HOME\.agent-guidance") {
         Remove-Item -Recurse -Force "$HOME\.agent-guidance"
-        Write-Host "  ✓ Removed skills data" -ForegroundColor Green
+        Write-Host "  ✓ Removed" -ForegroundColor Green
     } else {
-        Write-Host "  • Skills data not found" -ForegroundColor Gray
+        Write-Host "  • Not found" -ForegroundColor Gray
     }
 
     Write-Host ""
-    Write-Host "🔧 Step 3/3 — Removing MCP server binary..." -ForegroundColor White
+    Write-Host "Step 3/3 — Removing MCP server..."
     if (Get-Command "uv" -ErrorAction SilentlyContinue) {
         & uv tool uninstall agent-guidance-mcp 2>$null
         Write-Host "  ✓ Uninstalled from uv" -ForegroundColor Green
@@ -51,17 +61,13 @@ if ($Uninstall) {
 
     Write-Host ""
     Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Green
-    Write-Host "║       ✓  Uninstallation completed successfully!            ║" -ForegroundColor Green
+    Write-Host "║       ✓  Uninstallation complete!                           ║" -ForegroundColor Green
     Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Green
     Write-Host ""
     exit 0
 }
 
-# ── Header ────────────────────────────────────────────────────────────────────
-Write-Host ""
-Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Magenta
-Write-Host "║         Agent Guidance MCP Installer (Windows)               ║" -ForegroundColor Magenta
-Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
+# ── Install path ──────────────────────────────────────────────────────────────
 Write-Host ""
 
 # ── Step 1: Detect or Install 'uv' ────────────────────────────────────────────
@@ -113,11 +119,8 @@ if (-not (Test-Path $toolBin)) {
 # ── Step 3: Post-install configuration ────────────────────────────────────────
 Write-Host ""
 Write-Host "⚙️  Step 3/3 — Configuring IDE clients..." -ForegroundColor White
-$modeChoice = Read-Host "  Choose install mode [1=Auto / 2=Manual] (default: 1)"
 $modeFlag = ""
-if ($modeChoice -eq "2") {
-    $modeFlag = "--mode=manual"
-}
+if ($action -eq "2") { $modeFlag = "--mode=manual" }
 
 Write-Host ""
 Write-Host "  ▶ Registering with detected IDEs..." -ForegroundColor Magenta
