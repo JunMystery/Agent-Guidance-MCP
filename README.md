@@ -81,7 +81,7 @@ To point the server to a different standards corpus, set:
 AGENT_GUIDANCE_ROOT=/path/to/Agent-Guidance
 ```
 
-Platform notes and client-specific setup are covered in [Installation](docs/installation.md) and [Client Configuration](docs/client-configuration.md).
+Platform notes and client-specific setup are covered in [Installation](docs/installation.md) and [Client Setup](docs/setup/client-configuration.md).
 
 ## Quick Start
 
@@ -95,15 +95,17 @@ Then call `task_pipeline(...)` to load task guidance and bounded project context
 
 ## Documentation
 
+- [Getting Started](docs/getting-started.md) - first-time walkthrough.
 - [Installation](docs/installation.md) - automatic and manual setup.
-- [Client Configuration](docs/client-configuration.md) - VS Code, GitHub Copilot, Claude Desktop, Cursor, Gemini-compatible config, and env vars.
-- [Usage Guide](docs/usage.md) - quick checks, recommended agent workflows, and examples.
-- [MCP Surface Reference](docs/mcp-surface.md) - all tools, prompts, and resources.
-- [Project Context Tools](docs/project-context-tools.md) - grouped tree, search, file read, snapshot export, token guidance, and freshness rules.
-- [Integrated Repositories](docs/integrated-repositories.md) - third-party repos bundled, depended on, or running alongside.
-- [Development Guide](docs/development.md) - tests, project structure, and maintainer notes.
-- [Repo Map For Agents](docs/repo-map-for-agents.md) - existing repository orientation notes.
-- [MCP Integrations Guide](agent-guidance/mcp-integrations/README.md) - SQLite caching, CodeGraph-like AST parsing, and Context7 docs details.
+- [Usage Guide](docs/usage.md) - recommended agent workflows and examples.
+- [Client Setup](docs/setup/client-configuration.md) - VS Code, Copilot, Cursor, Gemini, OpenCode, Windsurf, Antigravity.
+- [MCP Surface](docs/reference/mcp-surface.md) - all tools, prompts, and resources.
+- [Project Context Tools](docs/reference/project-context-tools.md) - tree, search, read, snapshot, symbols, references.
+- [Skills Overview](docs/skills/SKILLS_OVERVIEW.md) - full catalog of 185+ skills.
+- [Integrated Repositories](docs/integrations/integrated-repositories.md) - third-party repos in the codebase.
+- [Potential Integrations](docs/integrations/potential-integrations.md) - candidates for future inclusion.
+- [Development Guide](docs/development.md) - tests, project structure, maintainer notes.
+- [MCP Integrations Guide](agent-guidance/mcp-integrations/README.md) - SQLite caching, CodeGraph, Context7 docs.
 
 ## MCP Surface
 

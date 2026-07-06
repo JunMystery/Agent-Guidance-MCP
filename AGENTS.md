@@ -115,7 +115,7 @@ Composition rule: **the user (or a slash command) is the orchestrator. Personas 
 
 The only multi-persona orchestration pattern this repo endorses is **parallel fan-out with a merge step** — used by `/ship` to run `code-reviewer`, `security-auditor`, and `test-engineer` concurrently and synthesize their reports. Do not build a "router" persona that decides which other persona to call; that's the job of slash commands and intent mapping.
 
-See [docs/agents.md](docs/agents.md) for the decision matrix and [references/orchestration-patterns.md](references/orchestration-patterns.md) for the full pattern catalog.
+See [docs/reference/agents.md](docs/reference/agents.md) for the decision matrix and [references/orchestration-patterns.md](references/orchestration-patterns.md) for the full pattern catalog.
 
 **Claude Code interop:** the personas in `agents/` work as Claude Code subagents (auto-discovered from this plugin's `agents/` directory) and as Agent Teams teammates (referenced by name when spawning). Two platform constraints align with our rules: subagents cannot spawn other subagents, and teams cannot nest. Plugin agents silently ignore the `hooks`, `mcpServers`, and `permissionMode` frontmatter fields.
 
@@ -295,7 +295,9 @@ run the orchestrator:
 | "update ECC skills" | `python scripts/update_ecc.py` |
 | "update UI/UX data" | `python scripts/update_ui_ux.py` |
 | "update Anthropic skills" | `python scripts/update_anthropic_skills.py` |
+| "update OWASP cheatsheets" | `python scripts/update_owasp_cheatsheets.py` |
+| "update system design primer" | `python scripts/update_system_design_primer.py` |
 | "update RTK" | `python scripts/update_rtk.py` |
 
-The orchestrator (`update_all.py`) runs all four updaters in sequence and prints a pass/fail summary. Each updater downloads the latest snapshot from its upstream GitHub repo, strips non-essential files, and deploys the minimal vendored copy.
+The orchestrator (`update_all.py`) runs all six updaters in sequence and prints a pass/fail summary. Each updater downloads the latest snapshot from its upstream GitHub repo, strips non-essential files, and deploys the minimal vendored copy.
 
