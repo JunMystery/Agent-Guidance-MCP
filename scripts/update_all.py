@@ -18,6 +18,8 @@ UPDATERS = [
     ("update_ecc.py", "ECC (168-skill catalog)"),
     ("update_ui_ux.py", "UI/UX Pro Max (design data)"),
     ("update_anthropic_skills.py", "Anthropic Skills (creative, dev, enterprise)"),
+    ("update_owasp_cheatsheets.py", "OWASP Cheat Sheets (~100 security references)"),
+    ("update_system_design_primer.py", "System Design Primer (large-scale system design)"),
     ("update_rtk.py", "RTK — Rust Token Killer (subproject)"),
 ]
 
