@@ -97,7 +97,7 @@ def main() -> None:
         # Auto-update before server start (if enabled)
         if args.auto_update:
             import os
-            interval = os.environ.get("AGENT_AUTO_UPDATE_INTERVAL", args.auto_update)
+            interval = os.environ.get("AGENT_AUTO_UPDATE_INTERVAL", args.auto_update).strip()
             if interval not in ("weekly", "monthly"):
                 interval = args.auto_update
             from .updater import check_auto_update
