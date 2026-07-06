@@ -1,0 +1,21 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "agent-guidance-mcp": {
+      "type": "local",
+      "command": [
+        "/run/media/jun/SSD/Git/Agent-Guidance-MCP/.venv/bin/python",
+        "-m",
+        "agent_guidance_mcp"
+      ],
+      "enabled": true,
+      "environment": {
+        "PYTHONPATH": "/run/media/jun/SSD/Git/Agent-Guidance-MCP/src",
+        "AGENT_PROJECT_ROOT": "/run/media/jun/SSD/Git/Agent-Guidance-MCP"
+      }
+    }
+  },
+  "instructions": [
+    "AGENTS.md"
+  ]
+}

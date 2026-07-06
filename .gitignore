@@ -44,3 +44,6 @@ venv/
 .opencode/package-lock.json
 .opencode/node_modules/
 
+# RTK subproject — strip nested .git if accidentally cloned
+rtk/.git/
+

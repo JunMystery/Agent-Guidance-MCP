@@ -25,6 +25,18 @@ SYSTEM_DESIGN_ZIP_URL = "https://github.com/donnemartin/system-design-primer/arc
 
 _STATE_FILE = Path.home() / ".agent-guidance" / ".update-state.json"
 
+_GIT_ARTIFACTS = (".git", ".github", ".gitignore", ".gitattributes")
+
+
+def _strip_git_artifacts(directory: Path) -> None:
+    """Recursively remove .git directories and git metadata from extracted repos."""
+    for pattern in _GIT_ARTIFACTS:
+        for p in directory.rglob(pattern):
+            if p.is_dir():
+                shutil.rmtree(p, ignore_errors=True)
+            elif p.is_file():
+                p.unlink(missing_ok=True)
+
 # ── State persistence ────────────────────────────────────────────────────────
 
 
@@ -121,6 +133,8 @@ def download_and_extract(url: str, dest_dir: Path) -> Path:
 
         with zipfile.ZipFile(zip_path, "r") as zip_ref:
             zip_ref.extractall(tmp_dir)
+
+        _strip_git_artifacts(tmp_dir)
 
         return tmp_dir
     except Exception as e:
