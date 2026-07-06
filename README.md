@@ -100,6 +100,7 @@ Then call `task_pipeline(...)` to load task guidance and bounded project context
 - [Usage Guide](docs/usage.md) - quick checks, recommended agent workflows, and examples.
 - [MCP Surface Reference](docs/mcp-surface.md) - all tools, prompts, and resources.
 - [Project Context Tools](docs/project-context-tools.md) - grouped tree, search, file read, snapshot export, token guidance, and freshness rules.
+- [Integrated Repositories](docs/integrated-repositories.md) - third-party repos bundled, depended on, or running alongside.
 - [Development Guide](docs/development.md) - tests, project structure, and maintainer notes.
 - [Repo Map For Agents](docs/repo-map-for-agents.md) - existing repository orientation notes.
 - [MCP Integrations Guide](agent-guidance/mcp-integrations/README.md) - SQLite caching, CodeGraph-like AST parsing, and Context7 docs details.
