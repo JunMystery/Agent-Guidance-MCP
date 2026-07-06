@@ -1,4 +1,3 @@
-
 ## Agent Guidance MCP Server Tool Usage
 
 Whenever the user prompts you with any request, action, coding task, repository lookup, refactoring, or planning, you MUST involve the custom `agent-guidance-mcp` server tools.

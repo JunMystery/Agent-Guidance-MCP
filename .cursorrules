@@ -1,7 +1,7 @@
 
 ## Agent Guidance MCP Server Tool Usage
 
-Whenever the user prompts you to perform any coding action, repository lookup, refactoring, or planning, you MUST involve the custom `agent-guidance-mcp` server tools.
+Whenever the user prompts you with any request, action, coding task, repository lookup, refactoring, or planning, you MUST involve the custom `agent-guidance-mcp` server tools.
 
 ### Rules:
 1. **Always Start with Context Gathering**: Before you read files or make changes, invoke `task_pipeline` or `project_context(operation="tree" / "search" / "read")` to load optimized project states.
@@ -11,7 +11,7 @@ Whenever the user prompts you to perform any coding action, repository lookup, r
 5. **Grounding & Planning**: Always find related files, functions, and symbols (using `project_context(operation="search")` or `task_pipeline`) and formulate an implementation plan before proposing changes. Even if the user prompt does not mention specific files/code directly, or references a function name without its location, AI Agents MUST NOT guess anything; they must verify via search first.
 6. **Max 300 LOC Files**: Keep code files focused and split them when they exceed 300 lines of code (LOC). Avoid monolithic files and dumping grounds.
 
-**CRITICAL**: All 6 rules MUST be evaluated and executed for every single coding action, repository lookup, refactoring, or planning phase without exception.
+**CRITICAL**: All 6 rules MUST be evaluated and executed for every single prompt, action, query, or planning phase without exception.
 
 ## Agent Guidance MCP — Tool Selection Priority
 
@@ -34,4 +34,4 @@ Whenever the user prompts you to perform any coding action, repository lookup, r
 5. **Ground & Plan**: Verify files/functions/symbols via search BEFORE proposing changes. Never guess.
 6. **300 LOC Cap**: Split files exceeding 300 lines of code. No monolithic files.
 
-**CRITICAL: All 6 rules apply to EVERY coding action without exception.**
+**CRITICAL: All 6 rules apply to EVERY single prompt, action, or query without exception.**

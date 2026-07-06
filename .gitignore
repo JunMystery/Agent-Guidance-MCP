@@ -45,7 +45,6 @@ venv/
 opencode.json
 
 # 3rd-party repos — downloaded by updater during install, not tracked in git
-rtk/
 skills/owasp-cheatsheets/
 skills/anthropic-skills/
 skills/system-design-primer/

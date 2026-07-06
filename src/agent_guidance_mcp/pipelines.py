@@ -345,7 +345,9 @@ def task_pipeline(
     from .parallel import parallel_run
 
     concurrent_tasks: dict[str, object] = {
-        "recommendations": lambda: catalog.recommend_context(task=weighted_task, limit=limit),
+        "recommendations": lambda: catalog.recommend_context(
+            task=weighted_task, limit=limit, include_content=True, config=config
+        ),
     }
     if include_tree:
         concurrent_tasks["project_tree"] = lambda: project_context_helpers.get_project_tree(

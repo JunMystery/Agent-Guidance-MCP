@@ -17,7 +17,7 @@ class TokenSavingsRecord:
     optimized_tokens: int
     saved_tokens: int
     savings_pct: float
-    backend: str = "mcp"  # "mcp" or "rtk"
+    backend: str = "mcp"
 
 
 class TokenTracker:

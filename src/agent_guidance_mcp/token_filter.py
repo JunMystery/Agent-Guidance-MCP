@@ -13,7 +13,7 @@ _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
 
 
 class FilterLevel(Enum):
-    """RTK-compatible filter levels used by later optimization phases."""
+    """Filter levels used by token optimization phases."""
 
     NONE = "none"
     MINIMAL = "minimal"

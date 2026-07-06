@@ -103,8 +103,8 @@ project_context(
 | Operation | Required Args | Description |
 |---|---|---|
 | `tree` | -- | Directory tree with file metadata (path, type, language_hint, size_bytes) |
-| `search` | `query` | Codebase text search. Tiers: RTK grep -> SQLite FTS5 -> parallel scan. |
-| `read` | `relative_path` | Bounded file read (300 line cap). RTK-optimized. Path traversal protected. |
+| `search` | `query` | Codebase text search (SQLite FTS5 -> parallel scan fallback). |
+| `read` | `relative_path` | Bounded file read (300 line cap). Path traversal protected. |
 | `snapshot` | -- | Export bounded JSON snapshot to `.agent-context/`. Must be within `.agent-context/` directory. |
 | `symbols` | `relative_path` | Extract classes, functions, methods from a file. Tree-sitter AST (7 langs) or regex fallback (13 langs). |
 | `references` | `query` | Find all usages of a symbol name across the codebase. |
@@ -216,7 +216,6 @@ Comprehensive diagnostics across 7 subsystems:
 | `tree_sitter` | Installed status, supported languages (python, javascript, typescript, go, rust, java, csharp) |
 | `database` | CodeGraph DB path, exists, size, files_indexed, symbols_indexed, call_edges_indexed, status |
 | `context7_api` | DNS resolution, IP, TCP connection status |
-| `rtk` | Available, version |
 | `watcher` | DB exists, DB size |
 | `catalog` | Entry count, categories |
 
@@ -284,52 +283,3 @@ These modules power the MCP tools but are not directly callable via the MCP prot
 | **Symbol Extractor** | `symbols.py` | Tree-sitter AST parsing (7 languages: Python, JS, TS, Go, Rust, Java, C#) with regex fallback (13 languages: + Ruby, PHP, Kotlin, Swift, C, C++). Graceful degradation when tree-sitter not installed. |
 | **Parallel Engine** | `parallel.py` | `ThreadPoolExecutor` helpers: `parallel_map` (order-preserving, None-filtering), `parallel_filter_map` (keep/discard), `parallel_run` (named concurrent tasks with exception isolation). |
 | **Reasoning Engine** | `reasoning.py` | 6 framework templates (decision/bug/architecture/security/performance/general). Keyword classifier maps task text to framework type. Returns framework markdown, key questions, skill URIs. |
-| **RTK Integration** | `rtk_integration.py` | Rust Token Killer subprocess wrappers. Detects `rtk` binary in PATH or known locations. Provides: `filter_read`, `filter_grep`, `filter_diff`, `filter_ls`, `filter_find`, `filter_curl`. Falls back to Python when RTK not installed. |
-| **Context7 Client** | `docs.py` | HTTP client for live library documentation. Resolves library ID, fetches context, token-optimizes response. Retries with exponential backoff. Cached library ID resolution. |
-| **Diagnostics** | `diagnostics.py` | 7-subsystem health check: system info, tree-sitter status, CodeGraph DB stats, Context7 connectivity, RTK availability, watcher status, catalog stats. |
-| **Token Optimizer** | `response_optimizer.py` | 8-stage filter pipeline: ANSI strip, regex replace, match short-circuit, line filter, smart truncation (preserves imports/signatures/constants), head/tail keep, max lines cap, empty guard. 40-80% token reduction. |
-| **Setup/Uninstall** | `setup.py` | Post-install IDE registration (Claude, Gemini, Cursor, VS Code, Continue, OpenCode, Codex, Cline/Roo-Code). Global rules, workspace rules, uninstall. |
-| **Auto-Updater** | `updater.py` | Skill repository updates from GitHub. Scheduled auto-update (weekly/monthly) via `AGENT_AUTO_UPDATE_INTERVAL`. |
-
----
-
-## Environment Variables
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `AGENT_GUIDANCE_ROOT` | Bundled corpus | Custom standards corpus path |
-| `AGENT_PROJECT_ROOT` | `.` (cwd) | Override project root for context tools |
-| `AGENT_PROJECT_ALLOWED_ROOTS` | All user dirs | Whitelist directories for security |
-| `AGENT_WATCHER_ENABLED` | `true` | Enable/disable CodeGraph file watcher |
-| `AGENT_WATCHER_INTERVAL` | `30` | Watcher poll interval (seconds) |
-| `AGENT_WATCHER_DEBOUNCE_MULTIPLIER` | `2.0` | Debounce multiplier after changes |
-| `AGENT_WATCHER_REF_THRESHOLD` | `50` | Batch size before full reference resolve |
-| `AGENT_AUTO_UPDATE_INTERVAL` | `weekly` | Auto-update schedule (weekly/monthly) |
-| `CONTEXT7_API_KEY` | -- | Optional API key for Context7 docs |
-
----
-
-## Recommended Ordering
-
-For most coding tasks, start with:
-
-1. `task_pipeline(task, project_path)` -- context prep (call first)
-2. `guidance(operation="search", query="...")` -- find applicable standards/skills before implementing
-3. `project_context(operation="search", query="...")` -- when more code context is needed
-4. `project_context(operation="read", relative_path="...")` -- before editing a target file
-5. `guidance(operation="get", identifier="skill-name", include_content=True)` -- load a specific skill
-6. `ui_ux(operation="search" | "design_system" | "slides", query="...")` -- for frontend/design work
-7. `guidance(operation="docs", query="...", identifier="lib")` -- for live API documentation
-8. `session_continuity(operation="save", task="...", checklist=[...])` -- persist progress
-9. Edit only the files needed
-10. Run targeted verification
-11. `session_continuity(operation="clear")` -- when task is complete
-
----
-
-## Related Docs
-
-- [Usage Guide](../usage.md)
-- [Project Context Tools](project-context-tools.md)
-- [Client Setup](../setup/client-configuration.md)
-- [Skills Overview](../skills/SKILLS_OVERVIEW.md)

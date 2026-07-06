@@ -20,8 +20,6 @@ UPDATERS = [
     ("update_anthropic_skills.py", "Anthropic Skills (creative, dev, enterprise)"),
     ("update_owasp_cheatsheets.py", "OWASP Cheat Sheets (~100 security references)"),
     ("update_system_design_primer.py", "System Design Primer (large-scale system design)"),
-    ("update_rtk.py", "RTK — Rust Token Killer (subproject)"),
-    ("update_rtk_binary.py", "RTK Binary — latest release (~/.local/bin/rtk)"),
 ]
 
 

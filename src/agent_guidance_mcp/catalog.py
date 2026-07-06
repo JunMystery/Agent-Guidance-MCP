@@ -229,7 +229,13 @@ class StandardsCatalog:
             for score, entry, snippet in results[: max(1, limit)]
         ]
 
-    def recommend_context(self, task: str, limit: int = 8) -> dict[str, object]:
+    def recommend_context(
+        self,
+        task: str,
+        limit: int = 8,
+        include_content: bool = False,
+        config: object = None,
+    ) -> dict[str, object]:
         keywords = infer_task_keywords(task, self.custom_triggers)
         weighted_query = " ".join([task, *keywords, *keywords])
         results = self.search_entries(weighted_query, limit=max(limit * 2, limit))
@@ -249,7 +255,14 @@ class StandardsCatalog:
                 return False
             if entry.identifier in seen:
                 return False
-            selected.append({**entry.to_dict(), "reason": reason})
+            rec = entry.to_dict()
+            if include_content:
+                # Load content for at least the first 2 entries, or if it represents a skill,
+                # or if the entry triggers match the active task keywords.
+                should_load = len(seen) < 2 or entry.kind == "skill" or any(t in keywords for t in entry.triggers)
+                if should_load:
+                    rec["content"] = self.read_entry(entry.identifier, config=config)
+            selected.append({**rec, "reason": reason})
             seen.add(entry.identifier)
             return True
 
@@ -269,13 +282,21 @@ class StandardsCatalog:
             identifier = str(result["identifier"])
             if identifier in seen:
                 continue
+            rec = {
+                key: value
+                for key, value in result.items()
+                if key not in {"score", "snippet"}
+            }
+            if include_content:
+                try:
+                    entry = self.get_entry(identifier)
+                    should_load = len(seen) < 2 or entry.kind == "skill" or any(t in keywords for t in entry.triggers)
+                    if should_load:
+                        rec["content"] = self.read_entry(identifier, config=config)
+                except KeyError:
+                    pass
             selected.append(
-                {
-                    key: value
-                    for key, value in result.items()
-                    if key not in {"score", "snippet"}
-                }
-                | {"reason": make_recommendation_reason(result, keywords)}
+                rec | {"reason": make_recommendation_reason(result, keywords)}
             )
             seen.add(identifier)
             if len(selected) >= limit:

@@ -23,4 +23,4 @@
 5. **Ground & Plan**: Verify files/functions/symbols via search BEFORE proposing changes. Never guess.
 6. **300 LOC Cap**: Split files exceeding 300 lines of code. No monolithic files.
 
-**CRITICAL: All 6 rules apply to EVERY coding action without exception.**
+**CRITICAL: All 6 rules apply to EVERY single prompt, action, or query without exception.**

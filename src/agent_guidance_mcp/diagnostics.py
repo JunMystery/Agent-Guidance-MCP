@@ -107,14 +107,7 @@ def run_diagnostics(project_root: Path, catalog: StandardsCatalog) -> dict[str, 
 
     diagnostics["context7_api"] = network_info
 
-    # 5. RTK (Rust Token Killer) Integration
-    from . import rtk_integration
-    diagnostics["rtk"] = {
-        "available": rtk_integration.is_available(),
-        "version": rtk_integration.version(),
-    }
-
-    # 6. File Watcher Status
+    # 5. File Watcher Status
     try:
         from .watcher import CodeGraphWatcher
         db_path = project_root / ".agent-context" / "codegraph.db"

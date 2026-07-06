@@ -117,35 +117,3 @@ def test_export_project_snapshot_writes_bounded_json(tmp_path):
     assert ".agent-context/code-snapshot.json" not in tree_paths
 
 
-def test_read_project_file_offset_skips_rtk(tmp_path, monkeypatch):
-    project = make_sample_project(tmp_path)
-    
-    # Write a multi-line file
-    (project / "src" / "multiline.py").write_text(
-        "line1\nline2\nline3\nline4\nline5\n", encoding="utf-8"
-    )
-    
-    # Mock RTK filter_read to return a specific string representing lines 1 to 5
-    rtk_called = False
-    def mock_filter_read(*args, **kwargs):
-        nonlocal rtk_called
-        rtk_called = True
-        return "rtk_line1\nrtk_line2"
-        
-    import agent_guidance_mcp.rtk_integration
-    monkeypatch.setattr(agent_guidance_mcp.rtk_integration, "filter_read", mock_filter_read)
-    monkeypatch.setattr(agent_guidance_mcp.rtk_integration, "is_available", lambda: True)
-    
-    # Test reading with start_line=1 (should use RTK)
-    res_start1 = read_project_file(str(project), "src/multiline.py", start_line=1, max_lines=2)
-    assert rtk_called is True
-    assert "rtk_line1" in res_start1["content"]
-    
-    # Reset tracking
-    rtk_called = False
-    # Test reading with start_line=3 (should bypass RTK and read line3 and line4)
-    res_start3 = read_project_file(str(project), "src/multiline.py", start_line=3, max_lines=2)
-    assert rtk_called is False
-    assert "line3" in res_start3["content"]
-    assert "line4" in res_start3["content"]
-    assert "line1" not in res_start3["content"]

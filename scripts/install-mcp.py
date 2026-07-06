@@ -8,17 +8,11 @@ Usage:
 import os
 import sys
 import shutil
-import platform
 import subprocess
-import tempfile
-import urllib.request
-import zipfile
-import tarfile
 from pathlib import Path
 
 SERVER_ID = "agent-guidance-mcp"
 GITHUB_URL = "git+https://github.com/JunMystery/Agent-Guidance-MCP.git"
-RTK_BASE_URL = "https://github.com/rtk-ai/rtk/releases/latest/download"
 
 
 # -- ANSI colors (Windows 10+ supports them) ----------------------------------
@@ -119,77 +113,6 @@ def find_tool_bin():
     return None
 
 
-# -- RTK installer ------------------------------------------------------------
-
-def install_rtk():
-    """Download and install RTK (Rust Token Killer) binary."""
-    step(4, 4, "Installing RTK token optimizer...")
-    rtk_path = shutil.which("rtk")
-    if rtk_path:
-        try:
-            ver = subprocess.run([rtk_path, "--version"], capture_output=True, text=True, timeout=5)
-            ok(f"RTK already installed ({ver.stdout.strip()})")
-        except Exception:
-            ok("RTK already installed")
-        return
-
-    system = platform.system()
-    machine = platform.machine().lower()
-
-    rtk_url = None
-    if system == "Windows" and machine in ("amd64", "x86_64"):
-        rtk_url = f"{RTK_BASE_URL}/rtk-x86_64-pc-windows-msvc.zip"
-    elif system == "Linux" and machine in ("x86_64", "amd64"):
-        rtk_url = f"{RTK_BASE_URL}/rtk-x86_64-unknown-linux-musl.tar.gz"
-    elif system == "Linux" and machine in ("aarch64", "arm64"):
-        rtk_url = f"{RTK_BASE_URL}/rtk-aarch64-unknown-linux-gnu.tar.gz"
-    elif system == "Darwin" and machine in ("x86_64", "amd64"):
-        rtk_url = f"{RTK_BASE_URL}/rtk-x86_64-apple-darwin.tar.gz"
-    elif system == "Darwin" and machine in ("arm64", "aarch64"):
-        rtk_url = f"{RTK_BASE_URL}/rtk-aarch64-apple-darwin.tar.gz"
-
-    if not rtk_url:
-        warn(f"No pre-built RTK binary for {system}/{machine} - build from source if needed")
-        return
-
-    bin_dir = Path.home() / ".local" / "bin"
-    bin_dir.mkdir(parents=True, exist_ok=True)
-    rtk_dest = bin_dir / ("rtk.exe" if os.name == "nt" else "rtk")
-
-    print(f"  {c('', 'cyan')} Downloading RTK for {system}/{machine}...")
-    try:
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".archive")
-        urllib.request.urlretrieve(rtk_url, tmp.name)
-        tmp.close()
-
-        extract_dir = tempfile.mkdtemp()
-        if rtk_url.endswith(".zip"):
-            with zipfile.ZipFile(tmp.name) as z:
-                z.extractall(extract_dir)
-        else:
-            with tarfile.open(tmp.name, "r:gz") as t:
-                t.extractall(extract_dir)
-
-        # Find rtk binary
-        for root, dirs, files in os.walk(extract_dir):
-            for f in files:
-                if f == "rtk" or f == "rtk.exe":
-                    shutil.copy2(os.path.join(root, f), rtk_dest)
-                    if os.name != "nt":
-                        rtk_dest.chmod(0o755)
-                    break
-
-        os.unlink(tmp.name)
-        shutil.rmtree(extract_dir, ignore_errors=True)
-
-        if rtk_dest.is_file():
-            ok(f"RTK installed to {c(str(rtk_dest), 'gray')}")
-        else:
-            warn("RTK download failed - run 'agent-guidance-mcp --update' later to retry")
-    except Exception as e:
-        warn(f"RTK download failed ({e}) - run 'agent-guidance-mcp --update' later to retry")
-
-
 # -- Uninstall ----------------------------------------------------------------
 
 def do_uninstall():
@@ -234,16 +157,18 @@ def do_uninstall():
     else:
         print(f"  {c('', 'gray')} uv not found")
 
-    # Remove RTK
-    rtk_path = shutil.which("rtk")
-    if not rtk_path:
-        rtk_path = str(Path.home() / ".local" / "bin" / ("rtk.exe" if os.name == "nt" else "rtk"))
-    if Path(rtk_path).is_file():
+    # Remove MCP server
+    print()
+    step(3, 3, "Removing MCP server...")
+    uv = find_uv()
+    if uv:
         try:
-            Path(rtk_path).unlink()
-            ok("RTK removed")
+            subprocess.run([uv, "tool", "uninstall", SERVER_ID], capture_output=True, timeout=30)
+            ok("Uninstalled from uv")
         except Exception:
-            pass
+            print(f"  {c('.', 'gray')} Not found in uv")
+    else:
+        print(f"  {c('.', 'gray')} uv not found")
 
     print()
     print(c("=" + "=" * 62, "green"))
@@ -259,7 +184,7 @@ def do_install(action="1"):
     print()
 
     # Step 1: Detect or install uv
-    step(1, 4, "Checking Python toolchain (uv)...")
+    step(1, 3, "Checking Python toolchain (uv)...")
     uv = find_uv()
     if uv:
         ok(f"Found 'uv' in PATH")
@@ -273,7 +198,7 @@ def do_install(action="1"):
 
     # Step 2: Install the MCP server
     print()
-    step(2, 4, "Installing agent-guidance-mcp...")
+    step(2, 3, "Installing agent-guidance-mcp...")
 
     has_pyproject = Path("pyproject.toml").exists() or (Path(__file__).resolve().parents[1] / "pyproject.toml").exists()
     repo_root = Path(__file__).resolve().parents[1] if has_pyproject else None
@@ -295,7 +220,7 @@ def do_install(action="1"):
 
     # Step 3: Post-install configuration
     print()
-    step(3, 4, "Configuring IDE clients...")
+    step(3, 3, "Configuring IDE clients...")
     mode_flag = "--mode=ide" if action == "2" else ""
 
     print()
@@ -316,10 +241,6 @@ def do_install(action="1"):
         print()
         info("Downloading skill catalog...")
         subprocess.run([uv, "tool", "run", SERVER_ID, "--update"])
-
-    # Step 4: Install RTK
-    print()
-    install_rtk()
 
     # Footer
     print()

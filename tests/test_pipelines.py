@@ -262,3 +262,15 @@ def test_guidance_resolve_dependencies(tmp_path):
     assert "resolved_dependencies" in result
     assert "skill-b" in result["resolved_dependencies"]
     assert "Content of B" in result["resolved_dependencies"]["skill-b"]
+
+
+def test_task_pipeline_includes_recommendations_content(tmp_path):
+    catalog = _make_catalog(tmp_path)
+    result = pipelines.task_pipeline(catalog=catalog, task="design the landing page with new colors", include_tree=False)
+    assert isinstance(result, dict)
+    recs = result["recommendations"]["recommendations"]
+    assert len(recs) > 0
+    # Top matching entries should contain content (at least 2 should load)
+    has_content = [r for r in recs if "content" in r]
+    assert len(has_content) >= 2
+    assert len(has_content[0]["content"]) > 0

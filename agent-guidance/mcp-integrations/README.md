@@ -78,32 +78,6 @@ The main engineering standards and developer skills collection is sourced from t
 
 ---
 
-## 5. RTK — Rust Token Killer
-
-The rtk CLI proxy is bundled as a colocated subproject at the repository root. It is **not** part of the Python wheel but lives alongside it for token-optimized shell commands.
-
-### Architecture & Files
-- **Target Directory:** `rtk/` — cleaned and repopulated on each update
-- **Updater:** [update_rtk.py](file:///e:/Github/Agent-Guidance-MCP/scripts/update_rtk.py)
-  - Downloads the latest snapshot from `https://github.com/rtk-ai/rtk`
-  - Strips non-essential files (docs, CI, installers, translations, agent hooks)
-  - Keeps only: `Cargo.toml`, `Cargo.lock`, `build.rs`, `src/`, `tests/`, `LICENSE`, `README.md` (~70% size reduction)
-
-### How to Maintain & Sync with Upstream
-- Run the orchestrator to update everything at once:
-  ```bash
-  python scripts/update_all.py
-  ```
-- Or update rtk individually:
-  ```bash
-  python scripts/update_rtk.py
-  ```
-- After updating, verify the vendored copy builds:
-  ```bash
-  cd rtk && cargo build
-  ```
-
----
 
 ## Maintenance Commands & Rebuild
 - **Update Everything (recommended):** Run the orchestrator to sync all upstream repos in one command:
@@ -121,8 +95,4 @@ The rtk CLI proxy is bundled as a colocated subproject at the repository root. I
 - **Update ECC Skills:** Run the python script to download the latest skills suite from GitHub:
   ```bash
   python scripts/update_ecc.py
-  ```
-- **Update RTK:** Run the python script to download the latest rtk subproject from GitHub:
-  ```bash
-  python scripts/update_rtk.py
   ```

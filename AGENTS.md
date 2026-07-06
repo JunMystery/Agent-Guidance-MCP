@@ -2,7 +2,7 @@
 
 ## CRITICAL — Default Tool Rules (READ FIRST)
 
-For EVERY coding action, repository lookup, refactoring, or planning:
+For EVERY user prompt, action, repository lookup, coding, refactoring, planning, editing, translation, or general query:
 
 ### Tool Selection Priority
 
@@ -47,14 +47,6 @@ Skills load on-demand via `guidance(operation="get")` — never load all at once
 
 ---
 
-<!-- headroom:rtk-instructions -->
-# RTK (Rust Token Killer) - Token-Optimized Commands
-
-When running shell commands, **always prefix with `rtk`**. This reduces context
-usage by 60-90% with zero behavior change. If rtk has no filter for a command,
-it passes through unchanged — so it is always safe to use.
-<!-- /headroom:rtk-instructions -->
-
 ## Agent Guidance MCP — Tool Selection Priority
 
 | You need to... | Use THIS tool first | Why |
@@ -83,4 +75,4 @@ it passes through unchanged — so it is always safe to use.
 5. **Ground & Plan**: Verify files/functions/symbols via search BEFORE proposing changes. Never guess.
 6. **300 LOC Cap**: Split files exceeding 300 lines of code. No monolithic files.
 
-**CRITICAL: All 6 rules apply to EVERY coding action without exception.**
+**CRITICAL: All 6 rules apply to EVERY single prompt, action, or query without exception.**

@@ -14,24 +14,3 @@ Third-party repositories and projects integrated into the Agent Guidance MCP cod
 | [anthropics/skills](https://github.com/anthropics/skills) | 17+ skill catalog — creative & design, development & technical, enterprise & communication. Synced via `scripts/update_anthropic_skills.py`. | Apache 2.0 |
 | [OWASP Cheat Sheets](https://github.com/OWASP/CheatSheetSeries) | ~100 security cheat sheets — SQL injection, XSS, CSRF, auth, cryptography, MCP security, AI agent security, and more. Synced via `scripts/update_owasp_cheatsheets.py`. | CC BY-SA 4.0 |
 | [System Design Primer](https://github.com/donnemartin/system-design-primer) | 356K-star study guide — scalability, load balancing, caching, sharding, CAP theorem, microservices, plus 8 design exercise solutions. Synced via `scripts/update_system_design_primer.py`. | CC BY 4.0 |
-| [rtk — Rust Token Killer](https://github.com/rtk-ai/rtk) | CLI proxy that filters/compresses command output, saving 60–90% tokens for LLM context. Bundled as a subproject in `rtk/`. | Apache 2.0 |
-
-## Python Dependencies
-
-| Package | Role |
-|---|---|
-| [mcp](https://github.com/modelcontextprotocol/python-sdk) | MCP protocol SDK — FastMCP server, stdio transport, tool/resource/prompt registration |
-| [pydantic](https://github.com/pydantic/pydantic) | Data validation and JSON serialization |
-| [anyio](https://github.com/agronholm/anyio) | Async I/O backend (asyncio) |
-
-## Runtime Integrations
-
-| Integration | Role |
-|---|---|
-| [Context7](https://context7.com) | Live library/framework documentation lookup. Integrated via `guidance(operation="docs")`. |
-| [HeadRoom](https://github.com/headroom) | Token compression MCP — shrinks tool outputs before they enter the LLM context. |
-| [oh-my-openagent](https://github.com/oh-my-openagent) | OpenCode plugin — production-grade engineering skills and agent configurations. |
-
----
-
-*For maintenance and sync procedures, see the [MCP Integrations Guide](../agent-guidance/mcp-integrations/README.md).*
