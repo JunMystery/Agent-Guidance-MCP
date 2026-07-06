@@ -46,16 +46,25 @@ def update_rtk():
             src_dir = extracted_dirs[0]
             print(f"Deploying from {src_dir.name}...")
 
-            # Only keep what's needed to build the Rust binary
-            essentials = {
-                "Cargo.toml",
-                "Cargo.lock",
-                "build.rs",
-                "src",
-                "tests",
-                "LICENSE",
-                "README.md",
-            }
+        # Only keep what's needed to build the Rust binary (no git/CI artifacts)
+        essentials = {
+            "Cargo.toml",
+            "Cargo.lock",
+            "build.rs",
+            "src",
+            "tests",
+            "LICENSE",
+            "README.md",
+        }
+        # Strip git artifacts from source before deploying
+        git_patterns = (".git", ".github", ".gitignore", ".gitattributes",
+                        ".release-please-manifest.json", "release-please-config.json")
+        for pattern in git_patterns:
+            for p in src_dir.rglob(pattern):
+                if p.is_dir():
+                    shutil.rmtree(p, ignore_errors=True)
+                elif p.is_file():
+                    p.unlink(missing_ok=True)
 
             # Full replace: clear old, deploy fresh essentials
             if target_dir.exists():

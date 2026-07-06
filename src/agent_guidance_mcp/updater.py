@@ -25,7 +25,10 @@ SYSTEM_DESIGN_ZIP_URL = "https://github.com/donnemartin/system-design-primer/arc
 
 _STATE_FILE = Path.home() / ".agent-guidance" / ".update-state.json"
 
-_GIT_ARTIFACTS = (".git", ".github", ".gitignore", ".gitattributes")
+_GIT_ARTIFACTS = (
+    ".git", ".github", ".gitignore", ".gitattributes",
+    ".release-please-manifest.json", "release-please-config.json",
+)
 
 
 def _strip_git_artifacts(directory: Path) -> None:
