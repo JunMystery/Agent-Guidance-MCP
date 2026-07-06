@@ -4,6 +4,7 @@ import os
 import sys
 import json
 import shutil
+import tempfile
 from pathlib import Path
 
 SERVER_ID = "agent-guidance-mcp"
@@ -261,10 +262,22 @@ def configure_workspace_rules():
             if path.exists():
                 content = path.read_text(encoding="utf-8")
             if "Agent Guidance MCP — Tool Selection Priority" not in content:
-                with path.open("a", encoding="utf-8") as f:
-                    if content and not content.endswith("\n"):
-                        f.write("\n")
-                    f.write(AGENT_RULES_BLOCK)
+                new_content = content
+                if new_content and not new_content.endswith("\n"):
+                    new_content += "\n"
+                new_content += AGENT_RULES_BLOCK
+                # Atomic write via tempfile + rename to prevent corruption on crash
+                tmp = tempfile.NamedTemporaryFile(
+                    mode="w", encoding="utf-8", suffix=".tmp",
+                    dir=str(path.parent), delete=False,
+                )
+                try:
+                    tmp.write(new_content)
+                    tmp.flush()
+                    os.fsync(tmp.fileno())
+                finally:
+                    tmp.close()
+                os.replace(tmp.name, str(path))
                 print(f"    Success: Appended agent rules to local {name}")
             else:
                 print(f"    Note: Agent rules already present in local {name}")
