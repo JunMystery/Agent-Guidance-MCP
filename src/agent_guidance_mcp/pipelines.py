@@ -335,10 +335,14 @@ def task_pipeline(
 
     concurrent_results = parallel_run(concurrent_tasks)
 
+    recommendations = concurrent_results.get("recommendations", {})
+    if not isinstance(recommendations, dict):
+        recommendations = {"error": str(recommendations), "recommendations": []}
+
     result: dict[str, object] = {
         "task": task,
         "focus": focus,
-        "recommendations": concurrent_results["recommendations"],
+        "recommendations": recommendations,
     }
     if "project_tree" in concurrent_results:
         result["project_tree"] = concurrent_results["project_tree"]
@@ -358,7 +362,10 @@ def task_pipeline(
         }
 
     # Execution Chaining: Sort recommended skills in lifecycle order
-    recs = concurrent_results["recommendations"].get("recommendations", [])
+    if isinstance(recommendations, dict):
+        recs = recommendations.get("recommendations", [])
+    else:
+        recs = []
     skills_to_chain = [r["identifier"] for r in recs if r.get("kind") == "skill"]
     
     sorted_skills = sorted(skills_to_chain, key=lifecycle_sort_key)

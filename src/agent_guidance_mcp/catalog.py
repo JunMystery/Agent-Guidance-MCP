@@ -3,7 +3,7 @@
 
 import json
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
@@ -41,7 +41,6 @@ class CatalogEntry:
     triggers: tuple[str, ...] = ()
     anchors: tuple[str, ...] = ()
     dependencies: tuple[str, ...] = ()
-    _content: str | None = field(default=None, compare=False, repr=False)
 
     @property
     def uri(self) -> str:
@@ -70,6 +69,7 @@ class StandardsCatalog:
         self.entries = sorted(entries, key=lambda entry: (entry.kind, entry.path))
         self._by_identifier = {entry.identifier: entry for entry in self.entries}
         self._by_path = {entry.path.replace("\\", "/").lower(): entry for entry in self.entries}
+        self._content_cache: dict[str, str] = {}
 
         # Initialize and populate task anchors dynamically
         self.task_anchors: dict[str, list[str]] = {k: list(v) for k, v in TASK_ANCHORS.items()}
@@ -119,6 +119,22 @@ class StandardsCatalog:
 
         raise KeyError(f"No standards entry found for {identifier!r}.")
 
+    def _load_content(self, entry: CatalogEntry) -> str:
+        """Lazy-load file content with caching."""
+        if entry.path not in self._content_cache:
+            self._content_cache[entry.path] = self._read_content(entry.path)
+        return self._content_cache[entry.path]
+
+    def _read_content(self, relative_path: str) -> str:
+        path = self.root / relative_path
+        if not path.is_file():
+            alt = Path.home() / ".agent-guidance" / relative_path
+            if alt.is_file():
+                path = alt
+        if not path.is_file():
+            return ""
+        return path.read_text(encoding="utf-8")
+
     def read_entry(
         self,
         identifier: str,
@@ -126,10 +142,7 @@ class StandardsCatalog:
         config: TokenOptimizationConfig | None = None,
     ) -> str:
         entry = self.get_entry(identifier)
-        if not optimize and entry._content is not None:
-            content = entry._content
-        else:
-            content = self.read_path(entry.path)
+        content = self._load_content(entry)
         config = config or load_config_from_env()
         if optimize and config.enabled:
             from .response_optimizer import TokenBudget, optimize_markdown
@@ -143,9 +156,7 @@ class StandardsCatalog:
         return content
 
     def read_path(self, relative_path: str) -> str:
-        path = resolve_inside_root(self.root, relative_path)
-        content = path.read_text(encoding="utf-8")
-        return content
+        return self._read_content(relative_path)
 
     def manifest(self) -> dict[str, object]:
         kinds: dict[str, int] = {}
@@ -179,24 +190,32 @@ class StandardsCatalog:
             if kind and entry.kind.lower() != kind.lower():
                 continue
 
-            content = entry._content
-            if content is None:
-                continue
             title_lower = entry.title.lower()
             desc_lower = entry.description.lower()
             path_lower = entry.path.lower()
-            content_lower = content.lower()
 
-            # Location-weighted scoring (Title: 10x, Description: 5x, Path: 3x, Content: 1x)
+            # Fast scoring from metadata (no file I/O yet)
             score = 0
             for i, term in enumerate(terms):
                 score += title_lower.count(term) * 10
                 score += desc_lower.count(term) * 5
                 score += path_lower.count(term) * 3
-                score += len(compiled_terms[i].findall(content_lower)) * 1
 
-            if score:
-                results.append((score, entry, make_snippet(content, terms)))
+            if not score:
+                # Fallback: try full content for deep matches
+                content = self._load_content(entry)
+                content_lower = content.lower()
+                for i, term in enumerate(terms):
+                    score += len(compiled_terms[i].findall(content_lower)) * 1
+                if not score:
+                    continue
+            else:
+                content = self._load_content(entry)
+                content_lower = content.lower()
+                for i, term in enumerate(terms):
+                    score += len(compiled_terms[i].findall(content_lower)) * 1
+
+            results.append((score, entry, make_snippet(content, terms)))
 
         results.sort(key=lambda result: (-result[0], result[1].path))
         return [
@@ -347,5 +366,4 @@ def make_entry(root: Path, relative_path: str) -> CatalogEntry | None:
         triggers,
         anchors,
         dependencies,
-        content,
     )
