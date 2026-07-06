@@ -26,9 +26,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--mode",
-        choices=["auto", "manual"],
+        choices=["auto", "manual", "ide"],
         default="auto",
-        help="Setup mode: auto (all clients) or manual (interactive menu). Default: auto.",
+        help="Setup mode: auto (all clients), manual (choose component groups), or ide (select individual IDEs). Default: auto.",
     )
     parser.add_argument(
         "--clients",

@@ -120,7 +120,7 @@ if (-not (Test-Path $toolBin)) {
 Write-Host ""
 Write-Host "⚙️  Step 3/3 — Configuring IDE clients..." -ForegroundColor White
 $modeFlag = ""
-if ($action -eq "2") { $modeFlag = "--mode=manual" }
+if ($action -eq "2") { $modeFlag = "--mode=ide" }
 
 Write-Host ""
 Write-Host "  ▶ Registering with detected IDEs..." -ForegroundColor Magenta

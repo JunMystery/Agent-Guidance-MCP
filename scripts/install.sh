@@ -120,7 +120,7 @@ echo -e ""
 echo -e "${BOLD}⚙️  Step 3/3 — Configuring IDE clients...${NC}"
 MODE_FLAG=""
 if [ "$ACTION" = "2" ]; then
-    MODE_FLAG="--mode=manual"
+    MODE_FLAG="--mode=ide"
 fi
 
 echo -e ""

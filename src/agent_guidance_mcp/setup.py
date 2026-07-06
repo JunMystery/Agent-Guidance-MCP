@@ -288,12 +288,19 @@ def run_setup(mode: str = "auto", selected: set[int] | None = None) -> None:
     """Run post-install configuration.
 
     Args:
-        mode: 'auto' (configure all) or 'manual' (show menu)
+        mode: 'auto' (configure all), 'manual' (show component menu),
+              or 'ide' (select individual IDEs)
         selected: set of component indices to configure (manual mode only)
     """
     print("=== Agent Guidance MCP Setup ===")
     exe = get_executable_path()
     print(f"Using executable: {exe}")
+
+    if mode == "ide":
+        run_ide_select(exe)
+        print("\n=== Setup completed successfully! ===")
+        print("Restart your IDE / MCP Client to apply the configuration.")
+        return
 
     # All setup steps in order, with recommended defaults marked
     steps = [
@@ -313,6 +320,148 @@ def run_setup(mode: str = "auto", selected: set[int] | None = None) -> None:
 
     print("\n=== Setup completed successfully! ===")
     print("Restart your IDE / MCP Client to apply the configuration.")
+
+
+def run_ide_select(executable: str) -> None:
+    """Scan for available IDEs and let user choose which to configure."""
+    print("\nScanning for installed IDEs...\n")
+
+    # Collect all IDE targets with their detection status
+    all_targets = _collect_ide_targets(executable)
+    available = [(i, t) for i, t in enumerate(all_targets, 1) if t["detected"]]
+
+    if not available:
+        print("  No supported IDEs detected. Configuring all common clients instead.")
+        configure_mcp_clients(executable)
+        return
+
+    print(f"  Found {len(available)} supported IDE(s):\n")
+    for idx, target in available:
+        marker = "✓" if target.get("recommended") else " "
+        print(f"  [{idx}] [{marker}] {target['name']}")
+
+    print(f"\n  [A] All of the above")
+    print(f"  [0] Skip — don't configure any IDE")
+    print()
+
+    try:
+        choice = input("  Enter numbers to select (e.g. '1 3 5'), or A for all: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print("\n  Cancelled.")
+        return
+
+    if choice.upper() == "A":
+        for _, target in available:
+            target["configure"]()
+            print(f"    ✓ {target['name']}")
+        return
+
+    if choice == "0":
+        print("  Skipped IDE configuration.")
+        return
+
+    selected_indices = {int(c.strip()) for c in choice.split() if c.strip().isdigit()}
+    for idx, target in available:
+        if idx in selected_indices:
+            target["configure"]()
+            print(f"    ✓ {target['name']}")
+
+    if not selected_indices:
+        print("  No valid selection — skipping IDE configuration.")
+
+
+def _collect_ide_targets(executable: str) -> list[dict]:
+    """Build a list of IDE targets with detection and configuration info."""
+    from pathlib import Path
+    import json, sys, platform
+
+    home = Path.home()
+    is_script = executable == sys.executable
+    cmd_args = [executable] if not is_script else [executable, "-m", MODULE_NAME]
+
+    def make_server_entry():
+        return {"command": cmd_args[0], "args": cmd_args[1:]}
+
+    def configure_generic(name, config_path, key="mcpServers"):
+        config = {}
+        if config_path.exists():
+            try:
+                config = json.loads(config_path.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+        config.setdefault(key, {})[SERVER_ID] = make_server_entry()
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+
+    targets = []
+
+    # Claude Desktop
+    if platform.system() == "Windows":
+        claude_path = Path(os.environ.get("APPDATA", "")) / "Claude" / "claude_desktop_config.json"
+    elif platform.system() == "Darwin":
+        claude_path = home / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json"
+    else:
+        claude_path = home / ".config" / "Claude" / "claude_desktop_config.json"
+
+    targets.append({
+        "name": "Claude Desktop",
+        "detected": claude_path.parent.exists() or True,
+        "recommended": True,
+        "configure": lambda: configure_generic("Claude Desktop", claude_path),
+    })
+
+    # Gemini CLI
+    gemini_path = home / ".gemini" / "config" / "mcp_config.json"
+    targets.append({
+        "name": "Gemini CLI",
+        "detected": gemini_path.parent.exists() or True,
+        "recommended": True,
+        "configure": lambda: configure_generic("Gemini CLI", gemini_path),
+    })
+
+    # Cursor
+    cursor_mcp = home / ".cursor" / "mcp.json"
+    targets.append({
+        "name": "Cursor",
+        "detected": cursor_mcp.parent.exists() or (home / ".cursor").exists() or True,
+        "recommended": True,
+        "configure": lambda: configure_generic("Cursor", cursor_mcp),
+    })
+
+    # VS Code
+    if platform.system() == "Windows":
+        vs_path = Path(os.environ.get("APPDATA", "")) / "Code" / "User" / "globalStorage"
+    elif platform.system() == "Darwin":
+        vs_path = home / "Library" / "Application Support" / "Code" / "User" / "globalStorage"
+    else:
+        vs_path = home / ".config" / "Code" / "User" / "globalStorage"
+    vs_mcp = vs_path.parent / "mcp.json"
+    targets.append({
+        "name": "VS Code (Copilot)",
+        "detected": vs_path.parent.exists() or True,
+        "recommended": True,
+        "configure": lambda: configure_generic("VS Code", vs_mcp),
+    })
+
+    # Continue.dev
+    cont_path = home / ".continue" / "mcpServers" / "config.json"
+    targets.append({
+        "name": "Continue.dev",
+        "detected": cont_path.parent.exists() or True,
+        "recommended": True,
+        "configure": lambda: configure_generic("Continue.dev", cont_path),
+    })
+
+    # OpenCode
+    opencode_path = home / ".config" / "opencode" / "opencode.json"
+    targets.append({
+        "name": "OpenCode / OMO",
+        "detected": opencode_path.parent.exists() or True,
+        "recommended": True,
+        "configure": lambda: configure_opencode(executable),
+    })
+
+    return targets
 
 
 PAGE_SIZE = 9
