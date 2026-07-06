@@ -15,9 +15,11 @@ For EVERY coding action, repository lookup, refactoring, or planning:
 | Read a file | `project_context(operation="read", relative_path="...")` | Token-capped at 300 lines — prevents context blowout |
 | Search codebase text | `project_context(operation="search", query="...")` | Ranked, bounded results |
 | Extract symbols | `project_context(operation="symbols", relative_path="...")` | Classes, functions, methods with signatures |
-| Find references | `project_context(operation="references", query="...")` | Locate all usages of a symbol |
+| Find references / callers | `project_context(operation="references", query="...")` | Locate all usages of a symbol before refactoring |
+| Diagnose build/test error | `project_context(operation="diff")` | Inspects recent changes that could have caused the error |
 | Get UI/design guidance | `ui_ux(operation="search", query="...")` | Style, colors, typography, charts |
 | Get live library docs | `guidance(operation="docs", query="...", identifier="lib")` | Query API docs via Context7 |
+| Complete a task session | `session_continuity(operation="clear")` | Clears checklist so future tasks start clean |
 
 ### Six Mandatory Rules
 
@@ -65,10 +67,12 @@ it passes through unchanged — so it is always safe to use.
 | Search codebase text | `project_context(operation="search", query="...")` | Ranked, bounded results. Fallback when codegraph unavailable |
 | Understand code structure | `project_context(operation="structure", relative_path="...")` | Hierarchical view of classes, methods, functions in a file |
 | Extract symbols | `project_context(operation="symbols", relative_path="...")` | Flat list of classes, functions, methods with signatures |
-| Find symbol references | `project_context(operation="references", query="...")` | Locate all usages of a symbol across the codebase |
+| Find references / callers | `project_context(operation="references", query="...")` | Locate all usages of a symbol before refactoring |
+| Diagnose build/test error | `project_context(operation="diff")` | Inspects recent changes that could have caused the error |
 | Get UI/design guidance | `ui_ux(operation="search", query="...")` | Style, colors, typography, charts, slides |
 | Persist/recover session | `session_continuity(operation="save"/"load"/"clear")` | State recovery / task checklist continuity |
 | Browse project tree | `project_context(operation="tree")` | Optimized directory tree view |
+| Complete a task session | `session_continuity(operation="clear")` | Clears checklist so future tasks start clean |
 
 ### Six Mandatory Rules
 
