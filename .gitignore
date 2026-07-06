@@ -39,10 +39,9 @@ venv/
 .copilotrules
 .cursorrules
 
-# OpenCode local config
-.opencode/package.json
-.opencode/package-lock.json
-.opencode/node_modules/
+# OpenCode — local config, not project code
+.opencode/
+opencode.json
 
 # 3rd-party repos — downloaded by updater during install, not tracked in git
 rtk/
