@@ -95,6 +95,11 @@ fi
 echo -e ""
 echo -e "${BOLD}Step 2/3 — Installing agent-guidance-mcp...${NC}"
 
+# Kill any running instances to release file locks on macOS/Linux
+echo -e "  ${YELLOW}🔄${NC} Closing any running instances of agent-guidance-mcp to release file locks..."
+killall agent-guidance-mcp &>/dev/null || true
+pkill -f agent-guidance-mcp &>/dev/null || true
+
 if [ -f "pyproject.toml" ]; then
     echo -e "  ${CYAN}📂${NC} Found local project — installing from source..."
     if ! "$UV_BIN" tool install . --force -q; then

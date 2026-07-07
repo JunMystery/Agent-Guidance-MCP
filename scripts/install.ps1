@@ -94,6 +94,9 @@ if (Get-Command "uv" -ErrorAction SilentlyContinue) {
 Write-Host ""
 Write-Host "Step 2/3 — Installing agent-guidance-mcp..." -ForegroundColor White
 
+Write-Host "  🔄 Closing any running instances of agent-guidance-mcp to release file locks..." -ForegroundColor Yellow
+Stop-Process -Name agent-guidance-mcp -Force -ErrorAction SilentlyContinue
+
 if (Test-Path "pyproject.toml") {
     Write-Host "  📂 Found local project — installing from source..." -ForegroundColor Cyan
     try {
@@ -108,7 +111,7 @@ if (Test-Path "pyproject.toml") {
 }
 Write-Host "  ✓ MCP server installed" -ForegroundColor Green
 
-# ── Resolve tool binary path ──────────────────────────────────────────────────
+
 $toolBin = "$HOME\.local\bin\agent-guidance-mcp.exe"
 if (-not (Test-Path $toolBin)) {
     if (Get-Command "agent-guidance-mcp" -ErrorAction SilentlyContinue) {

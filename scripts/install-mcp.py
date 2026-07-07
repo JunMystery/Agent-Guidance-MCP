@@ -177,6 +177,18 @@ def do_uninstall():
     print()
 
 
+def kill_running_instances():
+    """Kill any running agent-guidance-mcp processes to release file locks on Windows/Linux/Mac."""
+    print(c("   Checking for running instances to release file locks...", "yellow"))
+    if os.name == "nt":
+        # Windows
+        subprocess.run(["taskkill", "/f", "/im", "agent-guidance-mcp.exe"], capture_output=True)
+    else:
+        # Unix
+        subprocess.run(["killall", "agent-guidance-mcp"], capture_output=True)
+        subprocess.run(["pkill", "-f", "agent-guidance-mcp"], capture_output=True)
+
+
 # -- Install ------------------------------------------------------------------
 
 def do_install(action="1"):
@@ -199,6 +211,8 @@ def do_install(action="1"):
     # Step 2: Install the MCP server
     print()
     step(2, 3, "Installing agent-guidance-mcp...")
+
+    kill_running_instances()
 
     has_pyproject = Path("pyproject.toml").exists() or (Path(__file__).resolve().parents[1] / "pyproject.toml").exists()
     repo_root = Path(__file__).resolve().parents[1] if has_pyproject else None
