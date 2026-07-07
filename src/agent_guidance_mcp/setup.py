@@ -16,7 +16,7 @@ AGENT_RULES_BLOCK = (
     "| You need to... | Use THIS tool first | Why |\n"
     "|---|---|---|\n"
     "| Start any coding task | `task_pipeline(task=\"...\")` | Recommendations + tree + code search + UI in ONE call |\n"
-    "| Check coding standards | `guidance(operation=\"search\", query=\"...\")` | No other tool provides standards or skill lookup |\n"
+    "| Check coding standards / skills | `guidance(operation=\"search\", query=\"...\")` | No other tool provides standards or skill lookup |\n"
     "| Read a file | `project_context(operation=\"read\", relative_path=\"...\")` | Token-capped at 300 lines — prevents context blowout |\n"
     "| Search codebase text | `project_context(operation=\"search\", query=\"...\")` | Ranked, bounded results. Fallback when codegraph unavailable |\n"
     "| Understand code structure | `project_context(operation=\"structure\", relative_path=\"...\")` | Hierarchical view of classes, methods, functions in a file |\n"
@@ -27,12 +27,12 @@ AGENT_RULES_BLOCK = (
     "| Browse project tree | `project_context(operation=\"tree\")` | Optimized directory tree view |\n\n"
     "### Six Mandatory Rules\n\n"
     "1. **Context First**: Call `task_pipeline` or `project_context` BEFORE any file read or code change.\n"
-    "2. **Standards Check**: Use `guidance(operation=\"search\")` BEFORE implementing.\n"
+    "2. **Standards Check**: Use `guidance(operation=\"search\")` BEFORE implementing or answering any prompt.\n"
     "3. **Token Budget**: Prefer MCP tools over raw file reads — built-in limits prevent context blowout.\n"
     "4. **No Direct FS**: Never manually read/search files when MCP tools do it with optimization.\n"
     "5. **Ground & Plan**: Verify files/functions/symbols via search BEFORE proposing changes. Never guess.\n"
     "6. **300 LOC Cap**: Split files exceeding 300 lines of code. No monolithic files.\n\n"
-    "**CRITICAL: All 6 rules apply to EVERY coding action without exception.**\n"
+    "**CRITICAL: All 6 rules apply to EVERY coding action, direct query, text translation, or general query without exception.**\n"
 )
 
 def get_executable_path() -> str:
