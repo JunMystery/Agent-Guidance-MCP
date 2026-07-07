@@ -41,14 +41,15 @@ class TokenBudget:
     CAP_INVENTORY = 50
 
 
-def estimate_tokens(text: str) -> int:
-    """Estimate token count using chars/4 heuristic.
+def estimate_tokens(text: str, is_code: bool = False) -> int:
+    """Estimate token count using chars/4 heuristic for prose or chars/2.8 for code.
 
     This is a rough approximation. For English prose, ~4 chars/token is reasonable,
-    but for code with many operators and punctuation the ratio is closer to 2-3 chars/token.
+    but for code with many operators and punctuation the ratio is closer to 2.8 chars/token.
     Consider this a lower-bound estimate for planning purposes.
     """
-    return math.ceil(len(text) / 4)
+    ratio = 2.8 if is_code else 4.0
+    return math.ceil(len(text) / ratio)
 
 
 def format_tokens(n: int) -> str:
@@ -144,7 +145,8 @@ def optimize_source_content(
     lines (imports, signatures, constants) instead of a blind character cut.
     """
     lang = _hint_to_language(language_hint)
-    original_tokens = estimate_tokens(content)
+    is_code = lang != Language.DATA
+    original_tokens = estimate_tokens(content, is_code=is_code)
     if config and not config.enabled:
         return content, {
             "original_tokens": original_tokens,
@@ -156,11 +158,11 @@ def optimize_source_content(
         level = _filter_level_from_config(config.source_filter_level)
     optimized = filter_content(content, lang, level)
 
-    if max_tokens is not None and estimate_tokens(optimized) > max_tokens:
+    if max_tokens is not None and estimate_tokens(optimized, is_code=is_code) > max_tokens:
         max_lines = max(1, max_tokens // 2)
         optimized = smart_truncate(optimized, max_lines, lang)
 
-    optimized_tokens = estimate_tokens(optimized)
+    optimized_tokens = estimate_tokens(optimized, is_code=is_code)
     savings_pct = round((1 - optimized_tokens / max(1, original_tokens)) * 100)
 
     return optimized, {
@@ -238,12 +240,14 @@ def optimize_snapshot_content(
             config=config, max_tokens=per_file_budget,
         )
 
-        final_tokens = estimate_tokens(optimized)
+        lang = _hint_to_language(language_hint)
+        is_code = lang != Language.DATA
+        final_tokens = estimate_tokens(optimized, is_code=is_code)
         if optimized_files and total_tokens + final_tokens > max_total_tokens:
             _append_omission_note(optimized_files, len(files) - index)
             break
 
-        stats = _stats_for_final_content(content, optimized)
+        stats = _stats_for_final_content(content, optimized, is_code=is_code)
         optimized_files.append(
             {
                 **file_entry,
@@ -278,6 +282,7 @@ def _hint_to_language(language_hint: str) -> Language:
         "xml": Language.DATA,
         "yaml": Language.DATA,
         "yml": Language.DATA,
+        "diff": Language.DATA,
     }
     if normalized in hint_map:
         return hint_map[normalized]
@@ -314,9 +319,9 @@ def _truncation_notice(original_tokens: int, max_tokens: int) -> str:
     return f"[...truncated - {over_budget} tokens over budget]"
 
 
-def _stats_for_final_content(original: str, optimized: str) -> dict[str, int]:
-    original_tokens = estimate_tokens(original)
-    optimized_tokens = estimate_tokens(optimized)
+def _stats_for_final_content(original: str, optimized: str, is_code: bool = False) -> dict[str, int]:
+    original_tokens = estimate_tokens(original, is_code=is_code)
+    optimized_tokens = estimate_tokens(optimized, is_code=is_code)
     savings_pct = round((1 - optimized_tokens / max(1, original_tokens)) * 100)
     return {
         "original_tokens": original_tokens,

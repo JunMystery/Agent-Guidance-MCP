@@ -69,6 +69,7 @@ _EXTENSION_MAP = {
     "lock": Language.DATA,
     "sql": Language.DATA,
     "env": Language.DATA,
+    "diff": Language.DATA,
 }
 
 _COMMENT_PATTERNS = {
@@ -281,6 +282,12 @@ def _aggressive_python_filter(content: str) -> str:
     return "\n".join(result).strip()
 
 
+def _strip_string_literals(text: str) -> str:
+    """Replace content inside single, double, and backtick string literals to avoid skewing brace counting."""
+    pattern = r'"(?:[^"\\]|\\.)*"|\'(?:[^\'\\]|\\.)*\'|`(?:[^`\\]|\\.)*`'
+    return re.sub(pattern, '""', text)
+
+
 def _aggressive_brace_filter(content: str) -> str:
     result: list[str] = []
     in_impl_body = False
@@ -303,8 +310,9 @@ def _aggressive_brace_filter(content: str) -> str:
             continue
         if _FUNC_SIGNATURE.match(trimmed):
             result.append(line)
-            in_impl_body = "{" in trimmed or trimmed.endswith(";") is False
-            brace_depth = max(0, trimmed.count("{") - trimmed.count("}"))
+            cleaned_trimmed = _strip_string_literals(trimmed)
+            in_impl_body = "{" in cleaned_trimmed or cleaned_trimmed.endswith(";") is False
+            brace_depth = max(0, cleaned_trimmed.count("{") - cleaned_trimmed.count("}"))
             placeholder_added = False
             continue
         if _is_constant_line(trimmed):
@@ -312,7 +320,8 @@ def _aggressive_brace_filter(content: str) -> str:
             continue
 
         if in_impl_body:
-            brace_depth += trimmed.count("{") - trimmed.count("}")
+            cleaned_trimmed = _strip_string_literals(trimmed)
+            brace_depth += cleaned_trimmed.count("{") - cleaned_trimmed.count("}")
             brace_depth = max(0, brace_depth)
             if trimmed in {"{", "}"}:
                 result.append(line)
@@ -323,6 +332,7 @@ def _aggressive_brace_filter(content: str) -> str:
                 in_impl_body = False
 
     return "\n".join(result).strip()
+
 
 
 def _is_structural_line(trimmed: str, lang: Language) -> bool:

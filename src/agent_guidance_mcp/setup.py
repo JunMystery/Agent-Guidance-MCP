@@ -227,26 +227,42 @@ def configure_codex(executable: str):
             print(f"    Error: Failed to configure {name}: {e}")
 
 def configure_global_rules():
-    print("\nConfiguring Global rules (~/.gemini/config/AGENTS.md)...")
-    global_config_dir = Path.home() / ".gemini" / "config"
-    agents_md = global_config_dir / "AGENTS.md"
-    try:
-        global_config_dir.mkdir(parents=True, exist_ok=True)
-        content = ""
-        if agents_md.exists():
-            content = agents_md.read_text(encoding="utf-8")
+    print("\nConfiguring Global rules (~/.gemini/config/AGENTS.md, ~/.config/opencode/AGENTS.md, and ~/.claude/CLAUDE.md)...")
+    targets = [
+        ("Gemini/Antigravity", Path.home() / ".gemini" / "config" / "AGENTS.md"),
+        ("OpenCode", Path.home() / ".config" / "opencode" / "AGENTS.md"),
+        ("Claude Code Compatibility", Path.home() / ".claude" / "CLAUDE.md"),
+    ]
+    for name, path in targets:
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            content = ""
+            if path.exists():
+                content = path.read_text(encoding="utf-8")
 
-        if "Agent Guidance MCP — Tool Selection Priority" not in content:
-            new_content = content + AGENT_RULES_BLOCK
-            agents_md.write_text(new_content, encoding="utf-8")
-            print("    Success: Appended agent rules to global AGENTS.md.")
-        else:
-            print("    Note: Agent rules already configured in global AGENTS.md.")
-    except Exception as e:
-        print(f"    Error: Failed to configure global rules: {e}")
+            if "Agent Guidance MCP — Tool Selection Priority" not in content:
+                new_content = content
+                if new_content and not new_content.endswith("\n"):
+                    new_content += "\n"
+                new_content += AGENT_RULES_BLOCK
+                path.write_text(new_content, encoding="utf-8")
+                print(f"    Success: Appended agent rules to global {name} rules: {path.name}")
+            else:
+                print(f"    Note: Agent rules already configured in global {name} rules.")
+        except Exception as e:
+            print(f"    Error: Failed to configure global {name} rules: {e}")
 
 def configure_workspace_rules():
-    if not (Path.cwd() / "pyproject.toml").exists():
+    # Detect if we are inside a project workspace (Git repo, Python, Node, Go, Rust, etc.)
+    has_marker = (
+        (Path.cwd() / ".git").exists()
+        or (Path.cwd() / "pyproject.toml").exists()
+        or (Path.cwd() / "package.json").exists()
+        or (Path.cwd() / "go.mod").exists()
+        or (Path.cwd() / "Cargo.toml").exists()
+        or (Path.cwd() / "opencode.json").exists()
+    )
+    if not has_marker:
         return
     targets = [
         (".cursorrules", Path.cwd() / ".cursorrules"),

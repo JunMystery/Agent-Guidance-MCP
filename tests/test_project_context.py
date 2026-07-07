@@ -8,6 +8,7 @@ from agent_guidance_mcp.project_context import (
     get_project_tree,
     read_project_file,
     search_project_code,
+    get_project_diff,
 )
 
 
@@ -115,5 +116,31 @@ def test_export_project_snapshot_writes_bounded_json(tmp_path):
     assert files["src/app.py"]["truncated"] is True
     assert "content" in files["src/app.py"]
     assert ".agent-context/code-snapshot.json" not in tree_paths
+
+
+def test_project_diff_returns_diff_without_brace_filtering(tmp_path):
+    project = make_sample_project(tmp_path)
+    import subprocess
+    subprocess.run(["git", "init"], cwd=str(project), capture_output=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=str(project), capture_output=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=str(project), capture_output=True)
+    subprocess.run(["git", "add", "."], cwd=str(project), capture_output=True)
+    subprocess.run(["git", "commit", "-m", "initial commit"], cwd=str(project), capture_output=True)
+
+    app_py = project / "src" / "app.py"
+    app_py.write_text(
+        "def hello() {\n"
+        "    // This is modified\n"
+        "    const x = 42;\n"
+        "}\n",
+        encoding="utf-8"
+    )
+
+    res = get_project_diff(project_path=str(project))
+    assert "diff" in res
+    diff_val = res["diff"]
+    assert "This is modified" in diff_val
+    assert "const x = 42;" in diff_val
+
 
 

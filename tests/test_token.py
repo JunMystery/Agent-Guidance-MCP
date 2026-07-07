@@ -75,3 +75,34 @@ def test_optimize_response_depth_guard():
     result = optimize_response(nested, config=None)
     assert isinstance(result, dict)
     assert "_truncated" in result or "next" in result
+
+
+def test_estimate_tokens_is_code():
+    text = "hello world code text"
+    assert estimate_tokens(text, is_code=False) == math.ceil(len(text) / 4.0)
+    assert estimate_tokens(text, is_code=True) == math.ceil(len(text) / 2.8)
+
+
+from agent_guidance_mcp.content_compressor import (
+    _strip_string_literals,
+    _aggressive_brace_filter,
+)
+
+def test_strip_string_literals():
+    assert _strip_string_literals('const x = "{ curly }";') == 'const x = "";'
+    assert _strip_string_literals("const y = '{ curly }';") == 'const y = "";'
+    assert _strip_string_literals("const z = `{ curly }`;") == 'const z = "";'
+    assert _strip_string_literals('const a = "\\"escaped\\" { curly }";') == 'const a = "";'
+
+
+def test_aggressive_brace_filter_with_braces_in_strings():
+    code = (
+        "function hello() {\n"
+        "  const x = \"{ curly }\";\n"
+        "  console.log(x);\n"
+        "}\n"
+    )
+    result = _aggressive_brace_filter(code)
+    assert "# ... implementation" in result
+    assert "hello" in result
+
