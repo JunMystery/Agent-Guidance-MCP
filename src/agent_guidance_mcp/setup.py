@@ -35,6 +35,23 @@ AGENT_RULES_BLOCK = (
     "**CRITICAL: All 6 rules apply to EVERY coding action, direct query, text translation, or general query without exception.**\n"
 )
 
+ENFORCER_SKILL_CONTENT = (
+    "---\n"
+    "name: agent-guidance\n"
+    "description: Core system standards check and token-optimized codebase context retrieval. Run this skill before performing any tool execution or codebase changes.\n"
+    "---\n\n"
+    "## When to use me\n"
+    "- Run this skill at the beginning of EVERY task, repository lookup, or codebase refactoring.\n"
+    "- Run this skill to check project conventions and avoid raw file reading/search operations.\n\n"
+    "## How to use me\n"
+    "You must invoke the `agent-guidance-mcp` tools in this priority order:\n"
+    "1. Call `task_pipeline(task=\"...\")` at the start of any coding task to retrieve workspace context, tree, and recommendations.\n"
+    "2. Call `guidance(operation=\"search\", query=\"...\")` before implementing coding standards.\n"
+    "3. Call `project_context(operation=\"read\", relative_path=\"...\")` instead of standard file reads (capped at 300 lines).\n"
+    "4. Call `project_context(operation=\"search\", query=\"...\")` instead of standard file search.\n"
+)
+
+
 def get_executable_path() -> str:
     exe_name = "agent-guidance-mcp.exe" if os.name == "nt" else "agent-guidance-mcp"
     which_path = shutil.which(exe_name)
@@ -300,6 +317,45 @@ def configure_workspace_rules():
         except Exception as e:
             print(f"    Error: Failed to configure {name}: {e}")
 
+def configure_skills_enforcer():
+    print("\nConfiguring Native Agent Skills Enforcer (agent-guidance/SKILL.md)...")
+    global_targets = [
+        ("Claude Code Global", Path.home() / ".claude" / "skills" / "agent-guidance" / "SKILL.md"),
+        ("OpenCode Global", Path.home() / ".config" / "opencode" / "skills" / "agent-guidance" / "SKILL.md"),
+        ("Cline/Roo-Code Global", Path.home() / ".agents" / "skills" / "agent-guidance" / "SKILL.md"),
+    ]
+    for name, path in global_targets:
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(ENFORCER_SKILL_CONTENT, encoding="utf-8")
+            print(f"    Success: Configured {name} skill: {path.name}")
+        except Exception as e:
+            print(f"    Error: Failed to write {name} skill: {e}")
+
+    # Local workspace targets (only if a workspace marker is detected)
+    has_marker = (
+        (Path.cwd() / ".git").exists()
+        or (Path.cwd() / "pyproject.toml").exists()
+        or (Path.cwd() / "package.json").exists()
+        or (Path.cwd() / "go.mod").exists()
+        or (Path.cwd() / "Cargo.toml").exists()
+        or (Path.cwd() / "opencode.json").exists()
+    )
+    if has_marker:
+        local_targets = [
+            ("Claude Code Local", Path.cwd() / ".claude" / "skills" / "agent-guidance" / "SKILL.md"),
+            ("OpenCode Local", Path.cwd() / ".opencode" / "skills" / "agent-guidance" / "SKILL.md"),
+            ("Cline/Roo-Code Local", Path.cwd() / ".agents" / "skills" / "agent-guidance" / "SKILL.md"),
+        ]
+        for name, path in local_targets:
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(ENFORCER_SKILL_CONTENT, encoding="utf-8")
+                print(f"    Success: Configured local {name} skill: {path.name}")
+            except Exception as e:
+                print(f"    Error: Failed to write local {name} skill: {e}")
+
+
 def run_setup(mode: str = "auto", selected: set[int] | None = None) -> None:
     """Run post-install configuration.
 
@@ -325,6 +381,7 @@ def run_setup(mode: str = "auto", selected: set[int] | None = None) -> None:
         (3, "Codex (global + project-local)", lambda: configure_codex(exe), False),
         (4, "Global Agent Rules", configure_global_rules, True),
         (5, "Workspace Rules (.cursorrules, .clinerules, etc.)", configure_workspace_rules, False),
+        (6, "Native Agent Skills (Claude, OpenCode, Cline, Roo-Code)", configure_skills_enforcer, True),
     ]
 
     if mode == "manual":
@@ -632,19 +689,51 @@ def remove_opencode_and_codex():
                 print(f"    Error: Failed to clean Codex config {path}: {e}")
 
 def remove_global_rules():
-    print("\nRemoving global configuration and directories...")
-    global_config_dir = Path.home() / ".gemini" / "config"
-    agents_md = global_config_dir / "AGENTS.md"
-    if agents_md.exists():
-        try:
-            content = agents_md.read_text(encoding="utf-8")
-            if AGENT_RULES_BLOCK in content:
-                content = content.replace(AGENT_RULES_BLOCK, "")
-                agents_md.write_text(content, encoding="utf-8")
-                print("    Success: Removed agent rules block from global AGENTS.md.")
-        except Exception as e:
-            print(f"    Error updating global AGENTS.md: {e}")
-            
+    print("\nRemoving global configuration, directories, and skills...")
+    targets = [
+        ("Gemini/Antigravity", Path.home() / ".gemini" / "config" / "AGENTS.md"),
+        ("OpenCode", Path.home() / ".config" / "opencode" / "AGENTS.md"),
+        ("Claude Code Compatibility", Path.home() / ".claude" / "CLAUDE.md"),
+    ]
+    for name, path in targets:
+        if path.exists():
+            try:
+                content = path.read_text(encoding="utf-8")
+                if AGENT_RULES_BLOCK in content:
+                    content = content.replace(AGENT_RULES_BLOCK, "")
+                    path.write_text(content, encoding="utf-8")
+                    print(f"    Success: Removed agent rules block from global {name} rules.")
+            except Exception as e:
+                print(f"    Error updating global {name} rules: {e}")
+
+    # Remove global enforcer skills
+    global_skills = [
+        Path.home() / ".claude" / "skills" / "agent-guidance",
+        Path.home() / ".config" / "opencode" / "skills" / "agent-guidance",
+        Path.home() / ".agents" / "skills" / "agent-guidance",
+    ]
+    for path in global_skills:
+        if path.exists() and path.is_dir():
+            try:
+                shutil.rmtree(path)
+                print(f"    Success: Removed global enforcer skill folder: {path.name}")
+            except Exception as e:
+                print(f"    Error removing global skill folder {path}: {e}")
+
+    # Remove local enforcer skills
+    local_skills = [
+        Path.cwd() / ".claude" / "skills" / "agent-guidance",
+        Path.cwd() / ".opencode" / "skills" / "agent-guidance",
+        Path.cwd() / ".agents" / "skills" / "agent-guidance",
+    ]
+    for path in local_skills:
+        if path.exists() and path.is_dir():
+            try:
+                shutil.rmtree(path)
+                print(f"    Success: Removed local enforcer skill folder: {path.name}")
+            except Exception as e:
+                print(f"    Error removing local skill folder {path}: {e}")
+
     agent_guidance_dir = Path.home() / ".agent-guidance"
     if agent_guidance_dir.exists() and agent_guidance_dir.is_dir():
         try:
