@@ -23,18 +23,41 @@ def update_anthropic_skills():
     print(f"Target directory: {target_dir}")
 
     try:
+        import re
+        import subprocess
+
         with tempfile.TemporaryDirectory() as tmpdir:
-            zip_path = Path(tmpdir) / "anthropic-skills.zip"
+            # Try Git clone fallback if git is installed
+            cloned = False
+            match = re.match(r"^https://github\.com/([^/]+)/([^/]+)/archive/refs/heads/(.+)\.zip$", REPO_ZIP_URL)
+            if match and shutil.which("git"):
+                owner, repo, branch = match.groups()
+                git_url = f"https://github.com/{owner}/{repo}.git"
+                clone_dir = Path(tmpdir) / f"{repo}-{branch}"
+                print(f"Cloning {owner}/{repo} ({branch}) via Git...")
+                try:
+                    subprocess.run(
+                        ["git", "clone", "--depth", "1", "--branch", branch, git_url, str(clone_dir)],
+                        check=True,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                    cloned = True
+                except Exception as e:
+                    print(f"Git clone failed, falling back to zip download: {e}")
+                    shutil.rmtree(clone_dir, ignore_errors=True)
 
-            print(f"Downloading latest snapshot from: {REPO_ZIP_URL}")
-            headers = {"User-Agent": "agent-guidance-mcp-updater/1.0"}
-            req = urllib.request.Request(REPO_ZIP_URL, headers=headers)
-            with urllib.request.urlopen(req, timeout=45) as response, open(zip_path, "wb") as out_file:
-                shutil.copyfileobj(response, out_file)
+            if not cloned:
+                zip_path = Path(tmpdir) / "anthropic-skills.zip"
+                print(f"Downloading latest snapshot from: {REPO_ZIP_URL}")
+                headers = {"User-Agent": "agent-guidance-mcp-updater/1.0"}
+                req = urllib.request.Request(REPO_ZIP_URL, headers=headers)
+                with urllib.request.urlopen(req, timeout=45) as response, open(zip_path, "wb") as out_file:
+                    shutil.copyfileobj(response, out_file)
 
-            print("Extracting archive...")
-            with zipfile.ZipFile(zip_path, "r") as zip_ref:
-                zip_ref.extractall(tmpdir)
+                print("Extracting archive...")
+                with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                    zip_ref.extractall(tmpdir)
 
             # Locate the extracted folder (typically 'skills-main')
             extracted_dirs = [

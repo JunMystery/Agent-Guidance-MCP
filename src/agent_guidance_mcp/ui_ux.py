@@ -381,12 +381,15 @@ class BM25:
 
         return sorted(scores, key=lambda item: item[1], reverse=True)
 
-
 def search_ui_ux_guidance(
     root: Path, query: str, domain: str | None = None, stack: str | None = None, limit: int = 3
 ) -> dict[str, object]:
     """Search UI/UX Pro Max guidance by domain or stack."""
     data_dir = root / DATA_RELATIVE_PATH
+    if not (data_dir / "styles.csv").is_file():
+        alt_dir = Path.home() / ".agent-guidance" / DATA_RELATIVE_PATH
+        if (alt_dir / "styles.csv").is_file():
+            data_dir = alt_dir
     max_results = _bounded_limit(limit)
 
     if stack:
@@ -424,7 +427,6 @@ def search_ui_ux_guidance(
         "results": results,
     }
 
-
 def generate_ui_ux_design_system(
     root: Path, query: str, project_name: str | None = None, output_format: str = "markdown"
 ) -> str:
@@ -438,12 +440,15 @@ def generate_ui_ux_design_system(
         return _format_design_system_ascii(recommendation)
     return _format_design_system_markdown(recommendation)
 
-
 def search_slide_guidance(
     root: Path, query: str, domain: str | None = None, limit: int = 3
 ) -> dict[str, object]:
     """Search slide strategy, layout, copy, or chart guidance."""
     data_dir = root / DATA_RELATIVE_PATH
+    if not (data_dir / "slides/slide-strategies.csv").is_file():
+        alt_dir = Path.home() / ".agent-guidance" / DATA_RELATIVE_PATH
+        if (alt_dir / "slides/slide-strategies.csv").is_file():
+            data_dir = alt_dir
     domain_key = (domain or _detect_slide_domain(query)).lower()
     if domain_key not in SLIDE_CSV_CONFIG:
         return {

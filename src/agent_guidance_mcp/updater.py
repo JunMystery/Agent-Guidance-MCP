@@ -128,10 +128,33 @@ def check_auto_update(interval: str = "weekly") -> bool:
 
 
 def download_and_extract(url: str, dest_dir: Path) -> Path:
-    headers = {"User-Agent": "agent-guidance-mcp-updater/1.0"}
-    req = urllib.request.Request(url, headers=headers)
+    import re
+    import subprocess
 
     tmp_dir = Path(tempfile.mkdtemp())
+
+    # Try Git clone fallback if git is installed
+    match = re.match(r"^https://github\.com/([^/]+)/([^/]+)/archive/refs/heads/(.+)\.zip$", url)
+    if match and shutil.which("git"):
+        owner, repo, branch = match.groups()
+        git_url = f"https://github.com/{owner}/{repo}.git"
+        clone_dir = tmp_dir / f"{repo}-{branch}"
+        print(f"  Cloning {owner}/{repo} ({branch}) via Git...")
+        try:
+            subprocess.run(
+                ["git", "clone", "--depth", "1", "--branch", branch, git_url, str(clone_dir)],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            _strip_git_artifacts(tmp_dir)
+            return tmp_dir
+        except Exception as e:
+            print(f"  Git clone failed, falling back to zip download: {e}")
+            shutil.rmtree(clone_dir, ignore_errors=True)
+
+    headers = {"User-Agent": "agent-guidance-mcp-updater/1.0"}
+    req = urllib.request.Request(url, headers=headers)
     zip_path = tmp_dir / "archive.zip"
 
     try:
