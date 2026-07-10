@@ -9,8 +9,10 @@ Whenever the user prompts you with any request, action, coding task, repository 
 4. **Enforce Execution**: Never perform direct filesystem lookups or file reads manually if the corresponding context can be loaded and optimized through the MCP server tools.
 5. **Grounding & Planning**: Always find related files, functions, and symbols (using `project_context(operation="search")` or `task_pipeline`) and formulate an implementation plan before proposing changes. Even if the user prompt does not mention specific files/code directly, or references a function name without its location, AI Agents MUST NOT guess anything; they must verify via search first.
 6. **Max 300 LOC Files**: Keep code files focused and split them when they exceed 300 lines of code (LOC). Avoid monolithic files and dumping grounds.
+7. **Clarification**: When unsure about anything, ASK! DO NOT GUESS.
+8. **Planning**: Propose an implementation plan BEFORE making any big or complex changes.
 
-**CRITICAL**: All 6 rules MUST be evaluated and executed for every single prompt, action, query, or planning phase without exception.
+**CRITICAL**: All 8 rules MUST be evaluated and executed for every single prompt, action, query, or planning phase without exception.
 
 ## Agent Guidance MCP — Tool Selection Priority
 
@@ -24,7 +26,7 @@ Whenever the user prompts you with any request, action, coding task, repository 
 | Get UI/design guidance | `ui_ux(operation="search", query="...")` | Style, colors, typography, charts, slides |
 | Browse project tree | `project_context(operation="tree")` | Optimized directory tree view |
 
-### Six Mandatory Rules
+### Eight Mandatory Rules
 
 1. **Context First**: Call `task_pipeline` or `project_context` BEFORE any file read or code change.
 2. **Standards Check**: Use `guidance(operation="search")` BEFORE implementing.
@@ -32,5 +34,7 @@ Whenever the user prompts you with any request, action, coding task, repository 
 4. **No Direct FS**: Never manually read/search files when MCP tools do it with optimization.
 5. **Ground & Plan**: Verify files/functions/symbols via search BEFORE proposing changes. Never guess.
 6. **300 LOC Cap**: Split files exceeding 300 lines of code. No monolithic files.
+7. **Clarification**: When unsure about anything, ASK! DO NOT GUESS.
+8. **Planning**: Propose an implementation plan BEFORE making any big or complex changes.
 
-**CRITICAL: All 6 rules apply to EVERY single prompt, action, or query without exception.**
+**CRITICAL: All 8 rules apply to EVERY single prompt, action, or query without exception.**

@@ -13,3 +13,7 @@ You must invoke the `agent-guidance-mcp` tools in this priority order:
 2. Call `guidance(operation="search", query="...")` before implementing coding standards.
 3. Call `project_context(operation="read", relative_path="...")` instead of standard file reads (capped at 300 lines).
 4. Call `project_context(operation="search", query="...")` instead of standard file search.
+
+## Critical Behavioral Rules
+- When unsure about anything, ASK! DO NOT GUESS.
+- Propose an implementation plan before making any big or complex changes.
