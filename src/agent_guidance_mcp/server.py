@@ -69,6 +69,77 @@ _global_config: TokenOptimizationConfig | None = None
 _global_tracker: TokenTracker | None = None
 _config_lock = threading.Lock()
 
+# ── Priority Gate ───────────────────────────────────────────────────────────
+# Enforces that task_pipeline() is called before any other tool can be used.
+# Resets on server restart (process-level). No persistence needed.
+_priority_gate_passed: bool = False
+_priority_gate_lock = threading.Lock()
+
+PRIORITY_ERROR: dict[str, object] = {
+    "success": False,
+    "error": "PRIORITY_REQUIRED",
+    "message": (
+        "Call task_pipeline(task='<your task>') first. "
+        "It returns project context, code recommendations, and code search in one call. "
+        "After task_pipeline, all other tools become available."
+    ),
+    "resource": "agent-guidance-mcp://system/priority",
+    "resolution": "task_pipeline(task='describe your goal here')",
+}
+"""Error dict returned when a gated tool is called before task_pipeline()."""
+
+GATE_WHITELIST = frozenset({"health_check", "diagnose", "token_stats"})
+"""Tool names that bypass the priority gate (operational/liveness checks only)."""
+
+PRIORITY_RESOURCE_CONTENT = """\
+# Agent Guidance MCP — Priority Instructions
+
+## Rule
+Call `task_pipeline(task="<your task>")` FIRST before any other tool on this server.
+
+## Why
+- `task_pipeline` returns project context, recommendations, code search, and UI guidance in a single call.
+- It prepares the AI with the full context needed for efficient tool usage.
+- After it is called, all other tools become available.
+
+## Gated tools (require task_pipeline first)
+- guidance
+- project_context
+- ui_ux
+- session_continuity
+
+## Always-available tools (no gate)
+- health_check
+- diagnose
+- token_stats
+
+## How to proceed
+1. Call `task_pipeline(task="describe what you want to do")`
+2. Use any other tool as needed
+"""
+
+
+def priority_gate_check() -> dict[str, object] | None:
+    """Return an error dict if the priority gate has not been passed, else None."""
+    with _priority_gate_lock:
+        if not _priority_gate_passed:
+            return dict(PRIORITY_ERROR)
+    return None
+
+
+def priority_gate_pass() -> None:
+    """Mark the priority gate as passed (called by task_pipeline)."""
+    global _priority_gate_passed
+    with _priority_gate_lock:
+        _priority_gate_passed = True
+
+
+def priority_gate_reset() -> None:
+    """Reset the priority gate (for testing)."""
+    global _priority_gate_passed
+    with _priority_gate_lock:
+        _priority_gate_passed = False
+
 
 def get_config() -> TokenOptimizationConfig:
     """Return the process-level token optimization config."""
@@ -216,6 +287,11 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         _record_savings("resource", "skill", raw, optimized)
         return optimized
 
+    @mcp.resource("agent-guidance-mcp://system/priority", mime_type="text/markdown")
+    def priority_instructions() -> str:
+        """Return priority gate instructions — read when PRIORITY_REQUIRED error is returned."""
+        return PRIORITY_RESOURCE_CONTENT
+
     @mcp.tool()
     def task_pipeline(
         task: str,
@@ -230,6 +306,8 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         code search, and optional UI guidance in ONE optimized call. Use BEFORE
         codegraph, file reads, or implementation.
 
+        Calling this tool passes the priority gate, enabling all other tools.
+
         Example: task_pipeline(task="Add JWT auth to Express API", focus="backend")
 
         Args:
@@ -241,6 +319,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             include_ui: Attach UI/UX guidance when task signals UI intent (default True).
             limit: Maximum number of recommendations to return (default 8).
         """
+        priority_gate_pass()
         return pipelines.task_pipeline(
             catalog=catalog,
             task=task,
@@ -291,6 +370,9 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             include_content: Set True for "get" to include full skill body (default False).
             resolve_dependencies: Set True for "get" to recursively load transitive dependencies (default False).
         """
+        gate = priority_gate_check()
+        if gate:
+            return gate
         return pipelines.guidance(
             catalog=catalog,
             operation=operation,
@@ -352,6 +434,9 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             max_total_bytes: Total cap for snapshot (default 2000000).
             limit: Maximum search or reference results (default 20).
         """
+        gate = priority_gate_check()
+        if gate:
+            return gate
         return pipelines.project_context(
             operation=operation,
             project_path=project_path,
@@ -397,6 +482,9 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             output_format: "markdown" or "ascii" (default "markdown").
             limit: Maximum results (default 3).
         """
+        gate = priority_gate_check()
+        if gate:
+            return gate
         return pipelines.ui_ux(
             catalog=catalog,
             operation=operation,
@@ -434,6 +522,9 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             current_step_index: Index of current checklist step (default 0).
             metadata: Optional context variables as a dict.
         """
+        gate = priority_gate_check()
+        if gate:
+            return gate
         from .session import save_session, load_session, clear_session
         from .project_scan import resolve_project_root
 
