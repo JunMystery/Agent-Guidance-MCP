@@ -71,9 +71,48 @@ _config_lock = threading.Lock()
 
 # ── Priority Gate ───────────────────────────────────────────────────────────
 # Enforces that task_pipeline() is called before any other tool can be used.
-# Resets on server restart (process-level). No persistence needed.
+#
+# Two layers:
+#   1. In-memory flag (_priority_gate_passed) — per-process, resets on restart.
+#   2. Sentinel file (~/.agent-guidance/.gate_passed) — bridges the session-start
+#      hook process and the MCP server process. Written by --session-start CLI,
+#      read by create_server() on MCP startup.
 _priority_gate_passed: bool = False
 _priority_gate_lock = threading.Lock()
+
+AGENT_GUIDANCE_DIR = Path.home() / ".agent-guidance"
+GATE_SENTINEL_PATH = AGENT_GUIDANCE_DIR / ".gate_passed"
+"""Sentinel file path for cross-process gate persistence."""
+
+
+def _gate_sentinel_write(project_path: str) -> None:
+    """Write a sentinel file so the MCP server process inherits the passed gate."""
+    import json
+    AGENT_GUIDANCE_DIR.mkdir(parents=True, exist_ok=True)
+    sentinel_data = json.dumps({
+        "project_path": project_path,
+        "version": __version__,
+    })
+    GATE_SENTINEL_PATH.write_text(sentinel_data, encoding="utf-8")
+
+
+def _gate_sentinel_check() -> bool:
+    if not GATE_SENTINEL_PATH.exists():
+        return False
+    try:
+        import json
+        data = json.loads(GATE_SENTINEL_PATH.read_text(encoding="utf-8"))
+        return isinstance(data, dict) and "project_path" in data
+    except (json.JSONDecodeError, OSError):
+        return False
+
+
+def _gate_sentinel_clear() -> None:
+    try:
+        GATE_SENTINEL_PATH.unlink(missing_ok=True)
+    except OSError:
+        pass
+
 
 PRIORITY_ERROR: dict[str, object] = {
     "success": False,
@@ -120,10 +159,18 @@ Call `task_pipeline(task="<your task>")` FIRST before any other tool on this ser
 
 
 def priority_gate_check() -> dict[str, object] | None:
-    """Return an error dict if the priority gate has not been passed, else None."""
+    """Return an error dict if the priority gate has not been passed, else None.
+
+    Falls back to the sentinel file so a prior --session-start call (different
+    process) is recognised as having already passed the gate.
+    """
+    global _priority_gate_passed
     with _priority_gate_lock:
         if not _priority_gate_passed:
-            return dict(PRIORITY_ERROR)
+            if _gate_sentinel_check():
+                _priority_gate_passed = True
+            else:
+                return dict(PRIORITY_ERROR)
     return None
 
 
@@ -239,12 +286,93 @@ def create_server(
     except Exception:
         pass
 
+    # Check for sentinel file from --session-start (cross-process gate persistence)
+    if _gate_sentinel_check():
+        _priority_gate_passed = True
+        _gate_sentinel_clear()
+
     # Belt-and-suspenders: all logging must go to stderr so MCP stdio frames stay intact
     logging.basicConfig(level=logging.WARNING, stream=sys.stderr)
 
     mcp = FastMCP("Agent Guidance MCP", instructions=AGENT_INSTRUCTIONS, json_response=True)
     register_handlers(mcp, catalog)
     return mcp
+
+
+def run_session_start(
+    root: str | Path | None = None,
+    project_path: str = ".",
+    task: str | None = None,
+    focus: str = "general",
+) -> str:
+    """Session-start auto-activation: passes priority gate and returns context.
+
+    Called by the --session-start CLI flag from a session-start shell hook.
+    Writes the sentinel file so the MCP server process inherits the passed gate.
+
+    Returns a JSON string in the session-start hook protocol format:
+    {"priority": "IMPORTANT", "message": "..."}
+    """
+    import json as _json
+
+    try:
+        from .catalog import build_catalog as _build_catalog
+        catalog = _build_catalog(root)
+    except Exception as exc:
+        return _json.dumps({
+            "priority": "INFO",
+            "message": f"agent-guidance-mcp: catalog build failed — {exc}. Skills not available.",
+        })
+
+    config = load_config_from_env()
+    tracker = TokenTracker(enabled=False)
+
+    priority_gate_pass()
+    _gate_sentinel_write(project_path)
+
+    resolved_path = str(Path(project_path).resolve())
+    effective_task = task or "Initialize project context for workspace awareness"
+
+    result = pipelines.task_pipeline(
+        catalog=catalog,
+        task=effective_task,
+        project_path=resolved_path,
+        focus=focus,
+        config=config,
+        tracker=tracker,
+    )
+
+    lines: list[str] = [
+        "## Agent Guidance — Session Context Loaded",
+        "",
+        f"**Project:** `{resolved_path}`",
+        f"**Task:** {effective_task}",
+        "",
+    ]
+
+    recs = result.get("recommendations", {})
+    if isinstance(recs, dict):
+        skill_list = recs.get("recommendations", [])
+        if skill_list:
+            names = [
+                r.get("identifier", "?")
+                for r in skill_list[:5]
+                if isinstance(r, dict)
+            ]
+            lines.append(f"**Recommended Skills:** {', '.join(names)}")
+            lines.append("")
+
+    seq = result.get("execution_sequence")
+    if seq:
+        lines.append(f"**Execution Sequence:** {', '.join(seq)}")
+        lines.append("")
+
+    lines.append("Agent Guidance MCP tools are now available. Start with `task_pipeline` for any coding task.")
+
+    return _json.dumps({
+        "priority": "IMPORTANT",
+        "message": "\n".join(lines),
+    })
 
 
 def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:

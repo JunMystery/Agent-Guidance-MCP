@@ -1,18 +1,25 @@
 """Tests for the MCP priority gate that enforces task_pipeline() first-call."""
 import copy
+import json
+from pathlib import Path
 
 from agent_guidance_mcp.server import (
     PRIORITY_ERROR,
     GATE_WHITELIST,
+    GATE_SENTINEL_PATH,
     priority_gate_check,
     priority_gate_pass,
     priority_gate_reset,
+    _gate_sentinel_write,
+    _gate_sentinel_check,
+    _gate_sentinel_clear,
 )
 
 
 def _reset() -> None:
     """Ensure gate is reset before each test."""
     priority_gate_reset()
+    _gate_sentinel_clear()
 
 
 def test_gate_blocks_before_task_pipeline() -> None:
@@ -104,3 +111,59 @@ def test_priority_error_immutable_default() -> None:
     before = copy.deepcopy(dict(PRIORITY_ERROR))
     _ = priority_gate_check()
     assert dict(PRIORITY_ERROR) == before
+
+
+# ── Sentinel file tests (cross-process gate persistence) ─────────────────
+
+def test_sentinel_write_check_clear() -> None:
+    _gate_sentinel_clear()
+    assert not GATE_SENTINEL_PATH.exists()
+    assert not _gate_sentinel_check()
+
+    _gate_sentinel_write(project_path=".")
+    assert GATE_SENTINEL_PATH.exists()
+    assert _gate_sentinel_check()
+
+    # Verify content
+    data = json.loads(GATE_SENTINEL_PATH.read_text(encoding="utf-8"))
+    assert data["project_path"] == "."
+
+    _gate_sentinel_clear()
+    assert not GATE_SENTINEL_PATH.exists()
+    assert not _gate_sentinel_check()
+
+
+def test_sentinel_missing_returns_false() -> None:
+    _gate_sentinel_clear()
+    assert not _gate_sentinel_check()
+
+
+def test_sentinel_corrupt_returns_false() -> None:
+    _gate_sentinel_clear()
+    GATE_SENTINEL_PATH.parent.mkdir(parents=True, exist_ok=True)
+    GATE_SENTINEL_PATH.write_text("not valid json", encoding="utf-8")
+    assert not _gate_sentinel_check()
+    _gate_sentinel_clear()
+
+
+def test_sentinel_gate_fallback_passes() -> None:
+    """Sentinel file causes priority_gate_check() to pass even without in-memory pass."""
+    _reset()
+    assert priority_gate_check() is not None  # gate blocks
+
+    _gate_sentinel_write(project_path=".")
+    # gate should now pass via sentinel fallback
+    assert priority_gate_check() is None
+
+    # After falling back, in-memory flag is set
+    _gate_sentinel_clear()
+    assert priority_gate_check() is None  # still passed via in-memory
+
+
+def test_sentinel_different_project_path_still_passes() -> None:
+    """Sentinel passes regardless of project_path value (file existence is the signal)."""
+    _reset()
+    _gate_sentinel_write(project_path="/some/other/project")
+    assert priority_gate_check() is None
+    _gate_sentinel_clear()
+    _reset()
