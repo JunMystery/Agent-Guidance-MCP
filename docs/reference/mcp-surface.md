@@ -8,31 +8,9 @@ Complete reference for every public MCP tool, resource, and prompt exposed by th
 
 ## Tools (8)
 
-### ⚠ Priority Gate
+### 1. `task_pipeline` -- Call First
 
-Every tool (except `health_check`, `diagnose`, `token_stats`) is **gated**: it returns a `PRIORITY_REQUIRED` error if `task_pipeline` has not been called first. This ensures the AI always establishes project context before using other tools.
-
-- **Gate opener:** `task_pipeline` — called once, unlocks all gated tools
-- **Gated:** `guidance`, `project_context`, `ui_ux`, `session_continuity`
-- **Always available:** `health_check`, `diagnose`, `token_stats`
-
-The error response includes a `resource` field pointing to `agent-guidance-mcp://system/priority` with full instructions.
-
-```
-{
-  "success": false,
-  "error": "PRIORITY_REQUIRED",
-  "message": "Call task_pipeline(task='<your task>') first...",
-  "resource": "agent-guidance-mcp://system/priority",
-  "resolution": "task_pipeline(task='describe your goal here')"
-}
-```
-
----
-
-### 1. `task_pipeline` -- Call First (Gate Opener)
-
-Calling this tool passes the priority gate, enabling all other tools for the session. Returns standards recommendations, project tree, code search, and optional UI/UX guidance in a single optimized call. Uses parallel execution internally.
+One-stop context preparation. Returns standards recommendations, project tree, code search, and optional UI/UX guidance in a single optimized call. Uses parallel execution internally.
 
 ```
 task_pipeline(
@@ -230,7 +208,7 @@ Returns `status`, `server`, `version`, `entries` (catalog entry count).
 diagnose() -> dict
 ```
 
-Comprehensive diagnostics across 6 subsystems:
+Comprehensive diagnostics across 7 subsystems:
 
 | Key | Contents |
 |---|---|
@@ -243,7 +221,7 @@ Comprehensive diagnostics across 6 subsystems:
 
 ---
 
-## Resources (5)
+## Resources (4)
 
 | URI | MIME | Description |
 |---|---|---|
@@ -251,7 +229,6 @@ Comprehensive diagnostics across 6 subsystems:
 | `standards://version` | `application/json` | `{"server": "agent-guidance-mcp", "version": "1.0.0", "mcp_protocol": "2024-11-05"}` |
 | `standards://document/{identifier}` | `text/markdown` | Standards document content by slug (token-optimized) |
 | `standards://skill/{name}` | `text/markdown` | On-demand skill capsule by name (token-optimized) |
-| `agent-guidance-mcp://system/priority` | `text/markdown` | Priority gate instructions — read when `PRIORITY_REQUIRED` error is returned |
 
 ---
 

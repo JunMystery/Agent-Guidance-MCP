@@ -1,12 +1,10 @@
 import pytest
 from pathlib import Path
-from agent_guidance_mcp.server import create_server, priority_gate_pass
+from agent_guidance_mcp.server import create_server
 
 def test_session_continuity_path_traversal(tmp_path):
+    # Setup allowed root environment variable to make it easy to verify
     mcp = create_server(root=str(tmp_path))
-    
-    # Must pass the priority gate before calling gated tools directly
-    priority_gate_pass()
     
     # Retrieve the registered session_continuity tool handler
     session_continuity_tool = mcp._tool_manager._tools["session_continuity"].fn
