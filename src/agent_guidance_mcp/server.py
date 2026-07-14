@@ -122,7 +122,7 @@ AGENT_GUIDANCE_DIR = Path.home() / ".agent-guidance"
 GATE_SENTINEL_PATH = AGENT_GUIDANCE_DIR / ".gate_passed"
 
 
-def priority_gate_check() -> dict[str, object] | None:
+def priority_gate_check(project_path: Path | str | None = None) -> dict[str, object] | None:
     """Return an error dict if the priority gate has not been passed, else None.
 
     Falls back to the sentinel file so a prior --session-start call (different
@@ -131,8 +131,9 @@ def priority_gate_check() -> dict[str, object] | None:
     global _priority_gate_passed
     with _priority_gate_lock:
         if not _priority_gate_passed:
-            if _gate_sentinel_check():
+            if _gate_sentinel_check(project_path):
                 _priority_gate_passed = True
+                _gate_sentinel_clear()
             else:
                 return dict(PRIORITY_ERROR)
     return None
@@ -162,13 +163,19 @@ def _gate_sentinel_write(project_path: str) -> None:
     GATE_SENTINEL_PATH.write_text(sentinel_data, encoding="utf-8")
 
 
-def _gate_sentinel_check() -> bool:
+def _gate_sentinel_check(expected_project_path: Path | str | None = None) -> bool:
     if not GATE_SENTINEL_PATH.exists():
         return False
     try:
         import json
         data = json.loads(GATE_SENTINEL_PATH.read_text(encoding="utf-8"))
-        return isinstance(data, dict) and "project_path" in data
+        if not (isinstance(data, dict) and "project_path" in data):
+            return False
+        if expected_project_path:
+            sentinel_path = Path(data["project_path"]).resolve()
+            expected_path = Path(expected_project_path).resolve()
+            return sentinel_path == expected_path
+        return True
     except (json.JSONDecodeError, OSError):
         return False
 
@@ -333,6 +340,9 @@ def create_server(
 
         def _run_initial_index_bg() -> None:
             try:
+                from .embeddings import get_embedding_model
+                get_embedding_model()
+
                 indexer = CodeGraphIndexer(project_root, db)
                 indexer.run()
 
@@ -377,7 +387,7 @@ def create_server(
     logging.basicConfig(level=logging.WARNING, stream=sys.stderr)
 
     # Check for sentinel file from --session-start (cross-process gate persistence)
-    if _gate_sentinel_check():
+    if _gate_sentinel_check(deploy_root):
         _priority_gate_passed = True
         _gate_sentinel_clear()
 
@@ -507,7 +517,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             include_content: Set True for "get" to include full skill body (default False).
             resolve_dependencies: Set True for "get" to recursively load transitive dependencies (default False).
         """
-        gate = priority_gate_check()
+        gate = priority_gate_check(catalog.root)
         if gate:
             return gate
         return pipelines.guidance(
@@ -571,7 +581,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             max_total_bytes: Total cap for snapshot (default 2000000).
             limit: Maximum search or reference results (default 20).
         """
-        gate = priority_gate_check()
+        gate = priority_gate_check(catalog.root)
         if gate:
             return gate
         return pipelines.project_context(
@@ -619,7 +629,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             output_format: "markdown" or "ascii" (default "markdown").
             limit: Maximum results (default 3).
         """
-        gate = priority_gate_check()
+        gate = priority_gate_check(catalog.root)
         if gate:
             return gate
         return pipelines.ui_ux(
@@ -659,7 +669,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             current_step_index: Index of current checklist step (default 0).
             metadata: Optional context variables as a dict.
         """
-        gate = priority_gate_check()
+        gate = priority_gate_check(catalog.root)
         if gate:
             return gate
         from .session import save_session, load_session, clear_session
@@ -718,7 +728,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
     @mcp.prompt()
     def workflow_prompt(mode: str = "plan", subject: str = "", target: str = "") -> str:
         """Load a workflow prompt by mode. Parameters: mode (str) — workflow mode key: init/plan/design/visualize/code/run/test/deploy/debug/refactor/audit/rollback/recap/review/next/help/readme/customize/brainstorm/save_brain (default 'plan'); subject (str) — optional subject to contextualize the prompt; target (str) — optional target description."""
-        gate = priority_gate_check()
+        gate = priority_gate_check(catalog.root)
         if gate:
             return gate
         mode_key = mode.lower().replace("-", "_")

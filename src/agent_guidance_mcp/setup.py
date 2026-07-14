@@ -765,9 +765,13 @@ def remove_global_rules():
         if path.exists():
             try:
                 content = path.read_text(encoding="utf-8")
-                if AGENT_RULES_BLOCK in content:
-                    content = content.replace(AGENT_RULES_BLOCK, "")
-                    path.write_text(content, encoding="utf-8")
+                start_idx = content.find(AGENT_GUIDANCE_TAG_START)
+                end_idx = content.find(AGENT_GUIDANCE_TAG_END) if start_idx != -1 else -1
+                if start_idx != -1 and end_idx != -1:
+                    before = content[:start_idx].rstrip("\n")
+                    after = content[end_idx + len(AGENT_GUIDANCE_TAG_END):].lstrip("\n")
+                    cleaned = before + "\n" + after
+                    path.write_text(cleaned.strip() + "\n", encoding="utf-8")
                     print(f"    Success: Removed agent rules block from global {name} rules.")
             except Exception as e:
                 print(f"    Error updating global {name} rules: {e}")
@@ -808,11 +812,51 @@ def remove_global_rules():
         except Exception as e:
             print(f"    Error deleting ~/.agent-guidance: {e}")
 
+def remove_workspace_rules():
+    has_marker = (
+        (Path.cwd() / ".git").exists()
+        or (Path.cwd() / "pyproject.toml").exists()
+        or (Path.cwd() / "package.json").exists()
+        or (Path.cwd() / "go.mod").exists()
+        or (Path.cwd() / "Cargo.toml").exists()
+        or (Path.cwd() / "opencode.json").exists()
+    )
+    if not has_marker:
+        return
+    targets = [
+        (".cursorrules", Path.cwd() / ".cursorrules"),
+        (".clinerules", Path.cwd() / ".clinerules"),
+        (".copilotrules", Path.cwd() / ".copilotrules"),
+        (".codexrules", Path.cwd() / ".codexrules"),
+        (".windsurfrules", Path.cwd() / ".windsurfrules"),
+        (".geminirules", Path.cwd() / ".geminirules"),
+        (".roorules", Path.cwd() / ".roorules"),
+        (".clauderules", Path.cwd() / ".clauderules"),
+        (".aider.instructions.md", Path.cwd() / ".aider.instructions.md"),
+        ("AGENTS.md", Path.cwd() / "AGENTS.md"),
+    ]
+    print("\nRemoving Workspace Coding Agent Rules...")
+    for name, path in targets:
+        if path.exists():
+            try:
+                content = path.read_text(encoding="utf-8")
+                start_idx = content.find(AGENT_GUIDANCE_TAG_START)
+                end_idx = content.find(AGENT_GUIDANCE_TAG_END) if start_idx != -1 else -1
+                if start_idx != -1 and end_idx != -1:
+                    before = content[:start_idx].rstrip("\n")
+                    after = content[end_idx + len(AGENT_GUIDANCE_TAG_END):].lstrip("\n")
+                    cleaned = before + "\n" + after
+                    path.write_text(cleaned.strip() + "\n", encoding="utf-8")
+                    print(f"    Success: Removed agent rules from local {name}")
+            except Exception as e:
+                print(f"    Error: Failed to clean local {name}: {e}")
+
 def run_uninstall() -> None:
     print("=== Agent Guidance MCP Uninstall ===")
     remove_mcp_clients()
     remove_opencode_and_codex()
     remove_global_rules()
+    remove_workspace_rules()
     print("\n=== Uninstall completed successfully! ===")
     print("Client configurations cleared. You can now safely uninstall the python package.")
 

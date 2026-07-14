@@ -4,10 +4,10 @@
 # Tries: installed binary, python -m module, then fallback meta-skill.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+TARGET_PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 
 run_session_start() {
-  "$1" --session-start --project-path "$PROJECT_DIR" 2>/dev/null
+  "$1" --session-start --project-path "$TARGET_PROJECT_DIR" 2>/dev/null
 }
 
 # Priority 1: installed binary on PATH

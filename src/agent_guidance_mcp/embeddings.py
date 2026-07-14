@@ -1,35 +1,49 @@
 import json
 import logging
 import math
+import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("agent-guidance-mcp.embeddings")
 
 _model = None
+_model_lock = threading.Lock()
 
 _E5_MODEL = "intfloat/multilingual-e5-small"
 
 def get_embedding_model() -> Optional[Any]:
-    """Lazy load the sentence-transformers model."""
     global _model
-    if _model is not None:
-        return _model
+    with _model_lock:
+        if _model is not None:
+            return _model
 
-    try:
-        from sentence_transformers import SentenceTransformer
-        logger.info(f"Loading {_E5_MODEL} model...")
-        _model = SentenceTransformer(_E5_MODEL)
-        return _model
-    except ImportError:
-        logger.warning(
-            "The 'sentence-transformers' package is not installed. "
-            "Local dynamic embeddings will be disabled and will fall back to keyword search."
-        )
-        return None
-    except Exception as e:
-        logger.error(f"Error loading embedding model: {e}")
-        return None
+        try:
+            import os
+            os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+            os.environ["TRANSFORMERS_NO_ADVISORY_WARNINGS"] = "1"
+            from sentence_transformers import SentenceTransformer
+            logger.info(f"Loading {_E5_MODEL} model...")
+            _model = SentenceTransformer(_E5_MODEL)
+            return _model
+        except ImportError:
+            logger.warning(
+                "The 'sentence-transformers' package is not installed. "
+                "Local dynamic embeddings will be disabled and will fall back to keyword search."
+            )
+            return None
+        except Exception as e:
+            logger.error(f"Error loading embedding model: {e}")
+            return None
+
+
+def pre_download_models() -> bool:
+    """Pre-download the embedding model so server start doesn't trigger a download.
+
+    Returns True if the model is available after this call.
+    """
+    model = get_embedding_model()
+    return model is not None
 
 _E5_QUERY_PREFIX = "query: "
 _E5_PASSAGE_PREFIX = "passage: "

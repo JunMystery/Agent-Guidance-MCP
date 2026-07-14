@@ -157,3 +157,28 @@ def test_sentinel_any_project_path_passes() -> None:
     assert priority_gate_check() is None
     _gate_sentinel_clear()
     _reset()
+
+
+def test_run_session_start_creates_sentinel(tmp_path) -> None:
+    _reset()
+    from agent_guidance_mcp.server import run_session_start
+    result_str = run_session_start(project_path=str(tmp_path))
+    result = json.loads(result_str)
+    assert result["priority"] == "IMPORTANT"
+    assert "Agent Guidance" in result["message"]
+    assert _gate_sentinel_check()
+    _reset()
+
+
+def test_sentinel_different_project_path_fails() -> None:
+    _reset()
+    _gate_sentinel_write(project_path="/path/to/project_a")
+    result = priority_gate_check(project_path="/path/to/project_b")
+    assert result is not None
+    assert result["error"] == "PRIORITY_REQUIRED"
+    assert GATE_SENTINEL_PATH.exists()
+
+    result2 = priority_gate_check(project_path="/path/to/project_a")
+    assert result2 is None
+    assert not GATE_SENTINEL_PATH.exists()
+    _reset()

@@ -2,6 +2,7 @@
 
 
 import argparse
+import os
 import sys
 
 from . import __version__
@@ -104,10 +105,15 @@ def main() -> None:
             sys.exit(0)
 
         if args.session_start:
-            result_json = run_session_start(
-                root=args.root,
-                project_path=args.project_path,
-            )
+            old_stdout = sys.stdout
+            sys.stdout = sys.stderr
+            try:
+                result_json = run_session_start(
+                    root=args.root,
+                    project_path=args.project_path,
+                )
+            finally:
+                sys.stdout = old_stdout
             print(result_json)
             sys.exit(0)
 
@@ -115,14 +121,20 @@ def main() -> None:
         from .updater import check_compatibility
         check_compatibility()
 
-        # Auto-update before server start (if enabled)
+        # Auto-update (standalone command — runs check and exits)
         if args.auto_update:
-            import os
             interval = os.environ.get("AGENT_AUTO_UPDATE_INTERVAL", args.auto_update).strip()
             if interval not in ("weekly", "monthly"):
                 interval = args.auto_update
             from .updater import check_auto_update
             check_auto_update(interval=interval)
+            sys.exit(0)
+
+        # Runtime auto-update via environment variable (runs alongside server)
+        auto_env = os.environ.get("AGENT_AUTO_UPDATE_INTERVAL", "").strip()
+        if auto_env in ("weekly", "monthly"):
+            from .updater import check_auto_update
+            check_auto_update(interval=auto_env)
 
         root = find_standards_root(args.root)
         config = TokenOptimizationConfig.disabled() if args.no_optimize else None

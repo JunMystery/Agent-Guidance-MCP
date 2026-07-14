@@ -116,14 +116,17 @@ Works with any MCP-compatible client. Auto-configured by the installer:
 
 ### Tools
 
-| Tool | Role | Key Operations |
-|---|---|---|
-| `task_pipeline` | **Call first** — one-stop context prep | Recommendations + tree + search + UI + execution sequence |
-| `guidance` | Standards & skill catalog | `list`, `get`, `search`, `recommend`, `reason`, `docs` (Context7) |
-| `project_context` | Bounded project file ops | `tree`, `search`, `read`, `symbols`, `references`, `structure`, `callers`, `callees`, `diff`, `snapshot` |
-| `ui_ux` | Design guidance | `search`, `design_system`, `slides` |
-| `session_continuity` | Task state persistence | `save`, `load`, `clear` |
-| `health_check` / `diagnose` / `token_stats` | Operational | Server status, self-diagnostics, token savings |
+| Tool | Gate | Role | Key Operations |
+|---|---|---|---|
+| `task_pipeline` | **Unlocks** | **Call first** — context prep | Recommendations + tree + search + UI + execution sequence |
+| `guidance` | Gated | Standards & skill catalog | `list`, `get`, `search`, `recommend`, `reason`, `docs` (Context7) |
+| `project_context` | Gated | Bounded project file ops | `tree`, `search`, `read`, `symbols`, `references`, `structure`, `callers`, `callees`, `diff`, `snapshot` |
+| `ui_ux` | Gated | Design guidance | `search`, `design_system`, `slides` |
+| `session_continuity` | Gated | Task state persistence | `save`, `load`, `clear` |
+| `workflow_prompt` | Gated | Workflow prompts | `plan`, `test`, `deploy`, `debug`, etc. |
+| `health_check` / `diagnose` / `token_stats` | Whitelisted | Operational | Server status, self-diagnostics, token savings |
+
+Gated tools return `PRIORITY_REQUIRED` if called before `task_pipeline`. Whitelisted tools bypass the gate.
 
 ### Resources
 
@@ -133,6 +136,7 @@ Works with any MCP-compatible client. Auto-configured by the installer:
 | `standards://skill/{name}` | On-demand skill capsule (Markdown) |
 | `standards://document/{identifier}` | Standards document by slug (Markdown) |
 | `standards://version` | Server version info (JSON) |
+| `agent-guidance-mcp://system/priority` | Priority gate instructions — returned by `PRIORITY_REQUIRED` errors |
 
 ### Prompt
 
@@ -142,10 +146,11 @@ Works with any MCP-compatible client. Auto-configured by the installer:
 
 ## Why Agent Guidance MCP
 
-AI coding agents burn context fast. Every file read, every grep, every web search eats into the context window — and when it's gone, the agent forgets everything. Agent Guidance MCP solves this with three layers:
+AI coding agents burn context fast. Every file read, every grep, every web search eats into the context window — and when it's gone, the agent forgets everything. Agent Guidance MCP solves this with four layers:
 
 | Layer | What It Does | Your Gain |
 |---|---|---|
+| **Priority Enforcement** | `task_pipeline` must be called before gated tools (guidance, project_context, ui_ux, session_continuity, workflow_prompt). Session-start hook auto-passes gate. | Agent always has project context before acting. No more "forgot to call task_pipeline" |
 | **Context Budgeting** | Caps file reads at 300 lines; smart-truncates source code preserving structure | Agent stays focused on relevant code, never drowns in noise |
 | **Guidance Catalog** | 168 skills + coding standards + security rules served on-demand | Agent follows production patterns without you reminding it |
 | **Token Optimization** | Strips comments, collapses whitespace, deduplicates output before it hits the LLM | **40–80% fewer tokens** per MCP response |
@@ -197,6 +202,58 @@ Agent Guidance MCP features a hybrid semantic search engine designed to dynamica
 - **Workspace-Local Skills**: The server automatically scans your project workspace for custom local skills defined in `.agents/skills/`, `.opencode/skills/`, or `.claude/skills/` directories, dynamically embeds them on startup, and merges them into the search index.
 - **Hybrid Similarity Ranking**: `guidance(operation="search")` blends traditional keyword matching with vector cosine similarity calculations to rank skills accurately, even when the task query contains no exact keyword overlaps (e.g., matching "reducing context size" to the `context-budget` skill).
 - **Zero-Configuration Download**: The query embedding model is automatically downloaded on-demand when the server first runs, requiring zero manual setup or configuration.
+
+---
+
+## Priority Enforcement
+
+Agent Guidance MCP ensures that `task_pipeline` is always called before any gated tool, across all agents and IDEs.
+
+### Three Enforcement Layers
+
+```
+Session starts
+  │
+  ├─ Layer 1: Session-start hook
+  │    hooks/session-start.sh → agent-guidance-mcp --session-start
+  │    → Writes ~/.agent-guidance/.gate_passed sentinel
+  │    → Injects project context into conversation
+  │
+  ├─ Layer 2: Persistent sentinel file
+  │    MCP server starts → reads sentinel → gate pre-passed
+  │    Bridges hook process and server process
+  │
+  └─ Layer 3: In-process gate
+       task_pipeline → priority_gate_pass() unlocks gate
+       Gated tools → priority_gate_check() blocks if not passed
+```
+
+### Tool Gate Status
+
+| Tool | Gate Behavior |
+|---|---|
+| `task_pipeline` | **Unlocks gate** — call first to enable all gated tools |
+| `guidance`, `project_context`, `ui_ux`, `session_continuity`, `workflow_prompt` | **Gated** — return `PRIORITY_REQUIRED` error if called before `task_pipeline` |
+| `health_check`, `diagnose`, `token_stats` | **Whitelisted** — always available, no gate check |
+
+### Per-Phase Reset Rule
+
+For each new work phase (plan → implement → test → review → refactor), re-call `task_pipeline` with the phase goal. This refreshes skill recommendations, project context, and execution sequence for the new scope. The rule is deployed to all IDEs via `AGENTS.md` and `SKILL.md` files.
+
+### Session-Start Hook
+
+Every supported CLI agent fires a session-start hook that auto-calls `agent-guidance-mcp --session-start --project-path .`. This:
+
+1. Builds the skill catalog
+2. Passes the priority gate (writes sentinel file)
+3. Runs `task_pipeline` for default context
+4. Returns a JSON payload injected into the conversation
+
+The hook tries: installed binary → `python -m agent_guidance_mcp` → legacy meta-skill fallback.
+
+### Tagged Section Deployment
+
+Rule blocks and skill content are wrapped in HTML-comment tags (`<!-- agent-guidance:start -->` / `<!-- agent-guidance:end -->`). The `--setup` command uses these tags to find and replace sections across all IDE/CLI config files — no stale copies, no manual cleanup.
 
 ---
 
@@ -283,4 +340,4 @@ For full tool documentation, response formats, and examples, see [MCP Surface](d
 python -m pytest
 ```
 
-The test suite verifies catalog discovery, MCP handler registration, standards search, recommendation behavior, and project-context tooling. See [Development Guide](docs/development.md) for more detail.
+The test suite verifies catalog discovery, MCP handler registration, standards search, recommendation behavior, project-context tooling, and **priority gate enforcement** (14 gate tests covering block/pass/reset/thread-safety/sentinel persistence/cross-process fallback). See [Development Guide](docs/development.md) for more detail.

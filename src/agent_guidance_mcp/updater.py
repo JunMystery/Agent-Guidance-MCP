@@ -400,22 +400,114 @@ def update_system_design_primer(dest_root: Path) -> bool:
 # ── Main update entry point ──────────────────────────────────────────────────
 
 
+def _get_latest_commit_sha(owner: str, repo: str, branch: str) -> str | None:
+    url = f"https://api.github.com/repos/{owner}/{repo}/commits/{branch}"
+    req = urllib.request.Request(url, headers={
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "agent-guidance-mcp-updater/1.0"
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=10) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            return data.get("sha")
+    except Exception:
+        return None
+
+
+UPDATER_REPOS = {
+    "ecc": {
+        "name": "ECC (168-skill catalog)",
+        "owner": "affaan-m",
+        "repo": "ECC",
+        "branch": "main",
+        "update_fn": update_ecc_library,
+        "check_dir": "skills/api-design",
+    },
+    "ui_ux": {
+        "name": "UI/UX Pro Max",
+        "owner": "nextlevelbuilder",
+        "repo": "ui-ux-pro-max-skill",
+        "branch": "main",
+        "update_fn": update_ui_ux_data,
+        "check_dir": "skills/ui-ux-pro-max",
+    },
+    "anthropic": {
+        "name": "Anthropic Skills",
+        "owner": "anthropics",
+        "repo": "skills",
+        "branch": "main",
+        "update_fn": update_anthropic_skills,
+        "check_dir": "skills/anthropic-skills",
+    },
+    "owasp": {
+        "name": "OWASP Cheat Sheets",
+        "owner": "OWASP",
+        "repo": "CheatSheetSeries",
+        "branch": "master",
+        "update_fn": update_owasp_cheatsheets,
+        "check_dir": "skills/owasp-cheatsheets",
+    },
+    "system_design": {
+        "name": "System Design Primer",
+        "owner": "donnemartin",
+        "repo": "system-design-primer",
+        "branch": "master",
+        "update_fn": update_system_design_primer,
+        "check_dir": "skills/system-design-primer",
+    },
+}
+
+
 def run_update() -> None:
     dest_root = Path.home() / ".agent-guidance"
     dest_root.mkdir(parents=True, exist_ok=True)
     print(f"Target directory for updates: {dest_root}")
 
+    # Pre-download the embedding model for semantic search
+    print("  Downloading embedding model for semantic search...")
+    try:
+        from .embeddings import pre_download_models
+        model_ok = pre_download_models()
+        if model_ok:
+            print("  \u2713 Embedding model ready")
+        else:
+            print("  \u26a0 Embedding model not available (sentence-transformers missing?)")
+    except Exception as e:
+        print(f"  \u26a0 Embedding model download failed: {e}")
+
+    state = _load_state()
+    commits_state = state.get("commits", {})
+    new_commits = dict(commits_state)
+
     results: list[tuple[str, bool]] = []
-    results.append(("ECC (168-skill catalog)", update_ecc_library(dest_root)))
-    results.append(("UI/UX Pro Max", update_ui_ux_data(dest_root)))
-    results.append(("Anthropic Skills", update_anthropic_skills(dest_root)))
-    results.append(("OWASP Cheat Sheets", update_owasp_cheatsheets(dest_root)))
-    results.append(("System Design Primer", update_system_design_primer(dest_root)))
+
+    for key, info in UPDATER_REPOS.items():
+        name = info["name"]
+        check_path = dest_root / info["check_dir"]
+        cached_sha = commits_state.get(key)
+        latest_sha = None
+
+        if cached_sha and check_path.exists():
+            print(f"Checking {name} for updates...")
+            latest_sha = _get_latest_commit_sha(info["owner"], info["repo"], info["branch"])
+            if latest_sha and latest_sha == cached_sha:
+                print(f"  \u2713 Up to date (commit {latest_sha[:7]})")
+                results.append((name, True))
+                continue
+
+        if not latest_sha:
+            latest_sha = _get_latest_commit_sha(info["owner"], info["repo"], info["branch"])
+
+        success = info["update_fn"](dest_root)
+        results.append((name, success))
+        if success and latest_sha:
+            new_commits[key] = latest_sha
 
     # Save update state for compatibility checks and auto-update scheduling
     _save_state({
         "last_update": datetime.now(timezone.utc).isoformat(),
         "server_version": __version__,
+        "commits": new_commits,
     })
 
     failures = [name for name, ok in results if not ok]
