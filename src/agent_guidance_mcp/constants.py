@@ -76,4 +76,17 @@ TASK_ANCHORS = {
         "skills/backend-patterns/SKILL.md",
         "skills/api-design/SKILL.md",
     ),
+    "build": (
+        "skills/planning-and-task-breakdown/SKILL.md",
+    ),
+    "create": (
+        "skills/planning-and-task-breakdown/SKILL.md",
+    ),
+    "plan": (
+        "skills/planning-and-task-breakdown/SKILL.md",
+    ),
+    "planning": (
+        "skills/planning-and-task-breakdown/SKILL.md",
+    ),
 }
+
