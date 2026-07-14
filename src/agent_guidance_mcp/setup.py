@@ -131,9 +131,14 @@ def configure_mcp_clients(executable: str):
 def settings_path() -> Path:
     return Path("settings") / "cline_mcp_settings.json"
 
+def get_opencode_global_dir() -> Path:
+    if sys.platform == "win32":
+        return Path(os.environ.get("APPDATA", "")) / "opencode"
+    return Path.home() / ".config" / "opencode"
+
 def configure_opencode(executable: str):
     print("\nConfiguring OpenCode & OMO...")
-    opencode_global_dir = Path.home() / ".config" / "opencode"
+    opencode_global_dir = get_opencode_global_dir()
     opencode_global_path = opencode_global_dir / "opencode.json"
     
     is_script = executable == sys.executable
@@ -248,7 +253,7 @@ def configure_global_rules():
     print("\nConfiguring Global rules (~/.gemini/config/AGENTS.md, ~/.config/opencode/AGENTS.md, and ~/.claude/CLAUDE.md)...")
     targets = [
         ("Gemini/Antigravity", Path.home() / ".gemini" / "config" / "AGENTS.md"),
-        ("OpenCode", Path.home() / ".config" / "opencode" / "AGENTS.md"),
+        ("OpenCode", get_opencode_global_dir() / "AGENTS.md"),
         ("Claude Code Compatibility", Path.home() / ".claude" / "CLAUDE.md"),
     ]
     for name, path in targets:
@@ -703,7 +708,7 @@ def remove_global_rules():
     print("\nRemoving global configuration, directories, and skills...")
     targets = [
         ("Gemini/Antigravity", Path.home() / ".gemini" / "config" / "AGENTS.md"),
-        ("OpenCode", Path.home() / ".config" / "opencode" / "AGENTS.md"),
+        ("OpenCode", get_opencode_global_dir() / "AGENTS.md"),
         ("Claude Code Compatibility", Path.home() / ".claude" / "CLAUDE.md"),
     ]
     for name, path in targets:
