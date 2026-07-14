@@ -143,4 +143,22 @@ def test_project_diff_returns_diff_without_brace_filtering(tmp_path):
     assert "const x = 42;" in diff_val
 
 
+def test_read_project_file_skips_optimization_for_binary(tmp_path):
+    project = make_sample_project(tmp_path)
+
+    result = read_project_file(str(project), "image.png")
+    assert result["path"] == "image.png"
+    assert result["token_stats"]["binary"] is True
+    assert result["token_stats"]["savings_pct"] == 0
+
+
+def test_read_project_file_skips_optimization_for_null_byte_content(tmp_path):
+    project = make_sample_project(tmp_path)
+    (project / "weird.bin").write_text("header\x00trailing", encoding="utf-8")
+
+    result = read_project_file(str(project), "weird.bin")
+    assert result["token_stats"]["binary"] is True
+    assert "\x00" in result["content"]
+
+
 

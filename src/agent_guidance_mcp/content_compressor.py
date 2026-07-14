@@ -4,8 +4,34 @@
 import re
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 
 from .token_filter import FilterLevel
+
+
+BINARY_EXTENSIONS: frozenset[str] = frozenset({
+    "png", "jpg", "jpeg", "gif", "bmp", "ico", "webp", "svg",
+    "exe", "dll", "so", "dylib", "bin", "obj", "o",
+    "zip", "tar", "gz", "tgz", "bz2", "7z", "rar", "xz", "zst",
+    "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+    "mp3", "mp4", "avi", "mov", "mkv", "webm", "wav", "flac", "ogg",
+    "ttf", "otf", "woff", "woff2", "eot", "fon",
+    "pyc", "pyo", "class", "jar", "wasm", "db", "sqlite", "sqlite3",
+})
+
+
+def is_binary_file(path: str | Path) -> bool:
+    """Return True if the path has a known binary extension."""
+    suffix = Path(path).suffix.lower().lstrip(".")
+    return suffix in BINARY_EXTENSIONS
+
+
+def is_likely_binary(content: str) -> bool:
+    """Heuristic: detect binary content lacking a known extension.
+
+    Returns True if a NUL byte appears in the first 4KB of content.
+    """
+    return "\0" in content[:4096]
 
 
 class Language(Enum):

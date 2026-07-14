@@ -1,3 +1,5 @@
+import time
+
 from agent_guidance_mcp import pipelines
 from agent_guidance_mcp.catalog import build_catalog
 from agent_guidance_mcp.server import WORKFLOW_MODE_MAP
@@ -274,3 +276,87 @@ def test_task_pipeline_includes_recommendations_content(tmp_path):
     has_content = [r for r in recs if "content" in r]
     assert len(has_content) >= 2
     assert len(has_content[0]["content"]) > 0
+
+
+def test_session_continuity_roundtrip(tmp_path):
+    checklist = [{"title": "step 1", "status": "done"}, {"title": "step 2", "status": "todo"}]
+    saved = pipelines.session_continuity(
+        operation="save",
+        project_path=str(tmp_path),
+        task="build the thing",
+        checklist=checklist,
+        current_step_index=1,
+    )
+    assert saved["success"] is True
+    assert saved["session"]["task"] == "build the thing"
+
+    loaded = pipelines.session_continuity(operation="load", project_path=str(tmp_path))
+    assert loaded["success"] is True
+    assert loaded["session_active"] is True
+    assert loaded["session"]["task"] == "build the thing"
+    assert loaded["session"]["checklist"] == checklist
+
+    cleared = pipelines.session_continuity(operation="clear", project_path=str(tmp_path))
+    assert cleared["success"] is True
+
+    reloaded = pipelines.session_continuity(operation="load", project_path=str(tmp_path))
+    assert reloaded["session_active"] is False
+
+
+def test_session_continuity_invalid_operation(tmp_path):
+    result = pipelines.session_continuity(operation="explode", project_path=str(tmp_path))
+    assert "error" in result
+    assert "Unsupported" in str(result["error"])
+    assert "supported_operations" in result
+    assert "save" in result["supported_operations"]
+
+
+def test_session_continuity_save_requires_task(tmp_path):
+    result = pipelines.session_continuity(operation="save", project_path=str(tmp_path))
+    assert result["success"] is False
+    assert "task" in str(result["error"])
+
+
+def test_task_pipeline_timeout_warning(tmp_path, monkeypatch):
+    import time as _time
+
+    catalog = _make_catalog(tmp_path)
+
+    def slow_tree(*args, **kwargs):
+        time.sleep(1.0)
+        return {"tree": []}
+
+    def slow_search(*args, **kwargs):
+        time.sleep(1.0)
+        return {"matches": []}
+
+    monkeypatch.setattr(pipelines.project_context_helpers, "get_project_tree", slow_tree)
+    monkeypatch.setattr(pipelines.project_context_helpers, "search_project_code", slow_search)
+
+    result = pipelines.task_pipeline(
+        catalog=catalog,
+        task="fix the login bug",
+        project_path=str(tmp_path),
+        timeout=0.05,
+    )
+    assert isinstance(result, dict)
+    assert "warning" in result
+    assert "timeout" in result["warning"].lower()
+
+
+def test_parallel_run_timeout_isolation():
+    from agent_guidance_mcp.parallel import parallel_run
+
+    def slow():
+        time.sleep(1.0)
+        return "done"
+
+    def fast():
+        return "fast"
+
+    results = parallel_run(
+        {"slow": slow, "fast": fast},
+        timeout=0.05,
+    )
+    assert isinstance(results["slow"], TimeoutError)
+    assert results["fast"] == "fast"

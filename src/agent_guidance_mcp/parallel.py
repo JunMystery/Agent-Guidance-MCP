@@ -51,11 +51,15 @@ def parallel_filter_map(
 def parallel_run(
     tasks: dict[str, Callable[[], R]],
     max_workers: int | None = None,
+    timeout: float | None = None,
 ) -> dict[str, R]:
     """Run named callables concurrently, returning results keyed by name.
 
     Each value in tasks must be a zero-argument callable. Results preserve
     the keys from the input dict.
+
+    timeout applies per-task, not total wall-clock. If any task exceeds
+    the timeout, its result is stored as a TimeoutError in the output dict.
     """
     if max_workers is None:
         max_workers = _default_workers()
@@ -69,7 +73,9 @@ def parallel_run(
         for future in futures:
             key = futures[future]
             try:
-                results_map[key] = future.result()
+                results_map[key] = future.result(timeout=timeout)
+            except TimeoutError as exc:
+                results_map[key] = exc
             except Exception as exc:
                 results_map[key] = exc
     return dict(zip(keys, [results_map[k] for k in keys]))

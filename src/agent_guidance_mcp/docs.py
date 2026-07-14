@@ -1,12 +1,14 @@
 """Context7 API client for retrieving live library documentation."""
 
+
 import os
 import json
 import time
+import re
 import urllib.request
 import urllib.parse
 import functools
-from typing import Any
+from typing import Any, Optional, Tuple
 
 from .response_optimizer import TokenBudget, optimize_source_content
 from .token_analytics import TokenTracker
@@ -14,6 +16,7 @@ from .token_config import TokenOptimizationConfig, load_config_from_env
 
 API_BASE = "https://context7.com/api/v2"
 
+CONTEXT7_ID_PATTERN = re.compile(r"^/[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+")
 def _get_headers() -> dict[str, str]:
     headers = {
         "Accept": "application/json",
@@ -70,6 +73,35 @@ def _resolve_library_id(library_name: str, query: str, api_key: str | None) -> t
 
     return library_id, data
 
+def normalize_identifier(
+    identifier: str,
+    query: str,
+) -> Tuple[str, Optional[str]]:
+    """Resolve a Context7 library identifier from user input.
+
+    Returns (resolved_id, error_message). If `identifier` already matches the
+    `/org/project` form it is returned unchanged with no error. Otherwise the
+    identifier is treated as a library name and searched via Context7; the first
+    match's id is returned, or an error message with a usage hint.
+    """
+    api_key = os.environ.get("CONTEXT7_API_KEY")
+    if CONTEXT7_ID_PATTERN.match(identifier or ""):
+        return identifier, None
+
+    library_id, _search = _resolve_library_id(identifier, query, api_key)
+    if library_id:
+        return library_id, None
+
+    return (
+        identifier,
+        (
+            f"Could not resolve Context7 library ID for '{identifier}'. "
+            f"Use the '/org/project' form (e.g. '/expressjs/express'), or run "
+            f"guidance(operation='search', query='{identifier} docs') to discover it."
+        ),
+    )
+
+
 def query_library_docs(
     library_name: str,
     query: str,
@@ -81,8 +113,12 @@ def query_library_docs(
     headers = _get_headers()
     api_key = os.environ.get("CONTEXT7_API_KEY")
 
+    resolved_id, resolve_error = normalize_identifier(library_name, query)
+    if resolve_error:
+        return {"error": resolve_error}
+
     # Step 1: Resolve libraryId
-    library_id, search_result = _resolve_library_id(library_name, query, api_key)
+    library_id, search_result = _resolve_library_id(resolved_id, query, api_key)
     if not library_id:
         if isinstance(search_result, str):
             return {"error": search_result}

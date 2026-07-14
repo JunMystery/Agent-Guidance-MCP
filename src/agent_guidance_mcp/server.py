@@ -450,6 +450,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         include_tree: bool = True,
         include_ui: bool = True,
         limit: int = 8,
+        timeout: float | None = 30.0,
     ) -> dict[str, object]:
         """CALL FIRST before any coding task. Prepares recommendations, project tree,
         code search, and optional UI guidance in ONE optimized call. Use BEFORE
@@ -465,6 +466,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             include_tree: Include project directory tree in result (default True).
             include_ui: Attach UI/UX guidance when task signals UI intent (default True).
             limit: Maximum number of recommendations to return (default 8).
+            timeout: Per-task timeout in seconds (default 30.0).
         """
         priority_gate_pass()
         return pipelines.task_pipeline(
@@ -476,6 +478,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             include_tree=include_tree,
             include_ui=include_ui,
             limit=limit,
+            timeout=timeout,
             config=get_config(),
             tracker=get_tracker(),
         )
@@ -672,35 +675,14 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         gate = priority_gate_check(catalog.root)
         if gate:
             return gate
-        from .session import save_session, load_session, clear_session
-        from .project_scan import resolve_project_root
-
-        try:
-            validated_root = str(resolve_project_root(project_path))
-        except Exception as e:
-            return {"success": False, "error": f"Invalid project_path: {e}"}
-
-        if operation == "save":
-            if not task:
-                return {"success": False, "error": "task is required for save operation"}
-            data = save_session(
-                project_path=validated_root,
-                task=task,
-                checklist=checklist or [],
-                current_step_index=current_step_index,
-                metadata=metadata
-            )
-            return {"success": True, "session": data}
-        elif operation == "load":
-            data = load_session(project_path=validated_root)
-            if data:
-                return {"success": True, "session_active": True, "session": data}
-            return {"success": True, "session_active": False, "message": "No active session found."}
-        elif operation == "clear":
-            cleared = clear_session(project_path=validated_root)
-            return {"success": cleared}
-        else:
-            return {"success": False, "error": f"Invalid operation: {operation}"}
+        return pipelines.session_continuity(
+            operation=operation,
+            project_path=project_path,
+            task=task,
+            checklist=checklist,
+            current_step_index=current_step_index,
+            metadata=metadata,
+        )
 
     @mcp.tool()
     def token_stats() -> dict[str, object]:

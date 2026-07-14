@@ -181,8 +181,6 @@ def ensure_project_file_allowed(root: Path, path: Path) -> None:
         raise ValueError(f"Path is ignored by project context scanner: {rel}")
     if not path.is_file():
         raise FileNotFoundError(rel)
-    if is_binary_file(path):
-        raise ValueError(f"Path is binary or not UTF-8 text: {rel}")
 
 
 def read_bounded_text(path: Path, max_bytes: int) -> tuple[str | None, bool]:

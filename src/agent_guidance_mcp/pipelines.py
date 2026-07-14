@@ -27,6 +27,8 @@ from .pipeline_helpers import (
     lifecycle_sort_key,
 )
 
+SESSION_CONTINUITY_OPERATIONS = ("save", "load", "clear")
+
 def guidance(
     catalog: StandardsCatalog,
     operation: str,
@@ -311,6 +313,49 @@ def ui_ux(
     return optimized
 
 
+def session_continuity(
+    operation: str,
+    project_path: str = ".",
+    task: str | None = None,
+    checklist: list[dict] | None = None,
+    current_step_index: int = 0,
+    metadata: dict | None = None,
+) -> dict[str, object]:
+    """Persist or recover task session state for continuity."""
+    if operation is None:
+        return _missing_argument("operation", "session_continuity")
+    operation_key = operation.lower()
+    if operation_key not in SESSION_CONTINUITY_OPERATIONS:
+        return _unsupported_operation(operation, SESSION_CONTINUITY_OPERATIONS)
+
+    from .session import save_session, load_session, clear_session
+    from .project_scan import resolve_project_root
+
+    try:
+        validated_root = str(resolve_project_root(project_path))
+    except Exception as e:
+        return {"success": False, "error": f"Invalid project_path: {e}"}
+
+    if operation_key == "save":
+        if not task:
+            return {"success": False, "error": "task is required for save operation"}
+        data = save_session(
+            project_path=validated_root,
+            task=task,
+            checklist=checklist or [],
+            current_step_index=current_step_index,
+            metadata=metadata,
+        )
+        return {"success": True, "session": data}
+    elif operation_key == "load":
+        data = load_session(project_path=validated_root)
+        if data:
+            return {"success": True, "session_active": True, "session": data}
+        return {"success": True, "session_active": False, "message": "No active session found."}
+    else:  # clear
+        cleared = clear_session(project_path=validated_root)
+        return {"success": cleared}
+
 
 def task_pipeline(
     catalog: StandardsCatalog,
@@ -321,6 +366,7 @@ def task_pipeline(
     include_tree: bool = True,
     include_ui: bool = True,
     limit: int = 8,
+    timeout: float | None = 30.0,
     config: TokenOptimizationConfig | None = None,
     tracker: TokenTracker | None = None,
 ) -> dict[str, object]:
@@ -361,8 +407,9 @@ def task_pipeline(
             limit=min(max(1, limit), 20),
         )
 
-    concurrent_results = parallel_run(concurrent_tasks)
+    concurrent_results = parallel_run(concurrent_tasks, timeout=timeout)
 
+    timed_out = [k for k, v in concurrent_results.items() if isinstance(v, TimeoutError)]
     recommendations = concurrent_results.get("recommendations", {})
     if not isinstance(recommendations, dict) or isinstance(recommendations, Exception):
         recommendations = {"error": str(recommendations), "recommendations": []}
@@ -372,15 +419,21 @@ def task_pipeline(
         "focus": focus,
         "recommendations": recommendations,
     }
+    if timed_out:
+        result["warning"] = f"timeout on: {', '.join(timed_out)}"
     if "project_tree" in concurrent_results:
         tree_res = concurrent_results["project_tree"]
-        if isinstance(tree_res, Exception):
+        if isinstance(tree_res, TimeoutError):
+            result["project_tree"] = {"error": f"Project tree timed out after {timeout}s", "tree": []}
+        elif isinstance(tree_res, Exception):
             result["project_tree"] = {"error": f"Failed to build project tree: {tree_res}"}
         else:
             result["project_tree"] = tree_res
     if "code_search" in concurrent_results:
         search_res = concurrent_results["code_search"]
-        if isinstance(search_res, Exception):
+        if isinstance(search_res, TimeoutError):
+            result["code_search"] = {"error": f"Code search timed out after {timeout}s", "matches": []}
+        elif isinstance(search_res, Exception):
             result["code_search"] = {"error": f"Failed to perform code search: {search_res}", "matches": []}
         else:
             result["code_search"] = search_res

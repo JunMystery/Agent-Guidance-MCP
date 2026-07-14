@@ -15,6 +15,7 @@ from .symbols import extract_symbols, find_references, get_file_structure
 from .token_analytics import TokenTracker
 from .token_config import TokenOptimizationConfig, load_config_from_env
 from .token_filter import FilterLevel
+from .content_compressor import is_binary_file, is_likely_binary
 from .database import CodeGraphDatabase
 from .project_scan import (
     DEFAULT_MAX_DEPTH,
@@ -175,7 +176,16 @@ def read_project_file(
 
     end_line = start_line + len(selected) - 1 if selected else min(start_line - 1, line_number)
     content = "\n".join(selected)
-    if config.enabled:
+    if is_binary_file(path) or is_likely_binary(content):
+        optimized = content
+        original_tokens = estimate_tokens(content)
+        token_stats = {
+            "original_tokens": original_tokens,
+            "optimized_tokens": original_tokens,
+            "savings_pct": 0,
+            "binary": True,
+        }
+    elif config.enabled:
         optimized, token_stats = optimize_source_content(
             content, language_hint(path), FilterLevel.MINIMAL, config=config
         )
