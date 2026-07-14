@@ -37,14 +37,16 @@ AGENT_RULES_BLOCK = (
     "| Get UI/design guidance | `ui_ux(operation=\"search\", query=\"...\")` | Style, colors, typography, charts, slides |\n"
     "| Persist/recover session | `session_continuity(operation=\"save\"/\"load\"/\"clear\")` | State recovery / task checklist continuity |\n"
     "| Browse project tree | `project_context(operation=\"tree\")` | Optimized directory tree view |\n\n"
-    "### Six Mandatory Rules\n\n"
+    "### Eight Mandatory Rules\n\n"
     "1. **Context First**: Call `task_pipeline` or `project_context` BEFORE any file read or code change.\n"
     "2. **Standards Check**: Use `guidance(operation=\"search\")` BEFORE implementing or answering any prompt.\n"
     "3. **Token Budget**: Prefer MCP tools over raw file reads — built-in limits prevent context blowout.\n"
     "4. **No Direct FS**: Never manually read/search files when MCP tools do it with optimization.\n"
     "5. **Ground & Plan**: Verify files/functions/symbols via search BEFORE proposing changes. Never guess.\n"
-    "6. **300 LOC Cap**: Split files exceeding 300 lines of code. No monolithic files.\n\n"
-    "**CRITICAL: All 6 rules apply to EVERY coding action, direct query, text translation, or general query without exception.**\n"
+    "6. **300 LOC Cap**: Split files exceeding 300 lines of code. No monolithic files.\n"
+    "7. **Intent Gate**: Classify request type (trivial/explicit/exploratory/open-ended/ambiguous) before acting. If ambiguous, clarify first.\n"
+    "8. **Delegation Before Action**: Decompose multi-step tasks and delegate to specialized subagents. Never implement directly when delegation is possible.\n\n"
+    "**CRITICAL: All 8 rules apply to EVERY coding action, direct query, text translation, or general query without exception.**\n"
 )
 
 ENFORCER_SKILL_CONTENT = (

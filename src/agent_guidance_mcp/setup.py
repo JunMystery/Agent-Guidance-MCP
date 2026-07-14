@@ -25,14 +25,16 @@ AGENT_RULES_BLOCK = (
     "| Get UI/design guidance | `ui_ux(operation=\"search\", query=\"...\")` | Style, colors, typography, charts, slides |\n"
     "| Persist/recover session | `session_continuity(operation=\"save\"/\"load\"/\"clear\")` | State recovery / task checklist continuity |\n"
     "| Browse project tree | `project_context(operation=\"tree\")` | Optimized directory tree view |\n\n"
-    "### Six Mandatory Rules\n\n"
+    "### Eight Mandatory Rules\n\n"
     "1. **Context First**: Call `task_pipeline` or `project_context` BEFORE any file read or code change.\n"
     "2. **Standards Check**: Use `guidance(operation=\"search\")` BEFORE implementing or answering any prompt.\n"
     "3. **Token Budget**: Prefer MCP tools over raw file reads — built-in limits prevent context blowout.\n"
     "4. **No Direct FS**: Never manually read/search files when MCP tools do it with optimization.\n"
     "5. **Ground & Plan**: Verify files/functions/symbols via search BEFORE proposing changes. Never guess.\n"
-    "6. **300 LOC Cap**: Split files exceeding 300 lines of code. No monolithic files.\n\n"
-    "**CRITICAL: All 6 rules apply to EVERY coding action, direct query, text translation, or general query without exception.**\n"
+    "6. **300 LOC Cap**: Split files exceeding 300 lines of code. No monolithic files.\n"
+    "7. **Intent Gate**: Classify request type (trivial/explicit/exploratory/open-ended/ambiguous) before acting. If ambiguous, clarify first.\n"
+    "8. **Delegation Before Action**: Decompose multi-step tasks and delegate to specialized subagents. Never implement directly when delegation is possible.\n\n"
+    "**CRITICAL: All 8 rules apply to EVERY coding action, direct query, text translation, or general query without exception.**\n"
 )
 
 ENFORCER_SKILL_CONTENT = (
@@ -105,28 +107,34 @@ def configure_mcp_clients(executable: str):
         if not force_create and not path.parent.parent.exists():
             continue
         print(f"  Configuring {name}...")
-        config = {}
-        if path.exists():
-            try:
-                config = json.loads(path.read_text(encoding="utf-8"))
-            except Exception as e:
-                print(f"    Warning: Failed to read config: {e}. Starting fresh.")
-
-        config_key = "servers" if "VS Code Native" in name else "mcpServers"
-        if config_key not in config:
-            config[config_key] = {}
-
-        config[config_key][SERVER_ID] = {
-            "command": cmd_args[0],
-            "args": cmd_args[1:]
-        }
-
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+        key = "servers" if "VS Code Native" in name else "mcpServers"
+        if _merge_mcp_config(path, SERVER_ID, cmd_args, key=key):
             print(f"    Success: Registered '{SERVER_ID}'.")
-        except Exception as e:
-            print(f"    Error: Failed to write config: {e}")
+        else:
+            print(f"    Error: Failed to write config for {name}")
+
+def _merge_mcp_config(config_path: Path, server_id: str, cmd_args: list[str], key: str = "mcpServers") -> bool:
+    """Read existing MCP config, merge in server entry, and write back atomically.
+
+    Returns True on success, False on failure.
+    Never removes existing user-configured servers.
+    """
+    config = {}
+    if config_path.exists():
+        try:
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    if key not in config:
+        config[key] = {}
+    config[key][server_id] = {"command": cmd_args[0], "args": cmd_args[1:]}
+    try:
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+        return True
+    except Exception:
+        return False
+
 
 def settings_path() -> Path:
     return Path("settings") / "cline_mcp_settings.json"
@@ -292,6 +300,11 @@ def configure_workspace_rules():
         (".clinerules", Path.cwd() / ".clinerules"),
         (".copilotrules", Path.cwd() / ".copilotrules"),
         (".codexrules", Path.cwd() / ".codexrules"),
+        (".windsurfrules", Path.cwd() / ".windsurfrules"),
+        (".geminirules", Path.cwd() / ".geminirules"),
+        (".roorules", Path.cwd() / ".roorules"),
+        (".clauderules", Path.cwd() / ".clauderules"),
+        (".aider.instructions.md", Path.cwd() / ".aider.instructions.md"),
         ("AGENTS.md", Path.cwd() / "AGENTS.md"),
     ]
     print("\nConfiguring Workspace Coding Agent Rules...")
@@ -332,6 +345,9 @@ def configure_skills_enforcer():
     ]
     for name, path in global_targets:
         try:
+            if path.exists():
+                print(f"    Note: {name} skill already exists — skipping")
+                continue
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(ENFORCER_SKILL_CONTENT, encoding="utf-8")
             print(f"    Success: Configured {name} skill: {path.name}")
@@ -355,6 +371,9 @@ def configure_skills_enforcer():
         ]
         for name, path in local_targets:
             try:
+                if path.exists():
+                    print(f"    Note: Local {name} skill already exists — skipping")
+                    continue
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(ENFORCER_SKILL_CONTENT, encoding="utf-8")
                 print(f"    Success: Configured local {name} skill: {path.name}")
@@ -462,15 +481,7 @@ def _collect_ide_targets(executable: str) -> list[dict]:
         return {"command": cmd_args[0], "args": cmd_args[1:]}
 
     def configure_generic(name, config_path, key="mcpServers"):
-        config = {}
-        if config_path.exists():
-            try:
-                config = json.loads(config_path.read_text(encoding="utf-8"))
-            except Exception:
-                pass
-        config.setdefault(key, {})[SERVER_ID] = make_server_entry()
-        config_path.parent.mkdir(parents=True, exist_ok=True)
-        config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+        _merge_mcp_config(config_path, SERVER_ID, cmd_args, key=key)
 
     targets = []
 

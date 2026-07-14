@@ -193,7 +193,7 @@ Optimized Response (40–80% smaller)
 
 Agent Guidance MCP features a hybrid semantic search engine designed to dynamically load relevant skills based on intent and task context.
 
-- **Pre-computed Embeddings**: The 168 global catalog skills have pre-computed embeddings mapped using the lightweight `all-MiniLM-L6-v2` model. This ensures instant retrieval on startup.
+- **Pre-computed Embeddings**: The 168 global catalog skills have pre-computed embeddings mapped using the lightweight `intfloat/multilingual-e5-small` model. This ensures instant retrieval on startup.
 - **Workspace-Local Skills**: The server automatically scans your project workspace for custom local skills defined in `.agents/skills/`, `.opencode/skills/`, or `.claude/skills/` directories, dynamically embeds them on startup, and merges them into the search index.
 - **Hybrid Similarity Ranking**: `guidance(operation="search")` blends traditional keyword matching with vector cosine similarity calculations to rank skills accurately, even when the task query contains no exact keyword overlaps (e.g., matching "reducing context size" to the `context-budget` skill).
 - **Zero-Configuration Download**: The query embedding model is automatically downloaded on-demand when the server first runs, requiring zero manual setup or configuration.
@@ -271,7 +271,7 @@ For full tool documentation, response formats, and examples, see [MCP Surface](d
 - [Project Context Tools](docs/reference/project-context-tools.md) — tree, search, read, snapshot, symbols, references.
 - [Skills Overview](docs/skills/SKILLS_OVERVIEW.md) — full catalog of 185+ skills.
 - [Integrated Repositories](docs/integrations/integrated-repositories.md) — third-party repos in the codebase.
-- [Potential Integrations](docs/integrations/potential-integrations.md) — candidates for future inclusion.
+- [Potential Integrations](docs/integrations/integrated-repositories.md) — third-party repos and candidates for future inclusion.
 - [Development Guide](docs/development.md) — tests, project structure, maintainer notes.
 - [MCP Integrations Guide](agent-guidance/mcp-integrations/README.md) — SQLite caching, CodeGraph, Context7 docs.
 

@@ -23,7 +23,7 @@
 4. **No Direct FS**: Never manually read/search files when MCP tools do it with optimization.
 5. **Ground & Plan**: Verify files/functions/symbols via search BEFORE proposing changes. Never guess.
 6. **300 LOC Cap**: Split files exceeding 300 lines of code. No monolithic files.
-7. **Clarification**: When unsure about anything, ASK! DO NOT GUESS.
-8. **Planning**: Propose an implementation plan BEFORE making any big or complex changes.
+7. **Intent Gate**: Classify request type (trivial/explicit/exploratory/open-ended/ambiguous) before acting. If ambiguous, clarify first.
+8. **Delegation Before Action**: Decompose multi-step tasks and delegate to specialized subagents. Never implement directly when delegation is possible.
 
 **CRITICAL: All 8 rules apply to EVERY coding action, direct query, text translation, or general query without exception.**

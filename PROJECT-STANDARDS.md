@@ -1,6 +1,6 @@
 # Project-Specific Agent Guidance
 
-This file contains standards, conventions, and rules specific to this project. AI Agents MUST follow the 6 core standards for every single action, in parallel with the rules herein.
+This file contains standards, conventions, and rules specific to this project. AI Agents MUST follow the 8 core standards for every single action, in parallel with the rules herein.
 
 > **💡 Instructions:**
 > - **Independent operation:** Simply create/edit this file, and the AI Agent will automatically detect it.
@@ -29,7 +29,7 @@ This file contains standards, conventions, and rules specific to this project. A
 ## 📋 Project Standards List (Customize below)
 
 > [!IMPORTANT]
-> **GLOBAL ENFORCEMENT**: All 6 rules herein MUST be evaluated and followed for every single coding action, repository lookup, refactoring, or planning phase without exception.
+> **GLOBAL ENFORCEMENT**: All 8 rules herein MUST be evaluated and followed for every single coding action, repository lookup, refactoring, or planning phase without exception.
 
 <!-- ADD YOUR STANDARDS BELOW -->
 

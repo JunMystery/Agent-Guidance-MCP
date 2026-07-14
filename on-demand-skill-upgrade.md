@@ -47,7 +47,7 @@ Store these documents in a list `tool_docs`.
 Pick a lightweight, multilingual embedding model (since the question suggests Vietnamese prompts).  
 Good choices:
 
-- `sentence-transformers/all-MiniLM-L6-v2` (fast, small)
+- `intfloat/multilingual-e5-small` (multilingual, balanced)
 - `BAAI/bge-small-en-v1.5` or `BAAI/bge-base-vi` for Vietnamese
 
 You can also use an API like OpenAI’s `text-embedding-3-small` if you prefer remote.

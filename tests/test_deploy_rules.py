@@ -82,7 +82,7 @@ def test_atomic_append_skips_when_marker_present(tmp_path):
 def test_atomic_append_marker_in_first_file_already(tmp_path):
     """If marker is already in a file that also has existing AGENT_RULES_BLOCK content, skip."""
     path = tmp_path / ".clinerules"
-    path.write_text(f"# User rules\n\n{MARKER}\n\n### Six Mandatory Rules\n\n1. Rule one\n", encoding="utf-8")
+    path.write_text(f"# User rules\n\n{MARKER}\n\n### Eight Mandatory Rules\n\n1. Rule one\n", encoding="utf-8")
     written = _atomic_append(path, "## Extra\n")
     assert written is False
     assert path.read_text(encoding="utf-8").count(MARKER) == 1
@@ -130,7 +130,7 @@ def test_deploy_project_rules_skips_existing_content(tmp_path):
 
     # Pre-populate one rule file with the marker
     (tmp_path / ".cursorrules").write_text(
-        f"# My user rules\n\n{MARKER}\n\n### Six Mandatory Rules\n\nAlready here.\n",
+        f"# My user rules\n\n{MARKER}\n\n### Eight Mandatory Rules\n\nAlready here.\n",
         encoding="utf-8",
     )
     # Pre-populate one skill file

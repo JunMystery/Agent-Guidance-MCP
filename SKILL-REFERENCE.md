@@ -93,7 +93,7 @@ Full catalog (168 skills): `guidance(operation="list", kind="skill")`
 > Auth, payments, encryption, user data, API keys
 
 ```
-@skills/security-hub/SKILL.md
+@skills/security-review/SKILL.md
 ```
 
 ### RAG / AI Pipeline
@@ -116,7 +116,7 @@ Full catalog (168 skills): `guidance(operation="list", kind="skill")`
 ```
 @agent-guidance/quality-control/audit-ai-code-full.md
 @agent-guidance/quality-control/code-review-checklist.md
-@skills/workflow-hub/SKILL.md
+@skills/git-workflow/SKILL.md
 ```
 
 ### Large File Refactor
@@ -137,35 +137,35 @@ Full catalog (168 skills): `guidance(operation="list", kind="skill")`
 > Schema changes, data migration, rollback strategy
 
 ```
-@skills/backend-hub/SKILL.md
+@skills/backend-patterns/SKILL.md
 ```
 
 ### Caching & Performance
 > Redis, cache invalidation, query optimization
 
 ```
-@skills/backend-hub/SKILL.md
+@skills/backend-patterns/SKILL.md
 ```
 
 ### Unit Test Generation
 > Writing tests for existing or new code
 
 ```
-@skills/testing-hub/SKILL.md
+@skills/tdd-workflow/SKILL.md
 ```
 
 ### Security Audit
 > Scanning for vulnerabilities in existing code
 
 ```
-@skills/security-hub/SKILL.md
+@skills/security-review/SKILL.md
 ```
 
 ### API Development
 > REST endpoints, rate limiting, authentication
 
 ```
-@skills/backend-hub/SKILL.md
+@skills/backend-patterns/SKILL.md
 ```
 
 ### Mobile Development
@@ -179,28 +179,28 @@ Full catalog (168 skills): `guidance(operation="list", kind="skill")`
 > Writing README, API Specs, Docstrings, or Changelogs
 
 ```
-@skills/docs-research-hub/SKILL.md
+@skills/documentation-lookup/SKILL.md
 ```
 
 ### Release & Branching Strategy
 > Bumping versions (SemVer), Gitflow, or pre-release checks
 
 ```
-@skills/workflow-hub/SKILL.md
+@skills/git-workflow/SKILL.md
 ```
 
 ### Testing Strategy & TDD
 > Setting up test pyramids, coverage bounds, or adhering to FIRST principles
 
 ```
-@skills/testing-hub/SKILL.md
+@skills/tdd-workflow/SKILL.md
 ```
 
 ### Performance & DB Optimization
 > Caching strategy, N+1 queries, concurrency, response time budgets
 
 ```
-@skills/backend-hub/SKILL.md
+@skills/backend-patterns/SKILL.md
 ```
 
 ### Industry Compliance
@@ -214,14 +214,14 @@ Full catalog (168 skills): `guidance(operation="list", kind="skill")`
 > Reviewing HTML/React for WCAG 2.1 AA, ARIA, and Keyboard Navigation
 
 ```
-@skills/frontend-hub/SKILL.md
+@skills/frontend-patterns/SKILL.md
 ```
 
 ### UI/UX, Frontend Design, Dashboards, Landing Pages, Slides
 > Visual design, component styling, product-specific UX, design systems, brand assets, and slide/presentation UI
 
 ```
-@skills/frontend-hub/SKILL.md
+@skills/frontend-patterns/SKILL.md
 @skills/ui-ux-pro-max/SKILL.md
 ```
 
