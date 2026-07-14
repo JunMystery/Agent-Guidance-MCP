@@ -127,13 +127,27 @@ if ($action -eq "2") { $modeFlag = "--mode=ide" }
 
 Write-Host ""
 Write-Host "  ▶ Registering with detected IDEs..." -ForegroundColor Magenta
+# Try direct execution first; if blocked by AppLocker/WDAC, fall back to uv tool run
+$ranViaShim = $false
 if (Test-Path $toolBin) {
-    & $toolBin --setup $modeFlag
-    Write-Host "  ▶ Downloading skill catalog..." -ForegroundColor Magenta
+    try {
+        & $toolBin --setup $modeFlag
+        $ranViaShim = $true
+    } catch {
+        Write-Host "  ⚠ Direct execution blocked ($($_.Exception.Message)) — falling back to uv tool run..." -ForegroundColor Yellow
+    }
+}
+if (-not $ranViaShim) {
+    & $uvBin tool run agent-guidance-mcp --setup $modeFlag
+}
+Write-Host "  ▶ Downloading skill catalog..." -ForegroundColor Magenta
+if ($ranViaShim -and -not $?) {
+    # --setup exited non-zero, retry via uv
+    $ranViaShim = $false
+}
+if ($ranViaShim) {
     & $toolBin --update
 } else {
-    & $uvBin tool run agent-guidance-mcp --setup $modeFlag
-    Write-Host "  ▶ Downloading skill catalog..." -ForegroundColor Magenta
     & $uvBin tool run agent-guidance-mcp --update
 }
 
