@@ -82,6 +82,7 @@ def configure_mcp_clients(executable: str):
     targets = [
         ("Claude Desktop", claude_path, True),
         ("Gemini MCP config", Path.home() / ".gemini" / "config" / "mcp_config.json", True),
+        ("Antigravity MCP config", Path.home() / ".gemini" / "antigravity" / "mcp_config.json", True),
         ("Cursor Native", Path.home() / ".cursor" / "mcp.json", True),
         ("VS Code Native (User)", code_path.parent / "mcp.json", True),
         ("Continue (Global)", Path.home() / ".continue" / "mcpServers" / "config.json", True)
@@ -492,6 +493,15 @@ def _collect_ide_targets(executable: str) -> list[dict]:
         "configure": lambda: configure_generic("Gemini CLI", gemini_path),
     })
 
+    # Antigravity
+    antigravity_path = home / ".gemini" / "antigravity" / "mcp_config.json"
+    targets.append({
+        "name": "Antigravity",
+        "detected": antigravity_path.parent.exists() or True,
+        "recommended": True,
+        "configure": lambda: configure_generic("Antigravity", antigravity_path),
+    })
+
     # Cursor
     cursor_mcp = home / ".cursor" / "mcp.json"
     targets.append({
@@ -620,6 +630,7 @@ def remove_mcp_clients():
     targets = [
         ("Claude Desktop", claude_path),
         ("Gemini MCP config", Path.home() / ".gemini" / "config" / "mcp_config.json"),
+        ("Antigravity MCP config", Path.home() / ".gemini" / "antigravity" / "mcp_config.json"),
         ("Cursor Native", Path.home() / ".cursor" / "mcp.json"),
         ("VS Code Native (User)", code_path.parent / "mcp.json"),
         ("Continue (Global)", Path.home() / ".continue" / "mcpServers" / "config.json")
