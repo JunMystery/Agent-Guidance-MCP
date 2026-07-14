@@ -242,8 +242,8 @@ class StandardsCatalog:
                 semantic_score = cosine_similarity(query_vector, skill_vector)
 
             # 3. Combine scores (hybrid search)
-            # Scale semantic similarity (0.0 to 1.0) to range 0-50, added to keyword score.
-            combined_score = keyword_score + (semantic_score * 50)
+            # Scale semantic similarity (0.0 to 1.0) to range 0-150, added to keyword score.
+            combined_score = keyword_score + (semantic_score * 150)
             if combined_score <= 0.0:
                 continue
 
