@@ -120,7 +120,7 @@ Works with any MCP-compatible client. Auto-configured by the installer:
 |---|---|---|---|
 | `task_pipeline` | **Unlocks** | **Call first** — context prep | Recommendations + tree + search + UI + execution sequence |
 | `guidance` | Gated | Standards & skill catalog | `list`, `get`, `search`, `recommend`, `reason`, `docs` (Context7) |
-| `project_context` | Gated | Bounded project file ops | `tree`, `search`, `read`, `symbols`, `references`, `structure`, `callers`, `callees`, `diff`, `snapshot` |
+| `project_context` | Gated | Project file ops + 3-tier search | `tree`, `search` (FTS5 docs config general), `read`, `symbols`, `references`, `structure`, `callers`, `callees`, `diff`, `snapshot` |
 | `ui_ux` | Gated | Design guidance | `search`, `design_system`, `slides` |
 | `session_continuity` | Gated | Task state persistence | `save`, `load`, `clear` |
 | `workflow_prompt` | Gated | Workflow prompts | `plan`, `test`, `deploy`, `debug`, etc. |
@@ -281,13 +281,18 @@ Agent: guidance(operation="search", query="JWT authentication middleware Express
 
 Returns: security-review skill, api-design patterns, OWASP auth cheatsheet — all pre-loaded, zero web search round-trips.
 
-**Step 3 — Agent reads only what it needs**
+**Step 3 — Agent searches codebase using 3-tier fallback**
 
 ```
-Agent: project_context(operation="read", relative_path="src/middleware/auth.js")
+Agent: project_context(operation="search", query="JWT middleware auth")
 ```
 
-Returns: 300 lines max. If the file is 800 lines, `smart_truncate` preserves imports, function signatures, and JSDoc — skipping implementation bodies.
+Returns ranked results using a three-tier pipeline:
+- **Tier 1**: Docs and manifests (README, ARCHITECTURE.md, pyproject.toml) — fast, high-signal
+- **Tier 2**: Config, entry points, test dirs (Dockerfile, main.py, src/) — structural context
+- **Tier 3**: General code files, capped at 300 — slowest, only reached if tiers 1–2 miss
+
+FTS5 (SQLite full-text index) resolves ~90% of queries instantly, bypassing all three fallback tiers. The 3-tier fallback only fires when FTS5 is empty or the index isn't ready.
 
 **Step 4 — Agent implements with live docs**
 
@@ -312,7 +317,9 @@ Returns: current `jsonwebtoken` API docs from Context7 — no hallucinated API c
 | `AGENT_WATCHER_INTERVAL` | Watcher poll interval (seconds) | `30` |
 | `AGENT_WATCHER_DEBOUNCE_MULTIPLIER` | Debounce multiplier after changes | `2.0` |
 | `AGENT_WATCHER_REF_THRESHOLD` | Batch size before full reference resolve | `50` |
-| `AGENT_AUTO_UPDATE_INTERVAL` | Auto-update schedule | `weekly` |
+| `AGENT_AUTO_UPDATE_INTERVAL` | Auto-update schedule via env var | `weekly` |
+| `--auto-update` / `--update` | CLI flags for manual update + model download | — |
+| `--session-start` | CLI flag for session-start hook auto-activation | — |
 
 For full tool documentation, response formats, and examples, see [MCP Surface](docs/reference/mcp-surface.md).
 

@@ -6,9 +6,11 @@ Complete reference for every public MCP tool, resource, and prompt exposed by th
 
 ---
 
-## Tools (8)
+## Tools (6 + 3 whitelisted)
 
-### 1. `task_pipeline` -- Call First
+All tools except `health_check`, `diagnose`, and `token_stats` require `task_pipeline` to be called first. Gated tools return `PRIORITY_REQUIRED` if called before `task_pipeline`.
+
+### 1. `task_pipeline` -- Call First (unlocks gate)
 
 One-stop context preparation. Returns standards recommendations, project tree, code search, and optional UI/UX guidance in a single optimized call. Uses parallel execution internally.
 
@@ -103,7 +105,7 @@ project_context(
 | Operation | Required Args | Description |
 |---|---|---|
 | `tree` | -- | Directory tree with file metadata (path, type, language_hint, size_bytes) |
-| `search` | `query` | Codebase text search (SQLite FTS5 -> parallel scan fallback). |
+| `search` | `query` | Codebase text search with 3-tier fallback: FTS5 (SQLite full-text) → docs/manifests → structural/config files → general code (capped 300). |
 | `read` | `relative_path` | Bounded file read (300 line cap). Path traversal protected. |
 | `snapshot` | -- | Export bounded JSON snapshot to `.agent-context/`. Must be within `.agent-context/` directory. |
 | `symbols` | `relative_path` | Extract classes, functions, methods from a file. Tree-sitter AST (7 langs) or regex fallback (13 langs). |
@@ -221,7 +223,7 @@ Comprehensive diagnostics across 7 subsystems:
 
 ---
 
-## Resources (4)
+## Resources (5)
 
 | URI | MIME | Description |
 |---|---|---|
@@ -229,12 +231,15 @@ Comprehensive diagnostics across 7 subsystems:
 | `standards://version` | `application/json` | `{"server": "agent-guidance-mcp", "version": "1.0.0", "mcp_protocol": "2024-11-05"}` |
 | `standards://document/{identifier}` | `text/markdown` | Standards document content by slug (token-optimized) |
 | `standards://skill/{name}` | `text/markdown` | On-demand skill capsule by name (token-optimized) |
+| `agent-guidance-mcp://system/priority` | `text/markdown` | Priority gate instructions — returned by `PRIORITY_REQUIRED` errors |
 
 ---
 
-## Prompt (1)
+## Prompt (1 — gated)
 
 ### `workflow_prompt`
+
+**Gate**: Returns `PRIORITY_REQUIRED` if called before `task_pipeline`.
 
 ```
 workflow_prompt(

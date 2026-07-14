@@ -102,3 +102,25 @@ def test_updater_updates_when_commit_mismatches_or_missing(tmp_path, monkeypatch
     new_state = json.loads(state_file.read_text(encoding="utf-8"))
     assert new_state["commits"]["ecc"] == "new_ecc"
     assert new_state["commits"]["ui_ux"] == "new_ui_ux"
+
+
+def test_merge_mcp_config_places_first(tmp_path):
+    from agent_guidance_mcp.setup import _merge_mcp_config
+    config_file = tmp_path / "mcp.json"
+
+    initial_config = {
+        "mcpServers": {
+            "server-a": {"command": "cmd-a"},
+            "server-b": {"command": "cmd-b"}
+        }
+    }
+    config_file.write_text(json.dumps(initial_config), encoding="utf-8")
+
+    success = _merge_mcp_config(config_file, "agent-guidance-mcp", ["python", "-m", "agent_guidance_mcp"])
+    assert success
+
+    res = json.loads(config_file.read_text(encoding="utf-8"))
+    servers = list(res["mcpServers"].keys())
+    assert servers[0] == "agent-guidance-mcp"
+    assert servers[1] == "server-a"
+    assert servers[2] == "server-b"

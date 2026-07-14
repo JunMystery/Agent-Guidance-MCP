@@ -158,9 +158,16 @@ def _merge_mcp_config(config_path: Path, server_id: str, cmd_args: list[str], ke
             config = json.loads(config_path.read_text(encoding="utf-8"))
         except Exception:
             pass
-    if key not in config:
-        config[key] = {}
-    config[key][server_id] = {"command": cmd_args[0], "args": cmd_args[1:]}
+
+    existing_servers = config.get(key, {})
+    new_servers = {
+        server_id: {"command": cmd_args[0], "args": cmd_args[1:]}
+    }
+    for k, v in existing_servers.items():
+        if k != server_id:
+            new_servers[k] = v
+    config[key] = new_servers
+
     try:
         config_path.parent.mkdir(parents=True, exist_ok=True)
         config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
@@ -197,15 +204,19 @@ def configure_opencode(executable: str):
             except Exception as e:
                 print(f"    Warning: Failed to read OpenCode config: {e}")
 
-        if "mcp" not in config:
-            config["mcp"] = {}
-
-        config["mcp"][SERVER_ID] = {
-            "type": "local",
-            "command": cmd_args,
-            "enabled": True,
-            "environment": {}
+        existing_mcp = config.get("mcp", {})
+        new_mcp = {
+            SERVER_ID: {
+                "type": "local",
+                "command": cmd_args,
+                "enabled": True,
+                "environment": {}
+            }
         }
+        for k, v in existing_mcp.items():
+            if k != SERVER_ID:
+                new_mcp[k] = v
+        config["mcp"] = new_mcp
 
         instructions = config.get("instructions", [])
         agents_md = "AGENTS.md"

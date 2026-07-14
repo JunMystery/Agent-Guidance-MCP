@@ -241,12 +241,39 @@ def search_project_code(
     finally:
         db.close()
 
-    # Fallback to parallel text scan
+    # ── 3-tier fallback: docs → structural → general code ─────────────────
     terms = tokenize(query)
     if not terms:
         return {"project_root": str(root), "query": query, "matches": []}
 
-    file_paths = list(iter_project_files(root, excluded_paths={DEFAULT_SNAPSHOT_PATH}))[:2000]
+    all_files = list(iter_project_files(root, excluded_paths={DEFAULT_SNAPSHOT_PATH}))
+
+    def _tier_files(patterns):
+        matched = []
+        for f in all_files:
+            rel = relative_path(root, f).replace("\\", "/")
+            if any(rel.startswith(p) or rel == p or f"/{p}" in rel for p in patterns):
+                matched.append(f)
+        return matched
+
+    # Tier 1: high-signal docs and manifests
+    doc_tier = _tier_files({
+        "README.md", "ARCHITECTURE.md", "CONTRIBUTING.md", "CHANGELOG.md",
+        "docs/", "documentation/", "adr/", "decisions/",
+        "pyproject.toml", "package.json", "Cargo.toml", "go.mod",
+        "setup.py", "setup.cfg", "Makefile",
+    })
+    # Tier 2: structural and config files
+    config_tier = _tier_files({
+        "tsconfig.json", "Dockerfile", "docker-compose",
+        ".github/workflows/", ".gitlab-ci.yml",
+        "main.py", "index.ts", "main.go", "lib.rs",
+        "cmd/", "app/", "src/", "internal/",
+        "tests/", "test/", "__tests__/",
+    })
+    config_tier = [f for f in config_tier if f not in doc_tier]
+    # Tier 3: everything else, capped
+    general_tier = [f for f in all_files if f not in doc_tier and f not in config_tier][:300]
 
     def _scan_file(path):
         content, _ = read_bounded_text(path, DEFAULT_MAX_FILE_BYTES)
@@ -270,7 +297,7 @@ def search_project_code(
 
     from .parallel import parallel_map
 
-    matches = parallel_map(_scan_file, file_paths)
+    matches = parallel_map(_scan_file, doc_tier + config_tier + general_tier)
     matches.sort(key=lambda item: (-item[0], str(item[1]["path"])))
     return {
         "project_root": str(root),

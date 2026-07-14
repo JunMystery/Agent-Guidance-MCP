@@ -25,6 +25,16 @@ PROJECT_IGNORED_PARTS = frozenset({
     ".agent-context",
     ".pytest_temp",
     ".codegraph",
+    "build",
+    "dist",
+    "target",
+    ".next",
+    "out",
+    ".terraform",
+    "coverage",
+    ".swc",
+    ".eslintcache",
+    "__snapshots__",
 })
 
 TASK_ANCHORS = {
