@@ -4,7 +4,8 @@
 
 For EVERY user interaction — planning, implementation, testing, debugging, reviewing, refactoring, or any other action:
 
-### Tool Selection Priority
+<!-- agent-guidance:start -->
+## Agent Guidance MCP — Tool Selection Priority
 
 | You need to... | Use THIS tool first | Why |
 |---|---|---|
@@ -18,9 +19,6 @@ For EVERY user interaction — planning, implementation, testing, debugging, rev
 | Get UI/design guidance | `ui_ux(operation="search", query="...")` | Style, colors, typography, charts, slides |
 | Persist/recover session | `session_continuity(operation="save"/"load"/"clear")` | State recovery / task checklist continuity |
 | Browse project tree | `project_context(operation="tree")` | Optimized directory tree view |
-| Diagnose build/test error | `project_context(operation="diff")` | Inspects recent changes that could have caused the error |
-| Resume work / check state | `session_continuity(operation="load")` | Recovers task checklists and debounces interruption state |
-| Get live library docs | `guidance(operation="docs", query="...", identifier="lib")` | Query API docs via Context7 |
 
 ### Nine Mandatory Rules
 
@@ -35,16 +33,4 @@ For EVERY user interaction — planning, implementation, testing, debugging, rev
 9. **Per-Phase Reset**: For EACH new work phase (plan → implement → test → debug → review → refactor), re-call `task_pipeline` with that phase's goal. Do NOT carry old context across phases. A new phase is a new task.
 
 **CRITICAL: All 9 rules apply to EVERY action without exception — planning, implementation, testing, debugging, reviewing, refactoring, or any other work. There is no action type exempt from these rules.**
-
----
-
-## Skills & Personas
-
-168 skills in `/skills/`. For skill workflows, lifecycle mapping, and persona orchestration patterns, use:
-
-```
-guidance(operation="search", query="<your task domain>")
-guidance(operation="recommend", query="<your task description>")
-```
-
-Skills load on-demand via `guidance(operation="get")` — never load all at once.
+<!-- agent-guidance:end -->

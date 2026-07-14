@@ -17,18 +17,21 @@ AGENT_GUIDANCE_SKILL_TAG_END = "<!-- agent-guidance-skill:end -->"
 
 
 def _replace_or_append_tagged_section(content, start_tag, end_tag, new_section):
-    """Replace from start_tag through end_tag with new_section, or append at end."""
+    """Replace from start_tag through end_tag with new_section, or append at end.
+
+    Idempotent: calling twice with same content yields same result.
+    """
     start_idx = content.find(start_tag)
     end_idx = content.find(end_tag) if start_idx != -1 else -1
 
     if start_idx != -1 and end_idx != -1:
-        before = content[:start_idx]
-        after = content[end_idx + len(end_tag):]
-        return before + new_section + after
+        before = content[:start_idx].rstrip("\n")
+        after = content[end_idx + len(end_tag):].lstrip("\n")
+        return before + "\n" + new_section.rstrip("\n") + "\n" + after
 
     if content and not content.endswith("\n"):
         content += "\n"
-    return content + new_section + "\n"
+    return content + new_section.rstrip("\n") + "\n"
 
 
 AGENT_RULES_BLOCK = (

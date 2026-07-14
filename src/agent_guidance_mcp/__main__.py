@@ -6,7 +6,7 @@ import sys
 
 from . import __version__
 from .catalog import find_standards_root
-from .server import create_server
+from .server import create_server, run_session_start
 from .token_config import TokenOptimizationConfig
 
 
@@ -58,6 +58,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Run clean-up to remove server registrations, config rules, and databases.",
     )
     parser.add_argument(
+        "--session-start",
+        action="store_true",
+        help=(
+            "Session-start auto-activation: passes the priority gate and returns "
+            "project context as a JSON payload for the session-start hook."
+        ),
+    )
+    parser.add_argument(
+        "--project-path",
+        default=".",
+        help="Project root path for --session-start (default: current dir).",
+    )
+    parser.add_argument(
         "--no-optimize",
         action="store_true",
         help="Disable token optimization and savings tracking for this server session.",
@@ -88,6 +101,14 @@ def main() -> None:
         if args.uninstall:
             from .setup import run_uninstall
             run_uninstall()
+            sys.exit(0)
+
+        if args.session_start:
+            result_json = run_session_start(
+                root=args.root,
+                project_path=args.project_path,
+            )
+            print(result_json)
             sys.exit(0)
 
         # Compatibility check before server start
