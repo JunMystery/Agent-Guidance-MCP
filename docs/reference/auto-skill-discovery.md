@@ -43,6 +43,14 @@ graph TD
   * **O(1) Anchor Promotion**: If an inferred keyword matches a declared `anchor` in any skill frontmatter, that skill file path is immediately loaded into recommendations.
   * **BM25 Search Weight Boosting**: Matched keywords are appended twice to the semantic query to bias search rankings towards documents in the relevant domains (e.g., `security`, `frontend`, `api`).
 
+### 4. Semantic Search & Hybrid Similarity Ranking
+* **File**: `src/agent_guidance_mcp/catalog.py` (`search_entries`) & `src/agent_guidance_mcp/embeddings.py`
+* **Action**: Generates a query vector embedding and uses cosine similarity to score skills:
+  * **Pre-computed Embeddings**: Bundled global skills are loaded instantly from a pre-computed `skills_embeddings.json` index.
+  * **Dynamic Workspace Skill Embedding**: Local skills located in `.agents/skills/`, `.opencode/skills/`, or `.claude/skills/` are dynamically loaded and embedded on startup using the local model.
+  * **Hybrid Rank Blending**: Final ranking combines the term-frequency keyword score and the vector cosine similarity score (scaled to 0-50 and added to the keyword score).
+  * **Graceful Fallback**: If the `sentence-transformers` library is not installed, the search engine gracefully falls back to pure keyword-based search.
+
 ---
 
 ## 📋 Extending Triggers in Skill Files

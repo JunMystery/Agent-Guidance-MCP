@@ -189,6 +189,15 @@ Raw Response
 Optimized Response (40–80% smaller)
 ```
 
+### Semantic Skill Search & Local Workspace Skills
+
+Agent Guidance MCP features a hybrid semantic search engine designed to dynamically load relevant skills based on intent and task context.
+
+- **Pre-computed Embeddings**: The 168 global catalog skills have pre-computed embeddings mapped using the lightweight `all-MiniLM-L6-v2` model. This ensures instant retrieval on startup.
+- **Workspace-Local Skills**: The server automatically scans your project workspace for custom local skills defined in `.agents/skills/`, `.opencode/skills/`, or `.claude/skills/` directories, dynamically embeds them on startup, and merges them into the search index.
+- **Hybrid Similarity Ranking**: `guidance(operation="search")` blends traditional keyword matching with vector cosine similarity calculations to rank skills accurately, even when the task query contains no exact keyword overlaps (e.g., matching "reducing context size" to the `context-budget` skill).
+- **Zero-Configuration Download**: The query embedding model is automatically downloaded on-demand when the server first runs, requiring zero manual setup or configuration.
+
 ---
 
 ## How It Works In Practice
