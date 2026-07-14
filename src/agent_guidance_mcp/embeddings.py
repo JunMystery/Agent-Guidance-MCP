@@ -8,16 +8,18 @@ logger = logging.getLogger("agent-guidance-mcp.embeddings")
 
 _model = None
 
+_E5_MODEL = "intfloat/multilingual-e5-small"
+
 def get_embedding_model() -> Optional[Any]:
     """Lazy load the sentence-transformers model."""
     global _model
     if _model is not None:
         return _model
-    
+
     try:
         from sentence_transformers import SentenceTransformer
-        logger.info("Loading sentence-transformers/all-MiniLM-L6-v2 model...")
-        _model = SentenceTransformer("all-MiniLM-L6-v2")
+        logger.info(f"Loading {_E5_MODEL} model...")
+        _model = SentenceTransformer(_E5_MODEL)
         return _model
     except ImportError:
         logger.warning(
@@ -29,12 +31,23 @@ def get_embedding_model() -> Optional[Any]:
         logger.error(f"Error loading embedding model: {e}")
         return None
 
-def get_embedding(text: str) -> Optional[List[float]]:
-    """Generate a normalized embedding vector for the text using the local model."""
+_E5_QUERY_PREFIX = "query: "
+_E5_PASSAGE_PREFIX = "passage: "
+
+def get_embedding(text: str, prefix: str | None = None) -> Optional[List[float]]:
+    """Generate a normalized embedding vector for the text using the local model.
+
+    For E5 models, use prefix='query' for search queries and prefix='passage'
+    for document/skill content to follow the asymmetric encoding convention.
+    """
     model = get_embedding_model()
     if model is None:
         return None
     try:
+        if prefix == "query":
+            text = _E5_QUERY_PREFIX + text
+        elif prefix == "passage":
+            text = _E5_PASSAGE_PREFIX + text
         vector = model.encode(text, normalize_embeddings=True)
         return vector.tolist()
     except Exception as e:

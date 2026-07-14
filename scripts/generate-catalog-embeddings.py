@@ -21,16 +21,18 @@ def main():
         print("No skills found. Exiting.")
         sys.exit(1)
         
-    print("Loading sentence-transformers/all-MiniLM-L6-v2...")
+    model_name = "intfloat/multilingual-e5-small"
+    print(f"Loading {model_name}...")
     from sentence_transformers import SentenceTransformer
-    model = SentenceTransformer("all-MiniLM-L6-v2")
+    model = SentenceTransformer(model_name)
     
     print("Generating embeddings...")
     embeddings_map = {}
     for entry in skills:
         content = catalog.read_entry(entry.identifier, optimize=False)
         # Combine title, description, and first 1000 chars of content for the document representation
-        text_to_embed = f"Title: {entry.title}\nDescription: {entry.description}\nContent: {content[:1000]}"
+        # E5 models require a "passage: " prefix for document-side text
+        text_to_embed = f"passage: Title: {entry.title}\nDescription: {entry.description}\nContent: {content[:1000]}"
         vector = model.encode(text_to_embed, normalize_embeddings=True)
         embeddings_map[entry.identifier] = vector.tolist()
         print(f"  Embedded skill: {entry.identifier}")

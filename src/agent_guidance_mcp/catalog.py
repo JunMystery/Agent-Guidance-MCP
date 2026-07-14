@@ -79,7 +79,7 @@ class StandardsCatalog:
                 try:
                     content = self._load_content(entry)
                     text_to_embed = f"Title: {entry.title}\nDescription: {entry.description}\nContent: {content[:1000]}"
-                    vector = get_embedding(text_to_embed)
+                    vector = get_embedding(text_to_embed, prefix="passage")
                     if vector:
                         self.skills_embeddings[entry.identifier] = vector
                 except Exception as e:
@@ -208,7 +208,7 @@ class StandardsCatalog:
         terms = tokenize(query)
         
         # Try semantic search embedding
-        query_vector = get_embedding(query)
+        query_vector = get_embedding(query, prefix="query")
         
         results: list[tuple[float, CatalogEntry, str]] = []
         compiled_terms = [re.compile(rf'\b{re.escape(term)}\b') for term in terms] if terms else []
