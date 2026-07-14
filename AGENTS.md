@@ -2,13 +2,13 @@
 
 ## CRITICAL — Tool Rules (READ FIRST)
 
-For EVERY user prompt, action, repository lookup, coding, refactoring, planning, editing, translation, or general query:
+For EVERY user interaction — planning, implementation, testing, debugging, reviewing, refactoring, or any other action:
 
 ### Tool Selection Priority
 
 | You need to... | Use THIS tool first | Why |
 |---|---|---|
-| Start any coding task | `task_pipeline(task="...")` | Recommendations + tree + code search + UI in ONE call |
+| Start any task or phase | `task_pipeline(task="...")` | Recommendations + tree + code search + UI in ONE call |
 | Check coding standards / skills | `guidance(operation="search", query="...")` | No other tool provides standards or skill lookup |
 | Read a file | `project_context(operation="read", relative_path="...")` | Token-capped at 300 lines — prevents context blowout |
 | Search codebase text | `project_context(operation="search", query="...")` | Ranked, bounded results. Fallback when codegraph unavailable |
@@ -22,7 +22,7 @@ For EVERY user prompt, action, repository lookup, coding, refactoring, planning,
 | Resume work / check state | `session_continuity(operation="load")` | Recovers task checklists and debounces interruption state |
 | Get live library docs | `guidance(operation="docs", query="...", identifier="lib")` | Query API docs via Context7 |
 
-### Eight Mandatory Rules
+### Nine Mandatory Rules
 
 1. **Context First**: Call `task_pipeline` or `project_context` BEFORE any file read or code change.
 2. **Standards Check**: Use `guidance(operation="search")` BEFORE implementing or answering any prompt.
@@ -32,8 +32,9 @@ For EVERY user prompt, action, repository lookup, coding, refactoring, planning,
 6. **300 LOC Cap**: Split files exceeding 300 lines of code. No monolithic files.
 7. **Intent Gate**: Classify request type (trivial/explicit/exploratory/open-ended/ambiguous) before acting. If ambiguous, clarify first.
 8. **Delegation Before Action**: Decompose multi-step tasks and delegate to specialized subagents. Never implement directly when delegation is possible.
+9. **Per-Phase Reset**: For EACH new work phase (plan → implement → test → debug → review → refactor), re-call `task_pipeline` with that phase's goal. Do NOT carry old context across phases. A new phase is a new task.
 
-**CRITICAL: All 8 rules apply to EVERY coding action, direct query, text translation, or general query without exception.**
+**CRITICAL: All 9 rules apply to EVERY action without exception — planning, implementation, testing, debugging, reviewing, refactoring, or any other work. There is no action type exempt from these rules.**
 
 ---
 

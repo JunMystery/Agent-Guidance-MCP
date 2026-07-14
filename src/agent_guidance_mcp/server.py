@@ -18,7 +18,7 @@ from .token_config import TokenOptimizationConfig, load_config_from_env
 
 AGENT_INSTRUCTIONS = (
     "## Agent Guidance MCP — Quick Reference\n\n"
-    "Call task_pipeline(task=\"...\") FIRST for any coding task. "
+    "Call task_pipeline(task=\"...\") FIRST for any task or phase. "
     "It returns recommendations, project tree, code search, and UI guidance in ONE call.\n\n"
     "Available tools:\n"
     "- task_pipeline: context prep (call first)\n"
@@ -31,7 +31,7 @@ AGENT_INSTRUCTIONS = (
     "loads any of 168 skills on-demand. Search first: guidance(operation='search', "
     "query='humanizer') then load with 'get'. The built-in skill tool only lists a few "
     "external skills; use guidance for all Agent-Guidance-MCP skills.\n\n"
-    "For detailed tool usage and the 6 mandatory rules, see AGENTS.md."
+    "For detailed tool usage and the 9 mandatory rules, see AGENTS.md."
 )
 
 WORKFLOW_MODE_MAP: dict[str, str] = {

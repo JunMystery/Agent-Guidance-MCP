@@ -10,12 +10,33 @@ from pathlib import Path
 SERVER_ID = "agent-guidance-mcp"
 MODULE_NAME = "agent_guidance_mcp"
 
+AGENT_GUIDANCE_TAG_START = "<!-- agent-guidance:start -->"
+AGENT_GUIDANCE_TAG_END = "<!-- agent-guidance:end -->"
+AGENT_GUIDANCE_SKILL_TAG_START = "<!-- agent-guidance-skill:start -->"
+AGENT_GUIDANCE_SKILL_TAG_END = "<!-- agent-guidance-skill:end -->"
+
+
+def _replace_or_append_tagged_section(content, start_tag, end_tag, new_section):
+    """Replace from start_tag through end_tag with new_section, or append at end."""
+    start_idx = content.find(start_tag)
+    end_idx = content.find(end_tag) if start_idx != -1 else -1
+
+    if start_idx != -1 and end_idx != -1:
+        before = content[:start_idx]
+        after = content[end_idx + len(end_tag):]
+        return before + new_section + after
+
+    if content and not content.endswith("\n"):
+        content += "\n"
+    return content + new_section + "\n"
+
+
 AGENT_RULES_BLOCK = (
-    "\n"
+    "\n<!-- agent-guidance:start -->\n"
     "## Agent Guidance MCP — Tool Selection Priority\n\n"
     "| You need to... | Use THIS tool first | Why |\n"
     "|---|---|---|\n"
-    "| Start any coding task | `task_pipeline(task=\"...\")` | Recommendations + tree + code search + UI in ONE call |\n"
+    "| Start any task or phase | `task_pipeline(task=\"...\")` | Recommendations + tree + code search + UI in ONE call |\n"
     "| Check coding standards / skills | `guidance(operation=\"search\", query=\"...\")` | No other tool provides standards or skill lookup |\n"
     "| Read a file | `project_context(operation=\"read\", relative_path=\"...\")` | Token-capped at 300 lines — prevents context blowout |\n"
     "| Search codebase text | `project_context(operation=\"search\", query=\"...\")` | Ranked, bounded results. Fallback when codegraph unavailable |\n"
@@ -25,7 +46,7 @@ AGENT_RULES_BLOCK = (
     "| Get UI/design guidance | `ui_ux(operation=\"search\", query=\"...\")` | Style, colors, typography, charts, slides |\n"
     "| Persist/recover session | `session_continuity(operation=\"save\"/\"load\"/\"clear\")` | State recovery / task checklist continuity |\n"
     "| Browse project tree | `project_context(operation=\"tree\")` | Optimized directory tree view |\n\n"
-    "### Eight Mandatory Rules\n\n"
+    "### Nine Mandatory Rules\n\n"
     "1. **Context First**: Call `task_pipeline` or `project_context` BEFORE any file read or code change.\n"
     "2. **Standards Check**: Use `guidance(operation=\"search\")` BEFORE implementing or answering any prompt.\n"
     "3. **Token Budget**: Prefer MCP tools over raw file reads — built-in limits prevent context blowout.\n"
@@ -33,24 +54,33 @@ AGENT_RULES_BLOCK = (
     "5. **Ground & Plan**: Verify files/functions/symbols via search BEFORE proposing changes. Never guess.\n"
     "6. **300 LOC Cap**: Split files exceeding 300 lines of code. No monolithic files.\n"
     "7. **Intent Gate**: Classify request type (trivial/explicit/exploratory/open-ended/ambiguous) before acting. If ambiguous, clarify first.\n"
-    "8. **Delegation Before Action**: Decompose multi-step tasks and delegate to specialized subagents. Never implement directly when delegation is possible.\n\n"
-    "**CRITICAL: All 8 rules apply to EVERY coding action, direct query, text translation, or general query without exception.**\n"
+    "8. **Delegation Before Action**: Decompose multi-step tasks and delegate to specialized subagents. Never implement directly when delegation is possible.\n"
+    "9. **Per-Phase Reset**: For EACH new work phase (plan → implement → test → debug → review → refactor), re-call `task_pipeline` with that phase's goal. Do NOT carry old context across phases. A new phase is a new task.\n\n"
+    "**CRITICAL: All 9 rules apply to EVERY action without exception — planning, implementation, testing, debugging, reviewing, refactoring, or any other work. There is no action type exempt from these rules.**\n"
+    "<!-- agent-guidance:end -->\n"
 )
 
 ENFORCER_SKILL_CONTENT = (
+    "<!-- agent-guidance-skill:start -->\n"
     "---\n"
     "name: agent-guidance\n"
     "description: Core system standards check and token-optimized codebase context retrieval. Run this skill before performing any tool execution or codebase changes.\n"
     "---\n\n"
     "## When to use me\n"
     "- Run this skill at the beginning of EVERY task, repository lookup, or codebase refactoring.\n"
-    "- Run this skill to check project conventions and avoid raw file reading/search operations.\n\n"
+    "- Run this skill to check project conventions and avoid raw file reading/search operations.\n"
+    "- Re-run this skill at EACH phase transition (plan → implement → test → review).\n\n"
     "## How to use me\n"
     "You must invoke the `agent-guidance-mcp` tools in this priority order:\n"
-    "1. Call `task_pipeline(task=\"...\")` at the start of any coding task to retrieve workspace context, tree, and recommendations.\n"
+    "1. Call `task_pipeline(task=\"...\")` at the start of any task or phase to retrieve workspace context, tree, and recommendations.\n"
     "2. Call `guidance(operation=\"search\", query=\"...\")` before implementing coding standards.\n"
     "3. Call `project_context(operation=\"read\", relative_path=\"...\")` instead of standard file reads (capped at 300 lines).\n"
-    "4. Call `project_context(operation=\"search\", query=\"...\")` instead of standard file search.\n"
+    "4. Call `project_context(operation=\"search\", query=\"...\")` instead of standard file search.\n\n"
+    "## Critical Behavioral Rules\n"
+    "- When unsure about anything, ASK! DO NOT GUESS.\n"
+    "- Propose an implementation plan before making any big or complex changes.\n"
+    "- For each new work phase, re-call `task_pipeline` with the phase goal. Do not carry old context.\n"
+    "<!-- agent-guidance-skill:end -->\n"
 )
 
 
@@ -271,15 +301,13 @@ def configure_global_rules():
             if path.exists():
                 content = path.read_text(encoding="utf-8")
 
-            if "Agent Guidance MCP — Tool Selection Priority" not in content:
-                new_content = content
-                if new_content and not new_content.endswith("\n"):
-                    new_content += "\n"
-                new_content += AGENT_RULES_BLOCK
-                path.write_text(new_content, encoding="utf-8")
-                print(f"    Success: Appended agent rules to global {name} rules: {path.name}")
+            old_content = content
+            content = _replace_or_append_tagged_section(content, AGENT_GUIDANCE_TAG_START, AGENT_GUIDANCE_TAG_END, AGENT_RULES_BLOCK.strip())
+            if content != old_content:
+                path.write_text(content, encoding="utf-8")
+                print(f"    Success: Updated agent rules in global {name} rules: {path.name}")
             else:
-                print(f"    Note: Agent rules already configured in global {name} rules.")
+                print(f"    Note: Agent rules up to date in global {name} rules.")
         except Exception as e:
             print(f"    Error: Failed to configure global {name} rules: {e}")
 
@@ -313,26 +341,24 @@ def configure_workspace_rules():
             content = ""
             if path.exists():
                 content = path.read_text(encoding="utf-8")
-            if "Agent Guidance MCP — Tool Selection Priority" not in content:
-                new_content = content
-                if new_content and not new_content.endswith("\n"):
-                    new_content += "\n"
-                new_content += AGENT_RULES_BLOCK
+            old_content = content
+            content = _replace_or_append_tagged_section(content, AGENT_GUIDANCE_TAG_START, AGENT_GUIDANCE_TAG_END, AGENT_RULES_BLOCK)
+            if content != old_content:
                 # Atomic write via tempfile + rename to prevent corruption on crash
                 tmp = tempfile.NamedTemporaryFile(
                     mode="w", encoding="utf-8", suffix=".tmp",
                     dir=str(path.parent), delete=False,
                 )
                 try:
-                    tmp.write(new_content)
+                    tmp.write(content)
                     tmp.flush()
                     os.fsync(tmp.fileno())
                 finally:
                     tmp.close()
                 os.replace(tmp.name, str(path))
-                print(f"    Success: Appended agent rules to local {name}")
+                print(f"    Success: Updated agent rules in local {name}")
             else:
-                print(f"    Note: Agent rules already present in local {name}")
+                print(f"    Note: Agent rules up to date in local {name}")
         except Exception as e:
             print(f"    Error: Failed to configure {name}: {e}")
 
@@ -345,12 +371,17 @@ def configure_skills_enforcer():
     ]
     for name, path in global_targets:
         try:
+            content = ""
             if path.exists():
-                print(f"    Note: {name} skill already exists — skipping")
-                continue
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(ENFORCER_SKILL_CONTENT, encoding="utf-8")
-            print(f"    Success: Configured {name} skill: {path.name}")
+                content = path.read_text(encoding="utf-8")
+            old_content = content
+            content = _replace_or_append_tagged_section(content, AGENT_GUIDANCE_SKILL_TAG_START, AGENT_GUIDANCE_SKILL_TAG_END, ENFORCER_SKILL_CONTENT)
+            if content != old_content:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(content, encoding="utf-8")
+                print(f"    Success: Updated {name} skill: {path.name}")
+            else:
+                print(f"    Note: {name} skill up to date.")
         except Exception as e:
             print(f"    Error: Failed to write {name} skill: {e}")
 
@@ -371,12 +402,17 @@ def configure_skills_enforcer():
         ]
         for name, path in local_targets:
             try:
+                content = ""
                 if path.exists():
-                    print(f"    Note: Local {name} skill already exists — skipping")
-                    continue
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(ENFORCER_SKILL_CONTENT, encoding="utf-8")
-                print(f"    Success: Configured local {name} skill: {path.name}")
+                    content = path.read_text(encoding="utf-8")
+                old_content = content
+                content = _replace_or_append_tagged_section(content, AGENT_GUIDANCE_SKILL_TAG_START, AGENT_GUIDANCE_SKILL_TAG_END, ENFORCER_SKILL_CONTENT)
+                if content != old_content:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text(content, encoding="utf-8")
+                    print(f"    Success: Updated local {name} skill: {path.name}")
+                else:
+                    print(f"    Note: Local {name} skill up to date.")
             except Exception as e:
                 print(f"    Error: Failed to write local {name} skill: {e}")
 
