@@ -117,7 +117,9 @@ def _iter_user_skills(user_skills: Path, root: Path) -> Iterable[str]:
 
 def infer_kind(relative_path: str) -> str:
     parts = Path(relative_path).parts
-    if parts and parts[0] == "skills":
+    if not parts:
+        return "root"
+    if "skills" in parts:
         if relative_path.endswith("SKILL.md"):
             return "skill"
         if "owasp-cheatsheets" in parts:
@@ -125,15 +127,15 @@ def infer_kind(relative_path: str) -> str:
         if "system-design-primer" in parts:
             return "doc"
         return "skill"
-    if parts and parts[0] == "docs":
+    if parts[0] == "docs":
         return "doc"
-    if parts and parts[0] == "karpathy":
+    if parts[0] == "karpathy":
         return "principle"
-    if parts and parts[0] == "agent-guidance":
+    if parts[0] == "agent-guidance":
         return "standard"
-    if parts and parts[0] == "references":
+    if parts[0] == "references":
         return "reference"
-    if parts and parts[0] == "agents":
+    if parts[0] == "agents":
         return "agent"
     import sys as _sys
     print(f"Note: unknown content directory {parts[0]!r} in {relative_path!r}, classifying as 'root'", file=_sys.stderr)
@@ -146,7 +148,7 @@ def infer_category(relative_path: str) -> str:
         return "root"
     if parts[0] == "agent-guidance":
         return "agent-guidance"
-    if parts[0] == "skills":
+    if "skills" in parts:
         if "owasp-cheatsheets" in parts:
             return "security"
         if "system-design-primer" in parts:
@@ -159,10 +161,13 @@ def infer_category(relative_path: str) -> str:
 
 def identifier_for(relative_path: str, kind: str) -> str:
     path = Path(relative_path)
-    if kind == "skill" and len(path.parts) >= 2:
-        if len(path.parts) > 3 and path.parts[0] == "skills":
-            return normalize_identifier("-".join(path.parts[1:-1]))
-        return normalize_identifier(path.parts[1])
+    if kind == "skill" and "skills" in path.parts:
+        idx = path.parts.index("skills")
+        if idx + 1 < len(path.parts):
+            # Check if there are more sub-parts before SKILL.md
+            if len(path.parts) > idx + 3:
+                return normalize_identifier("-".join(path.parts[idx + 1:-1]))
+            return normalize_identifier(path.parts[idx + 1])
 
     stem_path = relative_path
     for suffix in TEXT_SUFFIXES:

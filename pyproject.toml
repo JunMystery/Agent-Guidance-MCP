@@ -13,7 +13,9 @@ authors = [
   { name = "Agent Guidance MCP Maintainers" }
 ]
 dependencies = [
-  "mcp>=1.0.0,<2.0.0"
+  "mcp>=1.0.0,<2.0.0",
+  "sentence-transformers>=3.0.0",
+  "numpy>=1.20.0"
 ]
 
 [project.optional-dependencies]
@@ -25,6 +27,8 @@ ast = [
   "tree-sitter>=0.21.0",
   "tree-sitter-languages>=1.10.0"
 ]
+
+
 
 [project.scripts]
 agent-guidance-mcp = "agent_guidance_mcp.__main__:main"

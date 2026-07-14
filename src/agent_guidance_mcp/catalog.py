@@ -9,6 +9,7 @@ from typing import Iterable
 
 import re
 from .constants import TASK_ANCHORS
+from .embeddings import load_precomputed_embeddings, get_embedding, cosine_similarity
 from .paths import (
     find_standards_root,
     identifier_for,
@@ -71,6 +72,19 @@ class StandardsCatalog:
         self._by_path = {entry.path.replace("\\", "/").lower(): entry for entry in self.entries}
         self._content_cache: dict[str, str] = {}
 
+        # Load pre-computed embeddings and dynamically embed workspace-local skills
+        self.skills_embeddings = load_precomputed_embeddings()
+        for entry in self.entries:
+            if entry.kind == "skill" and entry.identifier not in self.skills_embeddings:
+                try:
+                    content = self._load_content(entry)
+                    text_to_embed = f"Title: {entry.title}\nDescription: {entry.description}\nContent: {content[:1000]}"
+                    vector = get_embedding(text_to_embed)
+                    if vector:
+                        self.skills_embeddings[entry.identifier] = vector
+                except Exception as e:
+                    print(f"Warning: failed to dynamically embed local skill '{entry.identifier}' — {e}", file=sys.stderr)
+
         # Initialize and populate task anchors dynamically
         self.task_anchors: dict[str, list[str]] = {k: list(v) for k, v in TASK_ANCHORS.items()}
         # Validate built-in task anchors point to real entries
@@ -128,6 +142,15 @@ class StandardsCatalog:
     def _read_content(self, relative_path: str) -> str:
         path = self.root / relative_path
         if not path.is_file():
+            # Check project root next (for workspace-local skills)
+            try:
+                from .project_scan import resolve_project_root
+                proj_path = resolve_project_root(".") / relative_path
+                if proj_path.is_file():
+                    path = proj_path
+            except Exception:
+                pass
+        if not path.is_file():
             alt = Path.home() / ".agent-guidance" / relative_path
             if alt.is_file():
                 path = alt
@@ -183,41 +206,48 @@ class StandardsCatalog:
         self, query: str, limit: int = 10, kind: str | None = None
     ) -> list[dict[str, object]]:
         terms = tokenize(query)
-        if not terms:
-            return []
-
-        results: list[tuple[int, CatalogEntry, str]] = []
-        compiled_terms = [re.compile(rf'\b{re.escape(term)}\b') for term in terms]
+        
+        # Try semantic search embedding
+        query_vector = get_embedding(query)
+        
+        results: list[tuple[float, CatalogEntry, str]] = []
+        compiled_terms = [re.compile(rf'\b{re.escape(term)}\b') for term in terms] if terms else []
         for entry in self.entries:
             if kind and entry.kind.lower() != kind.lower():
                 continue
 
+            # 1. Compute keyword score
+            keyword_score = 0
             title_lower = entry.title.lower()
             desc_lower = entry.description.lower()
             path_lower = entry.path.lower()
+            
+            if terms:
+                for i, term in enumerate(terms):
+                    keyword_score += title_lower.count(term) * 10
+                    keyword_score += desc_lower.count(term) * 5
+                    keyword_score += path_lower.count(term) * 3
 
-            # Fast scoring from metadata (no file I/O yet)
-            score = 0
-            for i, term in enumerate(terms):
-                score += title_lower.count(term) * 10
-                score += desc_lower.count(term) * 5
-                score += path_lower.count(term) * 3
-
-            if not score:
-                # Fallback: try full content for deep matches
                 content = self._load_content(entry)
                 content_lower = content.lower()
                 for i, term in enumerate(terms):
-                    score += len(compiled_terms[i].findall(content_lower)) * 1
-                if not score:
-                    continue
+                    keyword_score += len(compiled_terms[i].findall(content_lower)) * 1
             else:
                 content = self._load_content(entry)
-                content_lower = content.lower()
-                for i, term in enumerate(terms):
-                    score += len(compiled_terms[i].findall(content_lower)) * 1
 
-            results.append((score, entry, make_snippet(content, terms)))
+            # 2. Compute semantic score
+            semantic_score = 0.0
+            if query_vector and entry.kind == "skill" and entry.identifier in self.skills_embeddings:
+                skill_vector = self.skills_embeddings[entry.identifier]
+                semantic_score = cosine_similarity(query_vector, skill_vector)
+
+            # 3. Combine scores (hybrid search)
+            # Scale semantic similarity (0.0 to 1.0) to range 0-50, added to keyword score.
+            combined_score = keyword_score + (semantic_score * 50)
+            if combined_score <= 0.0:
+                continue
+
+            results.append((combined_score, entry, make_snippet(content, terms if terms else [query])))
 
         results.sort(key=lambda result: (-result[0], result[1].path))
         return [
@@ -331,6 +361,31 @@ def build_catalog(root: str | Path | None = None) -> StandardsCatalog:
         entry = make_entry(standards_root, relative)
         if entry is not None:
             entries.append(entry)
+
+    # Discover workspace-local skills (from project root)
+    try:
+        from .project_scan import resolve_project_root
+        project_root = resolve_project_root(".")
+        local_skills_dirs = [
+            project_root / ".agents" / "skills",
+            project_root / ".opencode" / "skills",
+            project_root / ".claude" / "skills",
+        ]
+        for skills_dir in local_skills_dirs:
+            if skills_dir.is_dir():
+                for child in sorted(skills_dir.iterdir()):
+                    if child.is_dir():
+                        skill_md = child / "SKILL.md"
+                        if skill_md.is_file():
+                            rel_path = str(skill_md.relative_to(project_root))
+                            entry = make_entry(project_root, rel_path)
+                            if entry is not None:
+                                # Ensure we don't duplicate global skills
+                                if not any(e.identifier == entry.identifier for e in entries):
+                                    entries.append(entry)
+    except Exception as e:
+        import sys as _sys
+        print(f"Warning: failed to scan workspace-local skills — {e}", file=_sys.stderr)
 
     return StandardsCatalog(standards_root, entries)
 
