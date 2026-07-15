@@ -1,5 +1,4 @@
 import atexit
-import fcntl
 import json
 import logging
 import math
@@ -99,17 +98,27 @@ def _client_id() -> str:
 
 _DAEMON_LOCK_FILE = _DAEMON_DIR / "daemon.lock"
 
+try:
+    import fcntl as _fcntl
+    _HAVE_FCNTL = True
+except ImportError:
+    _HAVE_FCNTL = False
+
 
 def _acquire_daemon_lock() -> int | None:
     """Acquire exclusive file lock on daemon.lock. Returns fd or None.
 
     Prevents two concurrent MCP processes from both spawning a daemon.
     The lock is released when the fd is closed (explicitly or on process exit).
+
+    Falls back to no-op (returns None) on platforms without fcntl (Windows).
     """
+    if not _HAVE_FCNTL:
+        return None
     _DAEMON_DIR.mkdir(parents=True, exist_ok=True)
     try:
         fd = os.open(_DAEMON_LOCK_FILE, os.O_CREAT | os.O_RDWR, 0o644)
-        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        _fcntl.flock(fd, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
         return fd
     except (IOError, OSError):
         try:
@@ -188,7 +197,7 @@ def _ensure_daemon() -> int | None:
         return None
 
     lock_fd = _acquire_daemon_lock()
-    if lock_fd is None:
+    if lock_fd is None and _HAVE_FCNTL:
         # Another process is spawning — wait for its manifest
         deadline = time.time() + _SPAWN_WAIT_S
         while time.time() < deadline:
@@ -234,7 +243,8 @@ def _ensure_daemon() -> int | None:
         logger.warning("daemon unavailable — falling back to in-process model")
         return None
     finally:
-        os.close(lock_fd)
+        if lock_fd is not None:
+            os.close(lock_fd)
 
 
 def _register() -> None:
