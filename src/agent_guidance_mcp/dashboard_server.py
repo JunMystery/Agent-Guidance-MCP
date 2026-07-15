@@ -1,0 +1,247 @@
+"""Lightweight standalone HTTP server for the usage dashboard.
+
+Pure stdlib — no fastapi, no uvicorn, no ML model.
+Reads usage.db from a project path and serves the dashboard HTML.
+"""
+from __future__ import annotations
+
+import json
+import logging
+import os
+import socket
+import sqlite3
+import sys
+import time
+import webbrowser
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from pathlib import Path
+from typing import Any
+
+from . import __version__
+from .usage import DB_FILENAME
+
+logger = logging.getLogger("agent-guidance-mcp.dashboard")
+
+
+class DashboardHandler(BaseHTTPRequestHandler):
+    """HTTP handler serving dashboard API and HTML."""
+
+    # Shared reference — set by run_dashboard()
+    project_path: str = ""
+    db_path: str = ""
+
+    def do_GET(self) -> None:
+        path = self.path.split("?")[0].rstrip("/") or "/"
+        qs = self._parse_query()
+        if path == "/api/stats":
+            self._handle_stats(qs.get("session_id"), qs.get("project_path"))
+        elif path == "/health":
+            self._handle_health()
+        elif path in ("/", "/index.html"):
+            self._handle_dashboard()
+        else:
+            self._send_json(404, {"error": "Not found"})
+
+    def _parse_query(self) -> dict[str, str]:
+        qs = self.path.split("?", 1)[1] if "?" in self.path else ""
+        params: dict[str, str] = {}
+        if qs:
+            for part in qs.split("&"):
+                if "=" in part:
+                    k, v = part.split("=", 1)
+                    from urllib.parse import unquote_plus
+                    params[unquote_plus(k)] = unquote_plus(v)
+        return params
+
+    def _send_json(self, status: int, data: dict[str, Any]) -> None:
+        body = json.dumps(data).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _send_html(self, status: int, html: str) -> None:
+        body = html.encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _handle_stats(self, session_id: str | None = None, project_path: str | None = None) -> None:
+        pp = project_path or self.project_path
+        db = Path(pp) / ".agent-context" / DB_FILENAME
+        if not db.exists():
+            self._send_json(200, {
+                "success": False, "error": "NO_USAGE_DATA",
+                "message": f"No usage.db at {db}",
+            })
+            return
+        try:
+            conn = sqlite3.connect(str(db))
+            conn.row_factory = sqlite3.Row
+            data = _query_stats(conn, session_id)
+            conn.close()
+            self._send_json(200, data)
+        except Exception as e:
+            self._send_json(500, {"error": str(e)})
+
+    def _handle_health(self) -> None:
+        self._send_json(200, {
+            "status": "ok",
+            "server": "agent-guidance-mcp-dashboard",
+            "version": __version__,
+        })
+
+    def _handle_dashboard(self) -> None:
+        from ._dashboard_shared import DASHBOARD_DIR, write_default_dashboard
+        index = DASHBOARD_DIR / "index.html"
+        if not index.exists():
+            DASHBOARD_DIR.mkdir(parents=True, exist_ok=True)
+            write_default_dashboard(index)
+        html = index.read_text(encoding="utf-8")
+        self._send_html(200, html)
+
+    def log_message(self, format: str, *args: Any) -> None:
+        logger.info("  <= %s", format % args)
+
+
+def _query_stats(conn: sqlite3.Connection, session_id: str | None) -> dict[str, Any]:
+    """Replicate UsageTracker.summary() logic without starting a full tracker."""
+    cur = conn.cursor()
+    sid = session_id
+
+    sessions_list: list[dict[str, Any]] = []
+    if not session_id:
+        cur.execute("SELECT * FROM sessions ORDER BY started_at DESC")
+        for row in cur.fetchall():
+            s = dict(row)
+            if s.get("ended_at"):
+                s["duration_seconds"] = s["ended_at"] - s["started_at"]
+            else:
+                s["duration_seconds"] = int(time.time()) - s["started_at"]
+            sessions_list.append(s)
+
+    session_info: dict[str, Any] = {}
+    if sid:
+        cur.execute("SELECT * FROM sessions WHERE session_id = ?", (sid,))
+        row = cur.fetchone()
+        if row:
+            session_info = dict(row)
+            if session_info.get("ended_at"):
+                session_info["duration_seconds"] = session_info["ended_at"] - session_info["started_at"]
+            else:
+                session_info["duration_seconds"] = int(time.time()) - session_info["started_at"]
+
+    if sid:
+        cur.execute(
+            """SELECT tool_name, operation, COUNT(*) AS cnt,
+                      COALESCE(SUM(tokens_original), 0) AS tok_orig,
+                      COALESCE(SUM(tokens_optimized), 0) AS tok_opt
+               FROM tool_calls WHERE session_id = ?
+               GROUP BY tool_name, operation ORDER BY cnt DESC""",
+            (sid,),
+        )
+    else:
+        cur.execute(
+            """SELECT tool_name, operation, COUNT(*) AS cnt,
+                      COALESCE(SUM(tokens_original), 0) AS tok_orig,
+                      COALESCE(SUM(tokens_optimized), 0) AS tok_opt
+               FROM tool_calls
+               GROUP BY tool_name, operation ORDER BY cnt DESC"""
+        )
+    tool_breakdown = [dict(r) for r in cur.fetchall()]
+
+    if sid:
+        cur.execute(
+            "SELECT skill_id, COUNT(*) AS cnt FROM skill_loads WHERE session_id = ? GROUP BY skill_id ORDER BY cnt DESC LIMIT 20",
+            (sid,),
+        )
+    else:
+        cur.execute(
+            "SELECT skill_id, COUNT(*) AS cnt FROM skill_loads GROUP BY skill_id ORDER BY cnt DESC LIMIT 20"
+        )
+    top_skills = [dict(r) for r in cur.fetchall()]
+
+    if sid:
+        cur.execute("SELECT COUNT(*) AS total FROM tool_calls WHERE session_id = ?", (sid,))
+        total_calls = cur.fetchone()["total"]
+        cur.execute("SELECT COUNT(*) AS total FROM skill_loads WHERE session_id = ?", (sid,))
+        total_skills = cur.fetchone()["total"]
+        cur.execute("SELECT COUNT(*) AS total FROM embed_queries WHERE session_id = ?", (sid,))
+        total_embeds = cur.fetchone()["total"]
+    else:
+        cur.execute("SELECT COUNT(*) AS total FROM tool_calls")
+        total_calls = cur.fetchone()["total"]
+        cur.execute("SELECT COUNT(*) AS total FROM skill_loads")
+        total_skills = cur.fetchone()["total"]
+        cur.execute("SELECT COUNT(*) AS total FROM embed_queries")
+        total_embeds = cur.fetchone()["total"]
+
+    tot_orig = sum(r.get("tok_orig", 0) for r in tool_breakdown)
+    tot_opt = sum(r.get("tok_opt", 0) for r in tool_breakdown)
+    token_savings = tot_orig - tot_opt
+    savings_pct = round((token_savings / max(1, tot_orig)) * 100, 1)
+
+    result: dict[str, Any] = {
+        "scope": "session" if sid else "all",
+        "session_id": sid,
+        "session": session_info,
+        "totals": {
+            "tool_calls": total_calls,
+            "skills_loaded": total_skills,
+            "embed_queries": total_embeds,
+            "tokens_original": tot_orig,
+            "tokens_optimized": tot_opt,
+            "token_savings": token_savings,
+            "savings_pct": savings_pct,
+        },
+        "tool_breakdown": tool_breakdown,
+        "top_skills": top_skills,
+    }
+    if sessions_list:
+        result["sessions"] = sessions_list
+    return result
+
+
+def run_dashboard(project_path: str | None = None) -> None:
+    """Start the dashboard HTTP server.
+
+    Reads usage.db from project_path, serves dashboard at http://127.0.0.1:<port>/.
+    """
+    from ._dashboard_shared import DAEMON_DIR, DAEMON_PORT_FILE
+
+    pp = project_path or os.environ.get("AGENT_PROJECT_ROOT", os.getcwd())
+    pp = str(Path(pp).resolve())
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind(("127.0.0.1", 0))
+    port = sock.getsockname()[1]
+    sock.close()
+
+    DashboardHandler.project_path = pp
+    DashboardHandler.db_path = str(Path(pp) / ".agent-context" / DB_FILENAME)
+
+    DAEMON_DIR.mkdir(parents=True, exist_ok=True)
+    DAEMON_PORT_FILE.write_text(
+        json.dumps({"port": port, "pid": os.getpid(), "started_at": time.time(), "mode": "dashboard"}),
+        encoding="utf-8",
+    )
+
+    server = HTTPServer(("127.0.0.1", port), DashboardHandler)
+    url = f"http://127.0.0.1:{port}/"
+    logger.info("dashboard server started on %s (project: %s)", url, pp)
+    print(f"\n  Dashboard: {url}\n", flush=True)
+    try:
+        webbrowser.open(url)
+    except Exception:
+        pass
+
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        server.shutdown()
+        logger.info("dashboard server stopped")

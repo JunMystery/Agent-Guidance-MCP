@@ -124,6 +124,7 @@ Works with any MCP-compatible client. Auto-configured by the installer:
 | `ui_ux` | Gated | Design guidance | `search`, `design_system`, `slides` |
 | `session_continuity` | Gated | Task state persistence | `save`, `load`, `clear` |
 | `workflow_prompt` | Gated | Workflow prompts | `plan`, `test`, `deploy`, `debug`, etc. |
+| `usage_report` | Gated | Usage statistics | `session`, `all` |
 | `health_check` / `diagnose` / `token_stats` | Whitelisted | Operational | Server status, self-diagnostics, token savings |
 
 Gated tools return `PRIORITY_REQUIRED` if called before `task_pipeline`. Whitelisted tools bypass the gate.
@@ -303,6 +304,45 @@ Agent: guidance(operation="docs", query="jsonwebtoken sign options", identifier=
 Returns: current `jsonwebtoken` API docs from Context7 — no hallucinated API calls.
 
 **Result**: Agent writes production-grade JWT middleware in ~3 tool calls instead of 15+, with automatic security review awareness.
+
+---
+
+---
+
+## Usage Dashboard
+
+Agent Guidance MCP includes a lightweight usage dashboard to visualize tool calls, token savings, skill loads, and embed queries per session.
+
+### Start the dashboard
+
+```bash
+# Standalone dashboard server (no ML model needed, pure stdlib)
+agent-guidance-mcp --dashboard
+# Dashboard: http://127.0.0.1:<port>/
+```
+
+### Automatically tracked data
+
+| Data | Tracked via | Shown in dashboard |
+|------|-------------|-------------------|
+| Tool calls | Every `task_pipeline`, `guidance`, `project_context`, `ui_ux`, `session_continuity` call | Actions Log view |
+| Token savings | Per-tool origin vs optimized token counts | Token Savings view |
+| Skill loads | `guidance(get)`, `standards://skill/{name}` resource | Dashboard view |
+| Embed queries | `guidance(search)`, `guidance(recommend)` | Embed Status view |
+| Session identity | `AGENT_CLIENT_NAME` env var or `--client-name` flag | Session selector |
+
+### Dashboard views
+
+| View | Content |
+|------|---------|
+| Dashboard | Session summary cards, top skills list, embed status |
+| Actions Log | Live-updating table of tool calls, polled every 5s |
+| Token Savings | Per-session savings percentage + lifetime orig/opt/saved bars |
+| Embed Status | Model loaded status, active clients (daemon mode), total embed queries |
+| Quick Guides | 4-step workflow reference (task_pipeline → guidance → project_context → session_continuity) |
+| MCP Tools | Complete tool reference with gate status and operations |
+
+Data is persisted to `.agent-context/usage.db` in the project directory and survives server restarts.
 
 ---
 

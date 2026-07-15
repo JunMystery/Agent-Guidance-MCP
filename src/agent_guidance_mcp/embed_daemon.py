@@ -20,8 +20,7 @@ from typing import Any
 
 logger = logging.getLogger("agent-guidance-mcp.daemon")
 
-DAEMON_DIR = Path.home() / ".agent-guidance"
-DAEMON_PORT_FILE = DAEMON_DIR / "daemon.json"
+from ._dashboard_shared import DAEMON_DIR, DAEMON_PORT_FILE, DASHBOARD_DIR
 IDLE_TIMEOUT_S = 600
 GRACE_AFTER_EMPTY_S = 30
 HEALTH_CHECK_INTERVAL = 15
@@ -84,6 +83,7 @@ _model: Any = None
 
 try:
     from fastapi import FastAPI
+    from fastapi.responses import HTMLResponse
     from pydantic import BaseModel
     import uvicorn
 
@@ -105,12 +105,17 @@ try:
     _clients: dict[str, int] = {}
     _last_embed_time: float = time.time()
     _clients_lock = threading.Lock()
+    _FASTAPI_AVAILABLE = True
 
-except ImportError as exc:
-    raise ImportError(
-        "fastapi and uvicorn are required to run the embedding daemon. "
-        "Install with: pip install fastapi uvicorn"
-    ) from exc
+except ImportError:
+    class _DummyApp:
+        _decorated: list = []
+        def __getattr__(self, _name: str) -> object:
+            def _deco(*a: object, **kw: object) -> object:
+                return lambda f: (_decorated.append(f), f)[1]
+            return _deco
+    app = _DummyApp()
+    _FASTAPI_AVAILABLE = False
 
 
 @app.post("/register")
@@ -144,6 +149,48 @@ def embed(req: EmbedRequest) -> EmbedResponse:
         text = "passage: " + text
     vector = _model.encode(text, normalize_embeddings=True)
     return EmbedResponse(vector=vector.tolist())
+
+
+@app.get("/api/stats")
+def stats(project_path: str | None = None, session_id: str | None = None) -> dict:
+    """Return aggregated usage stats from a project's usage.db.
+
+    When session_id is provided, returns single-session detail.
+    When omitted, returns all sessions list + lifetime totals.
+    """
+    try:
+        from .usage import UsageTracker as _UsageTracker
+    except ImportError:
+        from agent_guidance_mcp.usage import UsageTracker as _UsageTracker
+
+    if not project_path:
+        project_path = os.environ.get("AGENT_PROJECT_ROOT", os.getcwd())
+
+    db_path = Path(project_path) / ".agent-context" / "usage.db"
+    if not db_path.exists():
+        return {
+            "success": False,
+            "error": "NO_USAGE_DATA",
+            "message": f"No usage.db found at {db_path}. Usage tracking may not be active.",
+        }
+
+    tracker = _UsageTracker(project_path)
+    try:
+        if session_id:
+            return tracker.summary(scope="session", session_id=session_id)
+        return tracker.summary(scope="all")
+    finally:
+        tracker.close()
+
+
+@app.get("/")
+def dashboard() -> HTMLResponse:
+    """Serve the usage dashboard HTML."""
+    index = DASHBOARD_DIR / "index.html"
+    if not index.exists():
+        DASHBOARD_DIR.mkdir(parents=True, exist_ok=True)
+        _write_default_dashboard(index)
+    return HTMLResponse(index.read_text(encoding="utf-8"))
 
 
 @app.get("/health")
@@ -216,10 +263,16 @@ def _signal_handler(signum: int, _frame: object) -> None:
     sys.exit(0)
 
 
+from ._dashboard_shared import write_default_dashboard as _write_default_dashboard
+
 # ── Entry point ─────────────────────────────────────────────────────────
 
 
 def main() -> None:
+    if not _FASTAPI_AVAILABLE:
+        print("Error: fastapi and uvicorn are required for the embedding daemon.", file=sys.stderr)
+        print("Install with: pip install fastapi uvicorn", file=sys.stderr)
+        sys.exit(1)
     result = _bind_loopback_fd()
     if result is None:
         logger.error("failed to bind loopback socket")

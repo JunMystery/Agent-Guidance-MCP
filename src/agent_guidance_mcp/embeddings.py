@@ -181,6 +181,7 @@ def _spawn_daemon() -> int | None:
 def _ensure_daemon() -> int | None:
     """Return daemon port, spawning daemon if needed.
 
+    Tries up to 5 times before falling back to in-process model.
     Uses a file lock (daemon.lock) to prevent concurrent spawns when
     two MCP processes start simultaneously.
     """
@@ -198,7 +199,7 @@ def _ensure_daemon() -> int | None:
 
     lock_fd = _acquire_daemon_lock()
     if lock_fd is None and _HAVE_FCNTL:
-        # Another process is spawning — wait for its manifest
+        # Another process is spawning — wait for its daemon
         deadline = time.time() + _SPAWN_WAIT_S
         while time.time() < deadline:
             time.sleep(_SPAWN_POLL_S)
@@ -214,8 +215,8 @@ def _ensure_daemon() -> int | None:
                         return port
                     except OSError:
                         continue
-        _DAEMON_FAILED = True
         logger.warning("another process's daemon did not start within %.1fs", _SPAWN_WAIT_S)
+        _DAEMON_FAILED = True
         return None
 
     try:
@@ -233,14 +234,17 @@ def _ensure_daemon() -> int | None:
                 except OSError:
                     logger.info("daemon pid %d dead — spawning new one", pid)
 
-        port = _spawn_daemon()
-        if port is not None:
-            _DAEMON_PORT = port
-            _register()
-            return port
+        # Retry daemon spawn up to 5 times
+        for attempt in range(1, 6):
+            port = _spawn_daemon()
+            if port is not None:
+                _DAEMON_PORT = port
+                _register()
+                return port
+            logger.info("daemon spawn attempt %d/5 failed", attempt)
 
+        logger.warning("daemon unavailable after 5 attempts — falling back to in-process model")
         _DAEMON_FAILED = True
-        logger.warning("daemon unavailable — falling back to in-process model")
         return None
     finally:
         if lock_fd is not None:

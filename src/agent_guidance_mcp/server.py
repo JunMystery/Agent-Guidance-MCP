@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,7 @@ from . import __version__
 from .response_optimizer import TokenBudget, estimate_tokens, optimize_markdown
 from .token_analytics import TokenTracker
 from .token_config import TokenOptimizationConfig, load_config_from_env
+from .usage import UsageTracker
 
 AGENT_INSTRUCTIONS = (
     "## Agent Guidance MCP — Quick Reference\n\n"
@@ -26,7 +28,7 @@ AGENT_INSTRUCTIONS = (
     "- project_context: bounded file ops (read/search/tree/symbols/references/diff)\n"
     "- ui_ux: design guidance (search/design_system/slides)\n"
     "- session_continuity: persist task state (save/load/clear)\n"
-    "- health_check / diagnose / token_stats: operational\n\n"
+    "- health_check / diagnose / token_stats / usage_report: operational\n\n"
     "LOADING SKILLS: guidance(operation='get', identifier='skill-name', include_content=True) "
     "loads any of 168 skills on-demand. Search first: guidance(operation='search', "
     "query='humanizer') then load with 'get'. The built-in skill tool only lists a few "
@@ -67,6 +69,7 @@ else:
 
 _global_config: TokenOptimizationConfig | None = None
 _global_tracker: TokenTracker | None = None
+_global_usage: UsageTracker | None = None
 _config_lock = threading.Lock()
 
 # ── Priority Gate ───────────────────────────────────────────────────────────
@@ -300,6 +303,18 @@ def reset_tracker() -> None:
     get_tracker().reset()
 
 
+def get_usage() -> UsageTracker | None:
+    """Return the process-level usage tracker, or None if not started."""
+    global _global_usage
+    return _global_usage
+
+
+def set_usage(usage: UsageTracker | None) -> None:
+    """Set the process-level usage tracker."""
+    global _global_usage
+    _global_usage = usage
+
+
 _CONFIG_UNSET = object()
 
 
@@ -386,6 +401,22 @@ def create_server(
 
     logging.basicConfig(level=logging.WARNING, stream=sys.stderr)
 
+    # Start persistent usage tracker
+    import atexit
+    from .usage import UsageTracker
+    _global_usage = UsageTracker(project_root)
+    client_name = os.environ.get("AGENT_CLIENT_NAME", None)
+    session_label = os.environ.get("AGENT_SESSION_LABEL", None)
+    _global_usage.session_start(client_name=client_name, session_label=session_label)
+
+    def _close_usage() -> None:
+        u = get_usage()
+        if u is not None:
+            u.session_end()
+            u.close()
+
+    atexit.register(_close_usage)
+
     # Check for sentinel file from --session-start (cross-process gate persistence)
     if _gate_sentinel_check(deploy_root):
         _priority_gate_passed = True
@@ -434,6 +465,9 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         except KeyError as exc:
             return f"Skill not found: {exc}"
         _record_savings("resource", "skill", raw, optimized)
+        usage = get_usage()
+        if usage:
+            usage.record_skill_load(name)
         return optimized
 
     @mcp.resource("agent-guidance-mcp://system/priority", mime_type="text/markdown")
@@ -469,7 +503,8 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             timeout: Per-task timeout in seconds (default 30.0).
         """
         priority_gate_pass()
-        return pipelines.task_pipeline(
+        t0 = _now_ms()
+        result = pipelines.task_pipeline(
             catalog=catalog,
             task=task,
             project_path=project_path,
@@ -482,6 +517,11 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             config=get_config(),
             tracker=get_tracker(),
         )
+        _track_usage("task_pipeline", "run", t0)
+        usage = get_usage()
+        if usage:
+            usage.update_session_label(label=task)
+        return result
 
     @mcp.tool()
     def guidance(
@@ -523,7 +563,8 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         gate = priority_gate_check(catalog.root)
         if gate:
             return gate
-        return pipelines.guidance(
+        t0 = _now_ms()
+        result = pipelines.guidance(
             catalog=catalog,
             operation=operation,
             query=query,
@@ -536,6 +577,14 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             config=get_config(),
             tracker=get_tracker(),
         )
+        _track_usage("guidance", operation, t0)
+        usage = get_usage()
+        if usage:
+            if operation == "get" and identifier:
+                usage.record_skill_load(identifier, query=query, search_term=query)
+            elif operation in ("search", "recommend") and query:
+                usage.record_embed_query(query_text=query, model_name="e5-small")
+        return result
 
     @mcp.tool()
     def project_context(
@@ -587,7 +636,8 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         gate = priority_gate_check(catalog.root)
         if gate:
             return gate
-        return pipelines.project_context(
+        t0 = _now_ms()
+        result = pipelines.project_context(
             operation=operation,
             project_path=project_path,
             query=query,
@@ -602,6 +652,8 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             config=get_config(),
             tracker=get_tracker(),
         )
+        _track_usage("project_context", operation, t0)
+        return result
 
     @mcp.tool()
     def ui_ux(
@@ -635,7 +687,8 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         gate = priority_gate_check(catalog.root)
         if gate:
             return gate
-        return pipelines.ui_ux(
+        t0 = _now_ms()
+        result = pipelines.ui_ux(
             catalog=catalog,
             operation=operation,
             query=query,
@@ -647,6 +700,8 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             config=get_config(),
             tracker=get_tracker(),
         )
+        _track_usage("ui_ux", operation, t0)
+        return result
 
     @mcp.tool()
     def session_continuity(
@@ -675,7 +730,8 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         gate = priority_gate_check(catalog.root)
         if gate:
             return gate
-        return pipelines.session_continuity(
+        t0 = _now_ms()
+        result = pipelines.session_continuity(
             operation=operation,
             project_path=project_path,
             task=task,
@@ -683,11 +739,25 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             current_step_index=current_step_index,
             metadata=metadata,
         )
+        _track_usage("session_continuity", operation, t0)
+        return result
 
     @mcp.tool()
     def token_stats() -> dict[str, object]:
         """Return token optimization statistics for this session. No parameters."""
         return get_tracker().summary()
+
+    @mcp.tool()
+    def usage_report(scope: str = "session") -> dict[str, object]:
+        """Return recorded usage statistics for the current or all sessions.
+
+        Args:
+            scope: "session" for active session only, "all" for lifetime data.
+        """
+        usage = get_usage()
+        if usage is None:
+            return {"success": False, "error": "Usage tracking not started."}
+        return usage.summary(scope=scope)
 
     @mcp.tool()
     def health_check() -> dict[str, object]:
@@ -735,6 +805,9 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         else:
             content = raw_content
         _record_savings("workflow_prompt", mode_key, raw_content, content)
+        usage = get_usage()
+        if usage:
+            usage.record_tool_call("workflow_prompt", mode_key)
         additions = []
         if subject:
             additions.append(f"Subject: {subject}")
@@ -753,4 +826,18 @@ def _record_savings(
 ) -> None:
     from .utils import record_savings
     record_savings(get_tracker(), tool_name, operation, original, optimized)
+
+
+def _now_ms() -> int:
+    """Return current monotonic time in milliseconds."""
+    return int(time.time() * 1000)
+
+
+def _track_usage(tool_name: str, operation: str | None, t0: int) -> None:
+    """Record a tool call in the persistent usage tracker."""
+    usage = get_usage()
+    if usage is None:
+        return
+    dur = _now_ms() - t0
+    usage.record_tool_call(tool_name, operation, duration_ms=dur)
 

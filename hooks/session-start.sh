@@ -6,6 +6,26 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TARGET_PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 
+# Auto-detect IDE/CLI name for usage tracking
+if [ -z "${AGENT_CLIENT_NAME:-}" ]; then
+  if [ -n "${OPENCODE_VERSION:-}" ]; then
+    AGENT_CLIENT_NAME="OpenCode"
+  elif [ -n "${GEMINI_CLI_VERSION:-}" ]; then
+    AGENT_CLIENT_NAME="Gemini CLI"
+  elif [ -n "${VSCODE_INJECTION:-}" ]; then
+    AGENT_CLIENT_NAME="VS Code"
+  elif [ -n "${CURSOR_TRACE_ID:-}" ] || [ -n "${CURSOR_VERSION:-}" ]; then
+    AGENT_CLIENT_NAME="Cursor"
+  elif [ "${TERM_PROGRAM:-}" = "vscode" ]; then
+    AGENT_CLIENT_NAME="VS Code"
+  elif [ "${TERM_PROGRAM:-}" = "windsurf" ]; then
+    AGENT_CLIENT_NAME="Windsurf"
+  elif [ "${CLAUDE_PROJECT_DIR:-}" ]; then
+    AGENT_CLIENT_NAME="Claude Code"
+  fi
+fi
+export AGENT_CLIENT_NAME
+
 run_session_start() {
   "$1" --session-start --project-path "$TARGET_PROJECT_DIR" 2>/dev/null
 }

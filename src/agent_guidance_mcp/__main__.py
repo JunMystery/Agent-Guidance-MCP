@@ -82,6 +82,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Start embedding inference daemon as a standalone foreground process.",
     )
     parser.add_argument(
+        "--dashboard",
+        action="store_true",
+        help="Start lightweight usage dashboard server (no ML model needed).",
+    )
+    parser.add_argument(
+        "--client-name",
+        help="Human-readable client/IDE name logged in usage sessions.",
+    )
+    parser.add_argument(
+        "--session-label",
+        help="Human-readable label for the current usage session.",
+    )
+    parser.add_argument(
         "--version", "-V",
         action="version",
         version=f"agent-guidance-mcp {__version__}",
@@ -127,6 +140,11 @@ def main() -> None:
             daemon_main()
             sys.exit(0)
 
+        if args.dashboard:
+            from .dashboard_server import run_dashboard
+            run_dashboard()
+            sys.exit(0)
+
         # Compatibility check before server start
         from .updater import check_compatibility
         check_compatibility()
@@ -148,9 +166,18 @@ def main() -> None:
 
         root = find_standards_root(args.root)
         config = TokenOptimizationConfig.disabled() if args.no_optimize else None
+        if args.client_name:
+            os.environ["AGENT_CLIENT_NAME"] = args.client_name
+        if args.session_label:
+            os.environ["AGENT_SESSION_LABEL"] = args.session_label
         server = create_server(root, config=config)
         server.run()
     except KeyboardInterrupt:
+        from .server import get_usage
+        usage = get_usage()
+        if usage is not None:
+            usage.session_end()
+            usage.close()
         sys.exit(0)
     except (FileNotFoundError, RuntimeError) as exc:
         print(f"Error: {exc}", file=sys.stderr)

@@ -184,7 +184,33 @@ session_continuity(
 
 ---
 
-### 6. `token_stats` -- Session Statistics
+### 6. `usage_report` -- Usage Statistics
+
+```
+usage_report(scope: str = "session") -> dict
+```
+
+Returns persistent usage statistics: tool calls, skill loads, embed queries, token savings per session or lifetime. Data stored in `.agent-context/usage.db`.
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `scope` | `"session"` | `"session"` for active session, `"all"` for lifetime |
+
+Example response:
+```json
+{
+  "scope": "all",
+  "sessions": [{"client_name": "OpenCode", "session_label": "Phase 1", "duration_seconds": 7200}],
+  "totals": {"tool_calls": 187, "token_savings": 3800, "savings_pct": 61.3},
+  "tool_breakdown": [{"tool_name": "guidance", "operation": "search", "cnt": 42}]
+}
+```
+
+View the dashboard in a browser: `agent-guidance-mcp --dashboard`
+
+---
+
+### 7. `token_stats` -- Session Statistics
 
 ```
 token_stats() -> dict
