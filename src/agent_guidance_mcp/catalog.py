@@ -10,7 +10,16 @@ from typing import Iterable
 
 import re
 from .constants import TASK_ANCHORS
-from .embeddings import load_precomputed_embeddings, get_embedding, cosine_similarity
+from .embeddings import (
+    load_precomputed_embeddings,
+    load_embedding_hashes,
+    get_embedding,
+    cosine_similarity,
+    save_embeddings,
+    hash_text,
+    embed_text_for_entry,
+    _E5_MODEL,
+)
 from .paths import (
     find_standards_root,
     identifier_for,
@@ -75,6 +84,7 @@ class StandardsCatalog:
 
         # Load pre-computed embeddings and dynamically embed workspace-local skills
         self.skills_embeddings = load_precomputed_embeddings()
+        self._embed_hashes = load_embedding_hashes()
         self._local_skills_embedded = False
 
         # Initialize and populate task anchors dynamically
@@ -196,33 +206,79 @@ class StandardsCatalog:
         return json.dumps(self.manifest(), indent=2, sort_keys=True)
 
     def _ensure_local_skills_embedded(self) -> None:
-        """Dynamically embed workspace-local skills if not already done, lazily."""
+        """Ensure every entry has a fresh embedding (F2/F5).
+
+        Lazily: dynamically embed entries that have no vector (workspace-local
+        skills), and re-embed precomputed entries whose source content changed
+        (auto-heal staleness via content hash). Persists any updates.
+        """
         if getattr(self, "_local_skills_embedded", False):
             return
         self._local_skills_embedded = True
         logger = logging.getLogger("agent-guidance-mcp")
+        changed = False
         for entry in self.entries:
-            if entry.kind == "skill" and entry.identifier not in self.skills_embeddings:
-                try:
-                    content = self._load_content(entry)
-                    text_to_embed = f"Title: {entry.title}\nDescription: {entry.description}\nContent: {content[:1000]}"
-                    vector = get_embedding(text_to_embed, prefix="passage")
-                    if vector:
-                        self.skills_embeddings[entry.identifier] = vector
-                except Exception as e:
-                    logger.warning(f"Failed to dynamically embed local skill '{entry.identifier}' — {e}")
+            identifier = entry.identifier
+            if identifier in self.skills_embeddings:
+                # Precomputed: detect staleness via content hash.
+                stored_hash = self._embed_hashes.get(identifier)
+                if stored_hash is None:
+                    continue  # legacy file without hashes — cannot detect staleness
+                if self._entry_hash(entry) == stored_hash:
+                    continue
+                logger.info("re-embedding stale entry '%s'", identifier)
+                if self._embed_and_store(entry):
+                    changed = True
+            else:
+                # No vector yet (workspace-local skill) — embed dynamically.
+                if self._embed_and_store(entry):
+                    changed = True
+        if changed:
+            self._persist_embeddings()
+
+    def _entry_hash(self, entry: "CatalogEntry") -> str:
+        content = self._load_content(entry)
+        return hash_text(embed_text_for_entry(entry.title, entry.description, content))
+
+    def _embed_and_store(self, entry: "CatalogEntry") -> bool:
+        logger = logging.getLogger("agent-guidance-mcp")
+        try:
+            content = self._load_content(entry)
+            text_to_embed = f"Title: {entry.title}\nDescription: {entry.description}\nContent: {content[:1000]}"
+            vector = get_embedding(text_to_embed, prefix="passage")
+            if vector:
+                self.skills_embeddings[entry.identifier] = vector
+                self._embed_hashes[entry.identifier] = self._entry_hash(entry)
+                return True
+        except Exception as e:
+            logger.warning(f"Failed to embed entry '{entry.identifier}' — {e}")
+        return False
+
+    def _persist_embeddings(self) -> None:
+        if "pytest" in sys.modules:
+            return  # never mutate the bundled file under test
+        try:
+            save_embeddings(self.skills_embeddings, self._embed_hashes)
+        except Exception as e:
+            logging.getLogger("agent-guidance-mcp").warning(f"Failed to persist embeddings: {e}")
 
     def search_entries(
         self, query: str, limit: int = 10, kind: str | None = None
     ) -> list[dict[str, object]]:
         self._ensure_local_skills_embedded()
         terms = list(dict.fromkeys(tokenize(query)))
-        
+
         # Try semantic search embedding
         query_vector = get_embedding(query, prefix="query")
-        
+
         results: list[tuple[float, CatalogEntry, str]] = []
-        compiled_terms = [re.compile(rf'\b{re.escape(term)}\b') for term in terms] if terms else []
+        # F3: boundary-aware matching for all fields (avoids substring false
+        # positives like "api" matching "rapid").
+        compiled_terms = (
+            [re.compile(rf"(?<![a-z0-9]){re.escape(term)}(?![a-z0-9])") for term in terms]
+            if terms
+            else []
+        )
         for entry in self.entries:
             if kind and entry.kind.lower() != kind.lower():
                 continue
@@ -232,12 +288,12 @@ class StandardsCatalog:
             title_lower = entry.title.lower()
             desc_lower = entry.description.lower()
             path_lower = entry.path.lower()
-            
+
             if terms:
                 for i, term in enumerate(terms):
-                    keyword_score += title_lower.count(term) * 10
-                    keyword_score += desc_lower.count(term) * 5
-                    keyword_score += path_lower.count(term) * 3
+                    keyword_score += len(compiled_terms[i].findall(title_lower)) * 10
+                    keyword_score += len(compiled_terms[i].findall(desc_lower)) * 5
+                    keyword_score += len(compiled_terms[i].findall(path_lower)) * 3
 
                 content = self._load_content(entry)
                 content_lower = content.lower()
@@ -246,28 +302,52 @@ class StandardsCatalog:
             else:
                 content = self._load_content(entry)
 
-            # 2. Compute semantic score
+            # 2. Compute semantic score (F4: any entry with a vector, not just skills)
             semantic_score = 0.0
-            if query_vector and entry.kind == "skill" and entry.identifier in self.skills_embeddings:
+            if query_vector and entry.identifier in self.skills_embeddings:
                 skill_vector = self.skills_embeddings[entry.identifier]
                 semantic_score = cosine_similarity(query_vector, skill_vector)
+                # F1: negative cosine must never suppress a keyword-relevant result
+                if semantic_score < 0.0:
+                    semantic_score = 0.0
 
             # 3. Combine scores (hybrid search)
             # Scale semantic similarity (0.0 to 1.0) to range 0-150, added to keyword score.
             combined_score = keyword_score + (semantic_score * 150)
-            if combined_score <= 0.0:
+            # Skip only when neither signal contributes (F1)
+            if keyword_score <= 0 and semantic_score <= 0:
                 continue
 
             results.append((combined_score, entry, make_snippet(content, terms if terms else [query])))
 
         results.sort(key=lambda result: (-result[0], result[1].path))
+        returned = results[: max(1, limit)]
+
+        # Only log when an embedding was actually produced; keyword-only
+        # fallback must not record an embed query (F3/F4).
+        if query_vector is not None:
+            try:
+                from .server import get_usage
+
+                _u = get_usage()
+                if _u is not None:
+                    _u.record_embed_query(
+                        query_text=query,
+                        prefix_type="query",
+                        model_name=_E5_MODEL,
+                        vector_dim=len(query_vector),
+                        result_count=len(returned),
+                    )
+            except Exception:
+                pass
+
         return [
             {
                 **entry.to_dict(),
                 "score": score,
                 "snippet": snippet,
             }
-            for score, entry, snippet in results[: max(1, limit)]
+            for score, entry, snippet in returned
         ]
 
     def recommend_context(

@@ -218,3 +218,84 @@ class TestRetention:
         t = UsageTracker()
         t.close()
         os.environ.pop("AGENT_RETENTION_DAYS", None)
+
+
+# ── Project / Run attribution ──────────────────────────────────────
+
+class TestProjectRunAttribution:
+    def test_tool_call_stores_project_path_and_run_id(self) -> None:
+        import agent_guidance_mcp.usage as _usagemod
+        import sqlite3
+        t = UsageTracker()
+        t.record_tool_call("proj_tool", "op1", tokens_original=100, tokens_optimized=40,
+                           project_path="/my/project")
+        t.close()
+        conn = sqlite3.connect(str(_usagemod.DB_PATH))
+        row = conn.execute(
+            "SELECT project_path, run_id FROM tool_calls WHERE tool_name='proj_tool'"
+        ).fetchone()
+        conn.close()
+        assert row is not None
+        assert row[0] == "/my/project"
+        assert row[1] is not None and len(row[1]) == 32  # uuid4().hex
+
+    def test_skill_load_stores_project_path(self) -> None:
+        import agent_guidance_mcp.usage as _usagemod
+        import sqlite3
+        t = UsageTracker()
+        t.record_skill_load("tdd-workflow", query="testing", project_path="/p")
+        t.close()
+        conn = sqlite3.connect(str(_usagemod.DB_PATH))
+        row = conn.execute(
+            "SELECT project_path FROM skill_loads WHERE skill_id='tdd-workflow'"
+        ).fetchone()
+        conn.close()
+        assert row is not None
+        assert row[0] == "/p"
+
+    def test_embed_query_stores_run_id(self) -> None:
+        import agent_guidance_mcp.usage as _usagemod
+        import sqlite3
+        t = UsageTracker()
+        t.record_embed_query("test query", model_name="e5-small")
+        t.close()
+        conn = sqlite3.connect(str(_usagemod.DB_PATH))
+        row = conn.execute("SELECT run_id FROM embed_queries").fetchone()
+        conn.close()
+        assert row is not None
+        assert row[0] is not None and len(row[0]) == 32
+
+
+# ── Error-path recording (F5) ──────────────────────────────────────
+
+class TestErrorRecording:
+    def test_failed_call_records_error_message(self) -> None:
+        import agent_guidance_mcp.usage as _usagemod
+        import sqlite3
+        t = UsageTracker()
+        t.record_tool_call("failing", "op1", duration_ms=15, error_message="boom")
+        t.close()
+        conn = sqlite3.connect(str(_usagemod.DB_PATH))
+        row = conn.execute(
+            "SELECT error_message FROM tool_calls WHERE tool_name='failing'"
+        ).fetchone()
+        conn.close()
+        assert row is not None
+        assert row[0] == "boom"
+
+
+# ── No double recording (F1) ───────────────────────────────────────
+
+class TestNoDoubleRecording:
+    def test_single_record_tool_call_is_one_row(self) -> None:
+        import agent_guidance_mcp.usage as _usagemod
+        import sqlite3
+        t = UsageTracker()
+        t.record_tool_call("single", "op1", tokens_original=10, tokens_optimized=5)
+        t.close()
+        conn = sqlite3.connect(str(_usagemod.DB_PATH))
+        cnt = conn.execute(
+            "SELECT COUNT(*) FROM tool_calls WHERE tool_name='single'"
+        ).fetchone()[0]
+        conn.close()
+        assert cnt == 1

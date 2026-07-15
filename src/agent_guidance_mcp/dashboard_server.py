@@ -234,6 +234,8 @@ def _query_stats(conn: sqlite3.Connection) -> dict[str, Any]:
     total_skills = cur.fetchone()["total"]
     cur.execute("SELECT COUNT(*) AS total FROM embed_queries")
     total_embeds = cur.fetchone()["total"]
+    cur.execute("SELECT COUNT(*) AS total FROM llm_queries")
+    total_llm = cur.fetchone()["total"]
 
     tot_orig = sum(r.get("tok_orig", 0) for r in tool_breakdown)
     tot_opt = sum(r.get("tok_opt", 0) for r in tool_breakdown)
@@ -245,6 +247,7 @@ def _query_stats(conn: sqlite3.Connection) -> dict[str, Any]:
             "tool_calls": total_calls,
             "skills_loaded": total_skills,
             "embed_queries": total_embeds,
+            "llm_queries": total_llm,
             "tokens_original": tot_orig,
             "tokens_optimized": tot_opt,
             "token_savings": token_savings,

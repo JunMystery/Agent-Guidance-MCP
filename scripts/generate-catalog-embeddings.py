@@ -8,40 +8,49 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from agent_guidance_mcp.catalog import build_catalog
+from agent_guidance_mcp.embeddings import embed_text_for_entry, hash_text
 
 def main():
     print("Building standards catalog...")
     standards_root = Path(__file__).resolve().parents[1]
     catalog = build_catalog(standards_root)
-    
-    skills = [entry for entry in catalog.entries if entry.kind == "skill"]
-    print(f"Found {len(skills)} skills in catalog.")
-    
-    if not skills:
-        print("No skills found. Exiting.")
+
+    # F4-A: embed every entry (skills AND documents) so semantic ranking is not
+    # limited to skills.
+    entries = list(catalog.entries)
+    print(f"Found {len(entries)} entries in catalog.")
+
+    if not entries:
+        print("No entries found. Exiting.")
         sys.exit(1)
-        
+
     model_name = "intfloat/multilingual-e5-small"
     print(f"Loading {model_name}...")
     from sentence_transformers import SentenceTransformer
     model = SentenceTransformer(model_name)
-    
+
     print("Generating embeddings...")
-    embeddings_map = {}
-    for entry in skills:
+    embeddings_map: dict[str, list[float]] = {}
+    hashes: dict[str, str] = {}
+    for entry in entries:
         content = catalog.read_entry(entry.identifier, optimize=False)
-        # Combine title, description, and first 1000 chars of content for the document representation
-        # E5 models require a "passage: " prefix for document-side text
-        text_to_embed = f"passage: Title: {entry.title}\nDescription: {entry.description}\nContent: {content[:1000]}"
+        # E5 requires a "passage: " prefix for document-side text.
+        text_to_embed = embed_text_for_entry(entry.title, entry.description, content)
         vector = model.encode(text_to_embed, normalize_embeddings=True)
         embeddings_map[entry.identifier] = vector.tolist()
-        print(f"  Embedded skill: {entry.identifier}")
-        
+        # Store a content hash so runtime can detect staleness (F2).
+        hashes[entry.identifier] = hash_text(text_to_embed)
+        print(f"  Embedded {entry.kind}: {entry.identifier}")
+
     output_path = Path(__file__).resolve().parents[1] / "src" / "agent_guidance_mcp" / "skills_embeddings.json"
     print(f"Writing embeddings to {output_path}...")
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(embeddings_map, f)
-        
+    data: dict[str, object] = {"__meta__": {"version": 1, "hashes": hashes}}
+    data.update(embeddings_map)
+    tmp_path = output_path.with_suffix(".json.tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(data, f)
+    os.replace(tmp_path, output_path)
+
     print("Successfully completed!")
 
 if __name__ == "__main__":

@@ -107,7 +107,10 @@ class LLMSelector:
             return []
 
         try:
-            prompt = self._build_prompt(task, candidates[:candidates], limit)
+            import time as _time
+
+            _t0 = _time.time()
+            prompt = self._build_prompt(task, candidates, limit)
             inputs = self._tokenizer(prompt, return_tensors="pt")
             outputs = self._model.generate(
                 **inputs,
@@ -120,19 +123,59 @@ class LLMSelector:
             # Strip the input prompt from the response
             if prompt in response:
                 response = response[len(prompt):].strip()
-            return self._parse_skills(response, candidates)
+            picks = self._parse_skills(response, candidates)
+            _dt_ms = int((_time.time() - _t0) * 1000)
+            try:
+                from .server import get_usage
+
+                _u = get_usage()
+                if _u is not None:
+                    _u.record_llm_query(
+                        query_text=task,
+                        model_name=self._model_name,
+                        duration_ms=_dt_ms,
+                        result_count=len(picks),
+                    )
+            except Exception:
+                pass
+            return picks
         except Exception as e:
             logger.warning("LLM skill selection failed: %s", e)
             return []
 
 
-def pre_download_llm() -> bool:
-    """Pre-download the LLM model so first task_pipeline call is fast."""
+def _model_already_cached(repo_id: str) -> bool:
+    """Return True if a model repo is fully present in the local HF hub cache.
+
+    Lets pre_download_llm() skip the heavy in-memory load when the weights are
+    already on disk (re-run of the installer / `--update`).
+    """
     try:
-        from transformers import AutoTokenizer, AutoModelForCausalLM
-        model = os.environ.get("AGENT_SKILL_LLM", _LLM_MODEL)
-        AutoTokenizer.from_pretrained(model)
-        AutoModelForCausalLM.from_pretrained(model, torch_dtype="auto", device_map="auto")
+        from huggingface_hub import snapshot_download
+        snapshot_download(repo_id, local_files_only=True)
         return True
     except Exception:
         return False
+
+
+def pre_download_llm() -> bool:
+    """Pre-download the LLM model so first task_pipeline call is fast.
+
+    Skips the in-memory load when the model is already cached, avoiding a
+    redundant heavyweight load on a re-run of `--update` / the installer.
+    """
+    try:
+        from transformers import AutoTokenizer, AutoModelForCausalLM  # noqa: F401
+    except ImportError:
+        logger.warning(
+            "The 'transformers' package is not installed. "
+            "LLM skill selector will fall back to embedding ranking."
+        )
+        return False
+    model = os.environ.get("AGENT_SKILL_LLM", _LLM_MODEL)
+    if _model_already_cached(model):
+        logger.info("LLM model already cached, skipping load: %s", model)
+        return True
+    AutoTokenizer.from_pretrained(model)
+    AutoModelForCausalLM.from_pretrained(model, torch_dtype="auto", device_map="auto")
+    return True

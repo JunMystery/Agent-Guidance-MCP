@@ -106,7 +106,7 @@ def export_project_snapshot(
         files = optimize_snapshot_content(
             files, max_total_tokens=config.snapshot_total_max_tokens, config=config
         )
-        _record_savings(tracker, "project_context", "snapshot", raw_files, files)
+        _record_savings(tracker, "project_context", "snapshot", raw_files, files, project_path=project_path)
 
     snapshot = {
         "project_root": str(root),
@@ -194,7 +194,7 @@ def read_project_file(
         optimized, token_stats = optimize_source_content(
             content, language_hint(path), FilterLevel.MINIMAL, config=config
         )
-        _record_savings(tracker, "project_context", "read", content, optimized)
+        _record_savings(tracker, "project_context", "read", content, optimized, project_path=project_path)
     else:
         optimized = content
         original_tokens = estimate_tokens(content)
@@ -221,6 +221,7 @@ def _record_savings(
     operation: str,
     original: object,
     optimized: object,
+    project_path: str | None = None,
 ) -> None:
     from .utils import record_savings
     record_savings(tracker, tool_name, operation, original, optimized)
@@ -233,7 +234,11 @@ def _record_savings(
         opt_str = optimized if isinstance(optimized, str) else str(optimized)
         tok_orig = estimate_tokens(orig_str)
         tok_opt = estimate_tokens(opt_str)
-        usage.record_tool_call(tool_name, operation, tokens_original=tok_orig, tokens_optimized=tok_opt)
+        usage.record_tool_call(
+            tool_name, operation,
+            tokens_original=tok_orig, tokens_optimized=tok_opt,
+            project_path=project_path,
+        )
 
 
 
@@ -384,7 +389,7 @@ def get_project_diff(
     else:
         optimized = diff_text
 
-    _record_savings(tracker, "project_context", "diff", diff_text, optimized)
+    _record_savings(tracker, "project_context", "diff", diff_text, optimized, project_path=project_path)
     return {
         "project_root": str(root),
         "diff": optimized,

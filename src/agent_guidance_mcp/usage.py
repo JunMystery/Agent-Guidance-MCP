@@ -10,6 +10,7 @@ import os
 import sqlite3
 import threading
 import time
+import uuid
 from pathlib import Path
 from queue import Queue, Empty
 from typing import Any
@@ -41,6 +42,7 @@ class UsageTracker:
         self._conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._init_db()
+        self._run_id = uuid.uuid4().hex
 
         self._queue: Queue = Queue(maxsize=_MAX_QUEUE_SIZE)
         self._stop_event = threading.Event()
@@ -67,7 +69,10 @@ class UsageTracker:
                 started_at INTEGER NOT NULL,
                 duration_ms INTEGER DEFAULT 0,
                 tokens_original INTEGER,
-                tokens_optimized INTEGER
+                tokens_optimized INTEGER,
+                project_path TEXT,
+                run_id TEXT,
+                error_message TEXT
             )
         """)
         cur.execute("""
@@ -77,7 +82,9 @@ class UsageTracker:
                 query TEXT,
                 search_term TEXT,
                 embed_used INTEGER DEFAULT 0,
-                loaded_at INTEGER NOT NULL
+                loaded_at INTEGER NOT NULL,
+                project_path TEXT,
+                run_id TEXT
             )
         """)
         cur.execute("""
@@ -89,7 +96,19 @@ class UsageTracker:
                 vector_dim INTEGER,
                 duration_ms INTEGER DEFAULT 0,
                 result_count INTEGER DEFAULT 0,
-                queried_at INTEGER NOT NULL
+                queried_at INTEGER NOT NULL,
+                run_id TEXT
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS llm_queries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                query_text TEXT NOT NULL,
+                model_name TEXT,
+                duration_ms INTEGER DEFAULT 0,
+                result_count INTEGER DEFAULT 0,
+                queried_at INTEGER NOT NULL,
+                run_id TEXT
             )
         """)
         cur.execute("""
@@ -100,6 +119,7 @@ class UsageTracker:
             CREATE INDEX IF NOT EXISTS idx_tool_calls_started
                 ON tool_calls(started_at)
         """)
+        self._ensure_columns(cur)
         self._conn.commit()
 
         # Retention purge
@@ -113,7 +133,24 @@ class UsageTracker:
             cur.execute("DELETE FROM tool_calls WHERE started_at < ?", (cutoff,))
             cur.execute("DELETE FROM skill_loads WHERE loaded_at < ?", (cutoff,))
             cur.execute("DELETE FROM embed_queries WHERE queried_at < ?", (cutoff,))
-            self._conn.commit()
+            cur.execute("DELETE FROM llm_queries WHERE queried_at < ?", (cutoff,))
+            self._ensure_columns(cur)
+        self._conn.commit()
+
+    def _ensure_columns(self, cur) -> None:
+        """Add attribution columns to existing DBs (no-op on fresh schemas)."""
+        for table, col, coltype in (
+            ("tool_calls", "project_path", "TEXT"),
+            ("tool_calls", "run_id", "TEXT"),
+            ("tool_calls", "error_message", "TEXT"),
+            ("skill_loads", "project_path", "TEXT"),
+            ("skill_loads", "run_id", "TEXT"),
+            ("embed_queries", "run_id", "TEXT"),
+        ):
+            try:
+                cur.execute(f"ALTER TABLE {table} ADD COLUMN {col} {coltype}")
+            except sqlite3.OperationalError:
+                pass  # column already present
 
     # ── Recording helpers ───────────────────────────────────────────────
 
@@ -124,13 +161,16 @@ class UsageTracker:
         duration_ms: int = 0,
         tokens_original: int | None = None,
         tokens_optimized: int | None = None,
+        project_path: str | None = None,
+        error_message: str | None = None,
     ) -> None:
         """Record one tool invocation."""
         now = int(time.time())
         self._queue.put(
             _WriteOp("record_tool_call",
                      (tool_name, operation, now, duration_ms,
-                      tokens_original, tokens_optimized))
+                      tokens_original, tokens_optimized, project_path, self._run_id,
+                      error_message))
         )
 
     def record_skill_load(
@@ -139,13 +179,34 @@ class UsageTracker:
         query: str | None = None,
         search_term: str | None = None,
         embed_used: bool = False,
+        project_path: str | None = None,
     ) -> None:
         """Record a skill load."""
         now = int(time.time())
         self._queue.put(
             _WriteOp("record_skill_load",
-                     (skill_id, query, search_term, int(embed_used), now))
+                     (skill_id, query, search_term, int(embed_used), now, project_path, self._run_id))
         )
+
+    def record_recommend_skill_loads(
+        self,
+        result: object,
+        query: str | None = None,
+        project_path: str | None = None,
+    ) -> None:
+        """Record LLM-recommended skills as skill loads (embed_used=True) (F2/F5/F6).
+
+        Each entry in result["recommendations"] is counted as a skill load so the
+        dashboard "skills called" metric reflects actual usage. Bulk `search`
+        hits are intentionally NOT counted to avoid inflating the metric with
+        candidate lists. The e5 embed query for recommend is logged separately
+        inside catalog.search_entries on semantic success.
+        """
+        recs = result.get("recommendations", []) if isinstance(result, dict) else []
+        for rec in recs:
+            rid = rec.get("identifier") if isinstance(rec, dict) else None
+            if rid:
+                self.record_skill_load(rid, query=query, embed_used=True, project_path=project_path)
 
     def record_embed_query(
         self,
@@ -161,7 +222,21 @@ class UsageTracker:
         self._queue.put(
             _WriteOp("record_embed_query",
                      (query_text, prefix_type, model_name, vector_dim,
-                      duration_ms, result_count, now))
+                      duration_ms, result_count, now, self._run_id))
+        )
+
+    def record_llm_query(
+        self,
+        query_text: str,
+        model_name: str | None = None,
+        duration_ms: int = 0,
+        result_count: int = 0,
+    ) -> None:
+        """Record an LLM skill-selector query (e.g. Qwen2.5-0.5B-Instruct)."""
+        now = int(time.time())
+        self._queue.put(
+            _WriteOp("record_llm_query",
+                     (query_text, model_name, duration_ms, result_count, now, self._run_id))
         )
 
     # ── Aggregation / summary ───────────────────────────────────────────
@@ -196,6 +271,8 @@ class UsageTracker:
         total_skills_count = cur.fetchone()["total"]
         cur.execute("SELECT COUNT(*) AS total FROM embed_queries")
         total_embeds = cur.fetchone()["total"]
+        cur.execute("SELECT COUNT(*) AS total FROM llm_queries")
+        total_llm = cur.fetchone()["total"]
 
         tot_orig = sum(r.get("tok_orig", 0) for r in tool_breakdown)
         tot_opt = sum(r.get("tok_opt", 0) for r in tool_breakdown)
@@ -207,6 +284,7 @@ class UsageTracker:
                 "tool_calls": total_calls,
                 "skills_loaded": total_skills_count,
                 "embed_queries": total_embeds,
+                "llm_queries": total_llm,
                 "tokens_original": tot_orig,
                 "tokens_optimized": tot_opt,
                 "token_savings": token_savings,
@@ -262,32 +340,41 @@ def _execute_write(conn, op):
     method(conn, *op.args)
 
 
-def _w_tool_call(conn, tool, op, now, dur, tok_orig, tok_opt):
+def _w_tool_call(conn, tool, op, now, dur, tok_orig, tok_opt, proj, run_id, err):
     conn.execute(
         """INSERT INTO tool_calls
                (tool_name, operation, started_at, duration_ms,
-                tokens_original, tokens_optimized)
-           VALUES (?, ?, ?, ?, ?, ?)""",
-        (tool, op, now, dur, tok_orig, tok_opt),
+                tokens_original, tokens_optimized, project_path, run_id, error_message)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (tool, op, now, dur, tok_orig, tok_opt, proj, run_id, err),
     )
 
 
-def _w_skill_load(conn, skill_id, query, search_term, embed_used, now):
+def _w_skill_load(conn, skill_id, query, search_term, embed_used, now, proj, run_id):
     conn.execute(
         """INSERT INTO skill_loads
-               (skill_id, query, search_term, embed_used, loaded_at)
-           VALUES (?, ?, ?, ?, ?)""",
-        (skill_id, query, search_term, embed_used, now),
+               (skill_id, query, search_term, embed_used, loaded_at, project_path, run_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (skill_id, query, search_term, embed_used, now, proj, run_id),
     )
 
 
-def _w_embed_query(conn, qtext, ptype, model, vdim, dur, rcnt, now):
+def _w_embed_query(conn, qtext, ptype, model, vdim, dur, rcnt, now, run_id):
     conn.execute(
         """INSERT INTO embed_queries
-               (query_text, prefix_type, model_name, vector_dim,
-                duration_ms, result_count, queried_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)""",
-        (qtext, ptype, model, vdim, dur, rcnt, now),
+                (query_text, prefix_type, model_name, vector_dim,
+                 duration_ms, result_count, queried_at, run_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        (qtext, ptype, model, vdim, dur, rcnt, now, run_id),
+    )
+
+
+def _w_llm_query(conn, qtext, model, dur, rcnt, now, run_id):
+    conn.execute(
+        """INSERT INTO llm_queries
+                (query_text, model_name, duration_ms, result_count, queried_at, run_id)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (qtext, model, dur, rcnt, now, run_id),
     )
 
 
@@ -295,4 +382,5 @@ _WRITE_DISPATCH: dict[str, object] = {
     "record_tool_call": _w_tool_call,
     "record_skill_load": _w_skill_load,
     "record_embed_query": _w_embed_query,
+    "record_llm_query": _w_llm_query,
 }

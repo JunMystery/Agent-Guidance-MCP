@@ -500,20 +500,23 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         """
         priority_gate_pass()
         t0 = _now_ms()
-        result = pipelines.task_pipeline(
-            catalog=catalog,
-            task=task,
-            project_path=project_path,
-            focus=focus,
-            code_query=code_query,
-            include_tree=include_tree,
-            include_ui=include_ui,
-            limit=limit,
-            timeout=timeout,
-            config=get_config(),
-            tracker=get_tracker(),
-        )
-        _track_usage("task_pipeline", "run", t0)
+        try:
+            result = pipelines.task_pipeline(
+                catalog=catalog,
+                task=task,
+                project_path=project_path,
+                focus=focus,
+                code_query=code_query,
+                include_tree=include_tree,
+                include_ui=include_ui,
+                limit=limit,
+                timeout=timeout,
+                config=get_config(),
+                tracker=get_tracker(),
+            )
+        except Exception as exc:  # record errored calls (F5)
+            _track_error("task_pipeline", "run", _now_ms() - t0, error=str(exc))
+            raise
         return result
 
     @mcp.tool()
@@ -557,26 +560,34 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         if gate:
             return gate
         t0 = _now_ms()
-        result = pipelines.guidance(
-            catalog=catalog,
-            operation=operation,
-            query=query,
-            identifier=identifier,
-            category=category,
-            kind=kind,
-            limit=limit,
-            include_content=include_content,
-            resolve_dependencies=resolve_dependencies,
-            config=get_config(),
-            tracker=get_tracker(),
-        )
-        _track_usage("guidance", operation, t0)
+        try:
+            result = pipelines.guidance(
+                catalog=catalog,
+                operation=operation,
+                query=query,
+                identifier=identifier,
+                category=category,
+                kind=kind,
+                limit=limit,
+                include_content=include_content,
+                resolve_dependencies=resolve_dependencies,
+                config=get_config(),
+                tracker=get_tracker(),
+            )
+        except Exception as exc:  # record errored calls (F5)
+            _track_error("guidance", operation, _now_ms() - t0, error=str(exc))
+            raise
         usage = get_usage()
         if usage:
             if operation == "get" and identifier:
-                usage.record_skill_load(identifier, query=query, search_term=query)
-            elif operation in ("search", "recommend") and query:
-                usage.record_embed_query(query_text=query, model_name="e5-small")
+                usage.record_skill_load(identifier, query=query, search_term=query, project_path=None)
+            elif operation == "recommend" and query:
+                # Count LLM-recommended skills as "called" (F2/F5/F6). Bulk
+                # `search` hits are intentionally NOT counted to avoid inflating
+                # the skill-call metric with candidate lists. The e5 embed query
+                # for recommend is logged inside search_entries on success.
+                usage.record_recommend_skill_loads(result, query)
+        _record_savings("guidance", operation, result, result, project_path=None)
         return result
 
     @mcp.tool()
@@ -630,22 +641,25 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         if gate:
             return gate
         t0 = _now_ms()
-        result = pipelines.project_context(
-            operation=operation,
-            project_path=project_path,
-            query=query,
-            relative_path=relative_path,
-            start_line=start_line,
-            max_lines=max_lines,
-            max_depth=max_depth,
-            output_path=output_path,
-            max_file_bytes=max_file_bytes,
-            max_total_bytes=max_total_bytes,
-            limit=limit,
-            config=get_config(),
-            tracker=get_tracker(),
-        )
-        _track_usage("project_context", operation, t0)
+        try:
+            result = pipelines.project_context(
+                operation=operation,
+                project_path=project_path,
+                query=query,
+                relative_path=relative_path,
+                start_line=start_line,
+                max_lines=max_lines,
+                max_depth=max_depth,
+                output_path=output_path,
+                max_file_bytes=max_file_bytes,
+                max_total_bytes=max_total_bytes,
+                limit=limit,
+                config=get_config(),
+                tracker=get_tracker(),
+            )
+        except Exception as exc:  # record errored calls (F5)
+            _track_error("project_context", operation, _now_ms() - t0, error=str(exc))
+            raise
         return result
 
     @mcp.tool()
@@ -681,19 +695,23 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         if gate:
             return gate
         t0 = _now_ms()
-        result = pipelines.ui_ux(
-            catalog=catalog,
-            operation=operation,
-            query=query,
-            domain=domain,
-            stack=stack,
-            project_name=project_name,
-            output_format=output_format,
-            limit=limit,
-            config=get_config(),
-            tracker=get_tracker(),
-        )
-        _track_usage("ui_ux", operation, t0)
+        try:
+            result = pipelines.ui_ux(
+                catalog=catalog,
+                operation=operation,
+                query=query,
+                domain=domain,
+                stack=stack,
+                project_name=project_name,
+                output_format=output_format,
+                limit=limit,
+                config=get_config(),
+                tracker=get_tracker(),
+            )
+        except Exception as exc:  # record errored calls (F5)
+            _track_error("ui_ux", operation, _now_ms() - t0, error=str(exc))
+            raise
+        _record_savings("ui_ux", operation, result, result, project_path=None)
         return result
 
     @mcp.tool()
@@ -724,15 +742,19 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         if gate:
             return gate
         t0 = _now_ms()
-        result = pipelines.session_continuity(
-            operation=operation,
-            project_path=project_path,
-            task=task,
-            checklist=checklist,
-            current_step_index=current_step_index,
-            metadata=metadata,
-        )
-        _track_usage("session_continuity", operation, t0)
+        try:
+            result = pipelines.session_continuity(
+                operation=operation,
+                project_path=project_path,
+                task=task,
+                checklist=checklist,
+                current_step_index=current_step_index,
+                metadata=metadata,
+                tracker=get_tracker(),
+            )
+        except Exception as exc:  # record errored calls (F5)
+            _track_error("session_continuity", operation, _now_ms() - t0, error=str(exc))
+            raise
         return result
 
     @mcp.tool()
@@ -798,9 +820,6 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         else:
             content = raw_content
         _record_savings("workflow_prompt", mode_key, raw_content, content)
-        usage = get_usage()
-        if usage:
-            usage.record_tool_call("workflow_prompt", mode_key)
         additions = []
         if subject:
             additions.append(f"Subject: {subject}")
@@ -816,6 +835,7 @@ def _record_savings(
     operation: str,
     original: str,
     optimized: str,
+    project_path: str | None = None,
 ) -> None:
     """Record token savings in-memory and persist token values to SQLite."""
     from .utils import record_savings
@@ -826,7 +846,7 @@ def _record_savings(
         from .response_optimizer import estimate_tokens
         tok_orig = estimate_tokens(original if isinstance(original, str) else str(original))
         tok_opt = estimate_tokens(optimized if isinstance(optimized, str) else str(optimized))
-        usage.record_tool_call(tool_name, operation, tokens_original=tok_orig, tokens_optimized=tok_opt)
+        usage.record_tool_call(tool_name, operation, tokens_original=tok_orig, tokens_optimized=tok_opt, project_path=project_path)
 
 
 def _now_ms() -> int:
@@ -834,11 +854,10 @@ def _now_ms() -> int:
     return int(time.time() * 1000)
 
 
-def _track_usage(tool_name: str, operation: str | None, t0: int) -> None:
-    """Record a tool call in the persistent usage tracker."""
+def _track_error(tool_name: str, operation: str | None, duration_ms: int, error: str | None = None) -> None:
+    """Record a failed/errored tool call in the persistent usage tracker (F5)."""
     usage = get_usage()
     if usage is None:
         return
-    dur = _now_ms() - t0
-    usage.record_tool_call(tool_name, operation, duration_ms=dur)
+    usage.record_tool_call(tool_name, operation, duration_ms=duration_ms, error_message=error)
 

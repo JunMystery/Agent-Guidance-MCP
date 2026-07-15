@@ -1,4 +1,5 @@
 import atexit
+import hashlib
 import json
 import logging
 import math
@@ -20,8 +21,18 @@ _DAEMON_FAILED = False
 
 _DAEMON_DIR = Path.home() / ".agent-guidance"
 _DAEMON_PORT_FILE = _DAEMON_DIR / "daemon.json"
+_DAEMON_LOG = _DAEMON_DIR / "daemon.log"
 
 _E5_MODEL = "intfloat/multilingual-e5-small"
+
+# Expected embedding dimension for the bundled e5-small model. Used as a
+# defensive guard so a model swap / corrupted precomputed file degrades
+# gracefully instead of producing garbage similarity (F6).
+EXPECTED_DIM = 384
+# Reserved top-level key in skills_embeddings.json holding hashes for staleness
+# detection (F2) and content-hash auto-heal.
+_META_KEY = "__meta__"
+_EMBEDDINGS_FILE = Path(__file__).resolve().parent / "skills_embeddings.json"
 
 # ── In-process fallback model (loaded only when daemon unavailable) ──────
 
@@ -58,8 +69,39 @@ def get_embedding_model() -> Optional[Any]:
             return None
 
 
+def _model_already_cached(repo_id: str) -> bool:
+    """Return True if a model repo is fully present in the local HF hub cache.
+
+    Lets pre_download_models()/pre_download_llm() skip the heavy in-memory load
+    when the weights are already on disk (e.g. a re-run of the installer or
+    `--update`). Any failure to determine cache state falls through to a real
+    load attempt rather than erroring out.
+    """
+    try:
+        from huggingface_hub import snapshot_download
+        snapshot_download(repo_id, local_files_only=True)
+        return True
+    except Exception:
+        return False
+
+
 def pre_download_models() -> bool:
-    """Pre-download the embedding model so daemon start doesn't trigger a download."""
+    """Pre-download the embedding model so daemon start doesn't trigger a download.
+
+    Skips the in-memory load entirely when the model is already cached, so a
+    re-run of `--update` (or the installer) is fast and offline-safe.
+    """
+    try:
+        from sentence_transformers import SentenceTransformer  # noqa: F401
+    except ImportError:
+        logger.warning(
+            "The 'sentence-transformers' package is not installed. "
+            "Local dynamic embeddings will be disabled and will fall back to keyword search."
+        )
+        return False
+    if _model_already_cached(_E5_MODEL):
+        logger.info("Embedding model already cached, skipping load: %s", _E5_MODEL)
+        return True
     model = get_embedding_model()
     return model is not None
 
@@ -141,12 +183,16 @@ def _spawn_daemon() -> int | None:
     """Start the embedding daemon subprocess and return its port."""
     logger.info("spawning embedding daemon")
     try:
-        subprocess.Popen(
-            _ARGS,
-            start_new_session=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        # F7: capture daemon logs to a file instead of discarding them, so a
+        # crashed/misconfigured daemon is diagnosable.
+        _DAEMON_DIR.mkdir(parents=True, exist_ok=True)
+        with open(_DAEMON_LOG, "a", buffering=1) as log_fd:
+            subprocess.Popen(
+                _ARGS,
+                start_new_session=True,
+                stdout=log_fd,
+                stderr=log_fd,
+            )
     except (OSError, subprocess.SubprocessError) as e:
         logger.error("failed to spawn daemon: %s", e)
         return None
@@ -324,6 +370,11 @@ def magnitude(v: List[float]) -> float:
 
 
 def cosine_similarity(v1: List[float], v2: List[float]) -> float:
+    # F6: dimension guard — a model swap or corrupted vector must not silently
+    # truncate via zip() and yield a meaningless similarity.
+    if len(v1) != len(v2):
+        logger.warning("embedding dimension mismatch: %d vs %d", len(v1), len(v2))
+        return 0.0
     mag1 = magnitude(v1)
     mag2 = magnitude(v2)
     if mag1 == 0 or mag2 == 0:
@@ -332,12 +383,72 @@ def cosine_similarity(v1: List[float], v2: List[float]) -> float:
 
 
 def load_precomputed_embeddings() -> Dict[str, List[float]]:
-    """Load pre-computed embeddings from the bundled package file."""
+    """Load pre-computed embeddings (id -> vector) from the bundled file.
+
+    The reserved ``_META_KEY`` entry (hashes) is excluded from the returned map.
+    """
+    vectors: Dict[str, List[float]] = {}
     try:
-        path = Path(__file__).resolve().parent / "skills_embeddings.json"
-        if path.is_file():
-            with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
+        if _EMBEDDINGS_FILE.is_file():
+            with open(_EMBEDDINGS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            for key, value in data.items():
+                if key == _META_KEY or not isinstance(value, list):
+                    continue
+                if EXPECTED_DIM and len(value) != EXPECTED_DIM:
+                    logger.warning(
+                        "embedding for %s has dim %d (expected %d) — ignored",
+                        key, len(value), EXPECTED_DIM,
+                    )
+                    continue
+                vectors[key] = value
     except Exception as e:
         logger.error(f"Failed to load pre-computed embeddings: {e}")
+    return vectors
+
+
+def load_embedding_hashes() -> Dict[str, str]:
+    """Load content hashes (id -> hash) used for staleness detection (F2)."""
+    try:
+        if _EMBEDDINGS_FILE.is_file():
+            with open(_EMBEDDINGS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            meta = data.get(_META_KEY)
+            if isinstance(meta, dict):
+                hashes = meta.get("hashes")
+                if isinstance(hashes, dict):
+                    return {str(k): str(v) for k, v in hashes.items()}
+    except Exception:
+        pass
     return {}
+
+
+def save_embeddings(embeddings: Dict[str, List[float]], hashes: Dict[str, str] | None = None) -> bool:
+    """Atomically persist embeddings (+ optional hashes) to the bundled file (F2/F5)."""
+    try:
+        tmp = _EMBEDDINGS_FILE.with_suffix(".json.tmp")
+        data: Dict[str, object] = {}
+        if hashes:
+            data[_META_KEY] = {"version": 1, "hashes": hashes}
+        data.update(embeddings)
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+        os.replace(tmp, _EMBEDDINGS_FILE)
+        return True
+    except Exception as e:
+        logger.warning("Failed to persist embeddings: %s", e)
+        return False
+
+
+def embed_text_for_entry(title: str, description: str, content: str) -> str:
+    """Canonical 'passage:' document text for an entry (F4).
+
+    Must match the generator (scripts/generate-catalog-embeddings.py) exactly so
+    content hashes stay comparable across regenerations.
+    """
+    return f"passage: Title: {title}\nDescription: {description}\nContent: {content[:1000]}"
+
+
+def hash_text(text: str) -> str:
+    """Short stable hash of an embedding's source text (F2)."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]

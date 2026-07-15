@@ -91,6 +91,11 @@ def guidance(
                     _resolve(dep)
                 if resolved:
                     result["resolved_dependencies"] = resolved
+                    from .server import get_usage
+                    _usage = get_usage()
+                    if _usage is not None:
+                        for sub_id in resolved:
+                            _usage.record_skill_load(sub_id, project_path=None)
 
             cycles = _detect_dependency_cycles(catalog, entry.identifier)
             if cycles:
@@ -349,6 +354,7 @@ def session_continuity(
     checklist: list[dict] | None = None,
     current_step_index: int = 0,
     metadata: dict | None = None,
+    tracker: TokenTracker | None = None,
 ) -> dict[str, object]:
     """Persist or recover task session state for continuity."""
     if operation is None:
@@ -370,6 +376,7 @@ def session_continuity(
             "details": {"project_path": project_path}
         }
 
+    result: dict[str, object]
     if operation_key == "save":
         if not task:
             return {
@@ -385,15 +392,18 @@ def session_continuity(
             current_step_index=current_step_index,
             metadata=metadata,
         )
-        return {"success": True, "session": data}
+        result = {"success": True, "session": data}
     elif operation_key == "load":
         data = load_session(project_path=validated_root)
         if data:
-            return {"success": True, "session_active": True, "session": data}
-        return {"success": True, "session_active": False, "message": "No active session found."}
+            result = {"success": True, "session_active": True, "session": data}
+        else:
+            result = {"success": True, "session_active": False, "message": "No active session found."}
     else:  # clear
         cleared = clear_session(project_path=validated_root)
-        return {"success": cleared}
+        result = {"success": cleared}
+    _record_savings(tracker, "session_continuity", operation_key, result, result, project_path=project_path)
+    return result
 
 
 def task_pipeline(
@@ -508,5 +518,5 @@ def task_pipeline(
     optimized = optimize_response(
         result, max_content_tokens=config.task_pipeline_max_tokens, config=config
     )
-    _record_savings(tracker, "task_pipeline", "task_pipeline", result, optimized)
+    _record_savings(tracker, "task_pipeline", "task_pipeline", result, optimized, project_path=project_path)
     return optimized

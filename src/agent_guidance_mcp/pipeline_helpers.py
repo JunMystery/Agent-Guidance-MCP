@@ -85,6 +85,7 @@ def _record_savings(
     operation: str,
     original: object,
     optimized: object,
+    project_path: str | None = None,
 ) -> None:
     from .utils import record_savings
     record_savings(tracker, tool_name, operation, original, optimized)
@@ -97,7 +98,11 @@ def _record_savings(
         opt_str = optimized if isinstance(optimized, str) else str(optimized)
         tok_orig = estimate_tokens(orig_str)
         tok_opt = estimate_tokens(opt_str)
-        usage.record_tool_call(tool_name, operation, tokens_original=tok_orig, tokens_optimized=tok_opt)
+        usage.record_tool_call(
+            tool_name, operation,
+            tokens_original=tok_orig, tokens_optimized=tok_opt,
+            project_path=project_path,
+        )
 
 def _detect_frameworks(project_path: str) -> list[str]:
     from .project_scan import resolve_project_root
