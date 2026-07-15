@@ -399,9 +399,8 @@ def task_pipeline(
     from .text import extract_code_terms
     config = config or load_config_from_env()
 
-    # Pre-load embedding model and embed local skills sequentially to avoid deadlocks inside parallel threads
-    from .embeddings import get_embedding_model
-    get_embedding_model()
+    # Ensure local skills embedded sequentially before thread pool to avoid
+    # subprocess/pytorch deadlocks inside parallel workers.
     catalog._ensure_local_skills_embedded()
 
     limit = max(1, min(limit, 100))

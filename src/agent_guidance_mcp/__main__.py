@@ -77,6 +77,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Disable token optimization and savings tracking for this server session.",
     )
     parser.add_argument(
+        "--embed-daemon",
+        action="store_true",
+        help="Start embedding inference daemon as a standalone foreground process.",
+    )
+    parser.add_argument(
         "--version", "-V",
         action="version",
         version=f"agent-guidance-mcp {__version__}",
@@ -115,6 +120,11 @@ def main() -> None:
             finally:
                 sys.stdout = old_stdout
             print(result_json)
+            sys.exit(0)
+
+        if args.embed_daemon:
+            from .embed_daemon import main as daemon_main
+            daemon_main()
             sys.exit(0)
 
         # Compatibility check before server start

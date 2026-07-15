@@ -15,12 +15,17 @@ authors = [
 dependencies = [
   "mcp>=1.0.0,<2.0.0",
   "sentence-transformers>=3.0.0",
-  "numpy>=1.20.0"
+  "numpy>=1.20.0",
+  "httpx>=0.20.0"
 ]
 
 [project.optional-dependencies]
 dev = [
   "pytest>=8.0"
+]
+daemon = [
+  "fastapi>=0.100.0",
+  "uvicorn>=0.20.0",
 ]
 # evals: requires Node.js — run `npm install -g promptfoo` or use `npx promptfoo`
 ast = [
