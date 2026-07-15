@@ -1,97 +1,10 @@
-let currentSessionId = null;
 let pollTimer = null;
 let pollBackoff = 1000;
-let projectPath = '';
-let _dirPath = '.';
 
 function qs(s) { return document.querySelector(s); }
 function qsa(s) { return document.querySelectorAll(s); }
 
-function setProjectPath() {
-  const input = document.getElementById('project-path-input');
-  const val = input.value.trim();
-  if (val) {
-    projectPath = val;
-    localStorage.setItem('mcp_project_path', projectPath);
-    document.getElementById('sidebar-proj').textContent = 'project: ' + projectPath;
-    fetchData();
-  }
-}
-
-function changeProjectPath() {
-  document.getElementById('project-path-input').value = projectPath || '';
-  document.getElementById('project-path-input').focus();
-  window.scrollTo({top: 0, behavior: 'smooth'});
-}
-
-function openDirBrowser() {
-  fetch('/api/dirs/choose', { method: 'POST' })
-    .then(r => r.json())
-    .then(data => {
-      if (data.success && data.path) {
-        document.getElementById('project-path-input').value = data.path;
-        setProjectPath();
-      } else {
-        _dirPath = projectPath || '.';
-        document.getElementById('dir-modal').style.display = 'flex';
-        loadDirs();
-      }
-    })
-    .catch(e => {
-      _dirPath = projectPath || '.';
-      document.getElementById('dir-modal').style.display = 'flex';
-      loadDirs();
-    });
-}
-
-function closeDirBrowser() {
-  document.getElementById('dir-modal').style.display = 'none';
-}
-
-function loadDirs() {
-  fetch('/api/dirs?path=' + encodeURIComponent(_dirPath))
-    .then(r => r.json())
-    .then(data => {
-      document.getElementById('dir-current').textContent = data.current;
-      let html = '';
-      if (data.parent) {
-        html += '<div class="dir-item" onclick="navDir(\'' + data.parent.replace(/'/g, "\\'") + '\')">.. (parent)</div>';
-      }
-      if (data.dirs) {
-        data.dirs.forEach(d => {
-          html += '<div class="dir-item" onclick="navDir(\'' + d.path.replace(/'/g, "\\'") + '\')">' + d.name + '</div>';
-        });
-      }
-      document.getElementById('dir-list').innerHTML = html || '<div style="color:var(--text-muted);padding:8px">(empty)</div>';
-    })
-    .catch(e => {
-      document.getElementById('dir-list').innerHTML = '<div style="color:#ff3333">Error: ' + e.message + '</div>';
-    });
-}
-
-function navDir(p) {
-  _dirPath = p;
-  loadDirs();
-}
-
-function selectDirPath() {
-  document.getElementById('project-path-input').value = _dirPath;
-  closeDirBrowser();
-  setProjectPath();
-}
-
 function init() {
-  const params = new URLSearchParams(location.search);
-  projectPath = params.get('project_path') || localStorage.getItem('mcp_project_path') || '';
-  if (projectPath) {
-    document.getElementById('sidebar-proj').textContent = 'project: ' + projectPath;
-    document.getElementById('project-path-input').value = projectPath;
-  }
-  
-  document.getElementById('project-path-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') setProjectPath();
-  });
-
   qsa('.sidebar nav a').forEach(a => {
     a.addEventListener('click', e => {
       e.preventDefault();
@@ -104,7 +17,6 @@ function init() {
       else stopPoll();
     });
   });
-
   fetchData();
 }
 
@@ -137,13 +49,9 @@ function safeDisplay(id, val) {
 }
 
 async function fetchData() {
-  if (!projectPath) return;
-  const url = currentSessionId
-    ? '/api/stats?project_path=' + encodeURIComponent(projectPath) + '&session_id=' + encodeURIComponent(currentSessionId)
-    : '/api/stats?project_path=' + encodeURIComponent(projectPath);
   let resp, data;
   try {
-    resp = await fetch(url);
+    resp = await fetch('/api/stats');
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     data = await resp.json();
     render(data);
@@ -167,30 +75,11 @@ async function fetchData() {
 }
 
 function render(data) {
-  const sel = document.getElementById('session-select');
-  if (data.sessions) {
-    sel.innerHTML = '<option value="">-- all sessions --</option>';
-    data.sessions.forEach(s => {
-      const label = (s.client_name || 'unknown') + (s.session_label ? ' - "' + s.session_label + '"' : '') + ' (' + timeAgo(s.started_at) + ')' + (s.ended_at ? '' : ' [active]');
-      const opt = document.createElement('option');
-      opt.value = s.session_id;
-      opt.textContent = label;
-      if (s.session_id === currentSessionId) opt.selected = true;
-      sel.appendChild(opt);
-    });
-  }
-  sel.onchange = () => {
-    currentSessionId = sel.value || null;
-    fetchData();
-  };
-
   const t = data.totals || {};
-  const s = data.session || {};
 
   // Populate $ mcp --status
-  safeText('out-session-id', currentSessionId || 'all');
-  safeText('out-client-name', s.client_name || 'unknown');
-  safeText('out-session-label', s.session_label || 'none');
+  safeText('out-client-name', 'global');
+  safeText('out-session-label', 'per-call tracking');
 
   // Populate $ mcp --totals
   safeText('out-tool-calls', t.tool_calls || 0);
@@ -201,10 +90,6 @@ function render(data) {
   safeText('out-original-tokens', fmtTokens(t.tokens_original));
   safeText('out-optimized-tokens', fmtTokens(t.tokens_optimized));
   safeText('out-token-savings', fmtTokens(t.token_savings) + ' (' + fmtPct(t.savings_pct) + ' savings)');
-
-  // Populate neofetch sysinfo
-  safeText('sys-project', projectPath ? projectPath.split('/').pop() : '--');
-  safeText('sys-db-status', data.success === false ? 'missing' : 'connected');
 
   const skillsBody = document.getElementById('dash-skills');
   skillsBody.innerHTML = '';
@@ -231,28 +116,12 @@ function render(data) {
   }
 
   const tokenBars = document.getElementById('token-bars');
-  let barsHtml = '<h3 style="font-size:14px;margin-bottom:12px">Per-Session Savings</h3>';
-  if (data.sessions && data.sessions.length) {
-    data.sessions.slice(0, 10).forEach(s => {
-      const label = (s.client_name || '?') + (s.session_label ? ': ' + s.session_label : '') + ' (' + timeAgo(s.started_at) + ')';
-      const sessOrig = s.total_tokens_original || 0;
-      const sessOpt = s.total_tokens_optimized || 0;
-      const saved = sessOrig - sessOpt;
-      const pct = sessOrig ? ((saved / sessOrig) * 100).toFixed(1) : '0.0';
-      const badgeClass = parseFloat(pct) > 50 ? 'badge green' : (parseFloat(pct) > 0 ? 'badge' : 'badge red');
-      if (sessOrig > 0) {
-        barsHtml += '<div class="bar-row"><span class="bar-label" title="' + label + '">' + label.substring(0, 30) + '</span><div class="bar-track"><div class="bar-fill" style="width:100%"></div></div><span class="bar-num"><span class="' + badgeClass + '">' + pct + '%</span></span></div>';
-      }
-    });
-  }
-  barsHtml += '<h3 style="font-size:14px;margin:20px 0 12px">Lifetime Summary</h3>';
+  let barsHtml = '<h3 style="font-size:14px;margin-bottom:12px">Lifetime Summary</h3>';
   barsHtml += '<div class="bar-row"><span class="bar-label">Original</span><div class="bar-track"><div class="bar-fill" style="width:100%"></div></div><span class="bar-num">' + fmtTokens(t.tokens_original) + '</span></div>';
   const optW = t.tokens_original ? Math.round((t.tokens_optimized / t.tokens_original) * 100) : 0;
   barsHtml += '<div class="bar-row"><span class="bar-label">Optimized</span><div class="bar-track"><div class="bar-fill opt" style="width:' + optW + '%"></div></div><span class="bar-num">' + fmtTokens(t.tokens_optimized) + '</span></div>';
   barsHtml += '<div class="bar-row"><span class="bar-label">Saved</span><div class="bar-track"><div class="bar-fill" style="width:' + (100 - optW) + '%;background:var(--accent-secondary);opacity:0.6"></div></div><span class="bar-num" style="font-weight:700;color:var(--accent-secondary)">' + fmtTokens(t.token_savings) + '</span></div>';
   tokenBars.innerHTML = barsHtml;
-
-  document.getElementById('session-status').textContent = data.session && data.session.session_id ? 'Session: ' + (data.session.client_name || '?') + ' ' + timeAgo(data.session.started_at) : '';
 }
 
 function renderHealth(h, embedQueries) {
@@ -321,6 +190,7 @@ document.addEventListener('visibilitychange', () => {
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
 }
+
 document.addEventListener('DOMContentLoaded', () => {
   init();
   document.querySelectorAll('.sidebar nav a').forEach(a => {

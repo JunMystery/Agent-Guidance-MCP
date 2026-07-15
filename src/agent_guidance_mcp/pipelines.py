@@ -102,6 +102,20 @@ def guidance(
 
     if operation_key == "search":
         results = catalog.search_entries(query=query, limit=limit, kind=kind)
+        try:
+            from .llm_selector import LLMSelector
+            selector = LLMSelector()
+            candidate_list = [
+                {"identifier": r["identifier"], "title": r.get("title", ""), "description": r.get("description", "")}
+                for r in results
+            ]
+            llm_picks = set(selector.select(query, candidate_list, limit=3))
+            if llm_picks:
+                llm_boosted = [r for r in results if r["identifier"] in llm_picks]
+                rest = [r for r in results if r["identifier"] not in llm_picks]
+                results = llm_boosted + rest
+        except Exception:
+            pass
         optimized = optimize_response({"results": results}, config=config)
         _record_savings(tracker, "guidance", operation_key, results, optimized["results"])
         return cast(list[dict[str, object]], optimized["results"])

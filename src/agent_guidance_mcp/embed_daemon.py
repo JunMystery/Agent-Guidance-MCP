@@ -153,33 +153,25 @@ def embed(req: EmbedRequest) -> EmbedResponse:
 
 
 @app.get("/api/stats")
-def stats(project_path: str | None = None, session_id: str | None = None) -> dict:
-    """Return aggregated usage stats from a project's usage.db.
+def stats() -> dict:
+    """Return aggregated usage stats from the global usage.db."""
+    from .usage import DB_PATH
 
-    When session_id is provided, returns single-session detail.
-    When omitted, returns all sessions list + lifetime totals.
-    """
+    if not DB_PATH.exists():
+        return {
+            "success": False,
+            "error": "NO_USAGE_DATA",
+            "message": f"No usage.db found at {DB_PATH}. Usage tracking may not be active.",
+        }
+
     try:
         from .usage import UsageTracker as _UsageTracker
     except ImportError:
         from agent_guidance_mcp.usage import UsageTracker as _UsageTracker
 
-    if not project_path:
-        project_path = os.environ.get("AGENT_PROJECT_ROOT", os.getcwd())
-
-    db_path = Path(project_path) / ".agent-context" / "usage.db"
-    if not db_path.exists():
-        return {
-            "success": False,
-            "error": "NO_USAGE_DATA",
-            "message": f"No usage.db found at {db_path}. Usage tracking may not be active.",
-        }
-
-    tracker = _UsageTracker(project_path)
+    tracker = _UsageTracker()
     try:
-        if session_id:
-            return tracker.summary(scope="session", session_id=session_id)
-        return tracker.summary(scope="all")
+        return tracker.summary()
     finally:
         tracker.close()
 

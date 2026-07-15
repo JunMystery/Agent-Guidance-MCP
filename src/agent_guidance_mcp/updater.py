@@ -475,6 +475,16 @@ def run_update() -> None:
     except Exception as e:
         print(f"  \u26a0 Embedding model download failed: {e}")
 
+    print("  Downloading LLM skill selector model (Qwen2.5-0.5B)...")
+    try:
+        from .llm_selector import pre_download_llm
+        if pre_download_llm():
+            print("  \u2713 LLM skill selector ready")
+        else:
+            print("  \u26a0 LLM skill selector not available (transformers missing?)")
+    except Exception as e:
+        print(f"  \u26a0 LLM model download failed: {e}")
+
     state = _load_state()
     commits_state = state.get("commits", {})
     new_commits = dict(commits_state)

@@ -281,6 +281,18 @@ class StandardsCatalog:
         weighted_query = " ".join([task, *keywords, *keywords])
         results = self.search_entries(weighted_query, limit=max(limit * 2, limit))
 
+        llm_picks: list[str] = []
+        try:
+            from .llm_selector import LLMSelector
+            selector = LLMSelector()
+            candidate_list = [
+                {"identifier": r["identifier"], "title": r.get("title", ""), "description": r.get("description", "")}
+                for r in results
+            ]
+            llm_picks = selector.select(task, candidate_list, limit=3)
+        except Exception:
+            pass
+
         essentials = [
             "karpathy-principles",
             "skill-reference",
@@ -309,6 +321,10 @@ class StandardsCatalog:
 
         for identifier in essentials:
             add_recommendation(identifier, "Core operating context")
+
+        # LLM picks
+        for identifier in llm_picks:
+            add_recommendation(identifier, "LLM-recommended for this task")
 
         # Dynamic task anchors from file frontmatter take precedence
         # Pre-compute anchor entries for fast lookup (O(1) vs O(N) per call)

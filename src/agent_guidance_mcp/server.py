@@ -404,20 +404,11 @@ def create_server(
     # Start persistent usage tracker
     import atexit
     from .usage import UsageTracker
-    _global_usage = UsageTracker(project_root)
-    client_name = os.environ.get("AGENT_CLIENT_NAME", None)
-    session_label = os.environ.get("AGENT_SESSION_LABEL", None)
-    session_id = os.environ.get("AGENT_SESSION_ID", None)
-    _global_usage.session_start(
-        client_name=client_name,
-        session_label=session_label,
-        external_session_id=session_id,
-    )
+    _global_usage = UsageTracker()
 
     def _close_usage() -> None:
         u = get_usage()
         if u is not None:
-            u.session_end()
             u.close()
 
     atexit.register(_close_usage)
@@ -523,9 +514,6 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             tracker=get_tracker(),
         )
         _track_usage("task_pipeline", "run", t0)
-        usage = get_usage()
-        if usage:
-            usage.update_session_label(label=task)
         return result
 
     @mcp.tool()
@@ -829,8 +817,16 @@ def _record_savings(
     original: str,
     optimized: str,
 ) -> None:
+    """Record token savings in-memory and persist token values to SQLite."""
     from .utils import record_savings
     record_savings(get_tracker(), tool_name, operation, original, optimized)
+
+    usage = get_usage()
+    if usage is not None:
+        from .response_optimizer import estimate_tokens
+        tok_orig = estimate_tokens(original if isinstance(original, str) else str(original))
+        tok_opt = estimate_tokens(optimized if isinstance(optimized, str) else str(optimized))
+        usage.record_tool_call(tool_name, operation, tokens_original=tok_orig, tokens_optimized=tok_opt)
 
 
 def _now_ms() -> int:

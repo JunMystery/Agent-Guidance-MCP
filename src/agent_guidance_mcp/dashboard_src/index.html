@@ -30,20 +30,7 @@
 <main class="main">
   <div class="error-banner" id="error-banner"></div>
   
-  <div class="session-bar">
-    <div class="project-path-group">
-      <input type="text" id="project-path-input" placeholder="Enter project path...">
-      <button onclick="setProjectPath()" class="btn-accent">Set Path</button>
-      <button onclick="openDirBrowser()" class="btn-secondary">Choose</button>
-    </div>
-    <div class="session-select-group">
-      <select id="session-select"><option value="">-- select session --</option></select>
-      <button onclick="fetchData()" class="btn-secondary">Refresh</button>
-      <span id="session-status"></span>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="dir-modal">
+    <div class="modal-overlay" id="dir-modal">
     <div class="modal-content terminal-window">
       <div class="terminal-header">
         <div class="terminal-dots">
@@ -84,7 +71,6 @@
             <div class="term-cmd-block" data-cmd="status">
               <div class="term-cmd-header"><span class="term-prompt">$</span> <span class="term-fn">mcp</span> --status</div>
               <div class="term-cmd-output" id="out-status">
-                <div class="term-output-line"><span class="term-output-label">session_id</span><span class="term-output-val" id="out-session-id">--</span></div>
                 <div class="term-output-line"><span class="term-output-label">client_name</span><span class="term-output-val" id="out-client-name">--</span></div>
                 <div class="term-output-line"><span class="term-output-label">session_label</span><span class="term-output-val" id="out-session-label">--</span></div>
               </div>

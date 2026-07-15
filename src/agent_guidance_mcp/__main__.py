@@ -87,18 +87,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Start lightweight usage dashboard server (no ML model needed).",
     )
     parser.add_argument(
-        "--client-name",
-        help="Human-readable client/IDE name logged in usage sessions.",
-    )
-    parser.add_argument(
-        "--session-label",
-        help="Human-readable label for the current usage session.",
-    )
-    parser.add_argument(
-        "--session-id",
-        help="External session ID to sync with IDE/CLI session tracking.",
-    )
-    parser.add_argument(
         "--version", "-V",
         action="version",
         version=f"agent-guidance-mcp {__version__}",
@@ -170,12 +158,6 @@ def main() -> None:
 
         root = find_standards_root(args.root)
         config = TokenOptimizationConfig.disabled() if args.no_optimize else None
-        if args.client_name:
-            os.environ["AGENT_CLIENT_NAME"] = args.client_name
-        if args.session_label:
-            os.environ["AGENT_SESSION_LABEL"] = args.session_label
-        if args.session_id:
-            os.environ["AGENT_SESSION_ID"] = args.session_id
         server = create_server(root, config=config)
         server.run()
     except KeyboardInterrupt:
