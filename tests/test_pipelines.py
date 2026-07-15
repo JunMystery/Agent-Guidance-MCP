@@ -54,8 +54,9 @@ def test_guidance_get_missing(tmp_path):
     catalog = _make_catalog(tmp_path)
     result = pipelines.guidance(catalog=catalog, operation="get", identifier="nonexistent")
     assert isinstance(result, dict)
-    assert "error" in result
-    assert "nonexistent" in str(result["error"])
+    assert result["success"] is False
+    assert result["error"] == "NOT_FOUND"
+    assert "nonexistent" in str(result["message"])
 
 
 def test_guidance_search(tmp_path):
@@ -80,9 +81,10 @@ def test_guidance_unsupported(tmp_path):
     catalog = _make_catalog(tmp_path)
     result = pipelines.guidance(catalog=catalog, operation="invalid_op")
     assert isinstance(result, dict)
-    assert "error" in result
-    assert "Unsupported" in str(result["error"])
-    assert "supported_operations" in result
+    assert result["success"] is False
+    assert result["error"] == "UNSUPPORTED_OPERATION"
+    assert "Unsupported" in str(result["message"])
+    assert "supported_operations" in result["details"]
 
 
 def test_task_pipeline_structure(tmp_path):
@@ -305,16 +307,18 @@ def test_session_continuity_roundtrip(tmp_path):
 
 def test_session_continuity_invalid_operation(tmp_path):
     result = pipelines.session_continuity(operation="explode", project_path=str(tmp_path))
-    assert "error" in result
-    assert "Unsupported" in str(result["error"])
-    assert "supported_operations" in result
-    assert "save" in result["supported_operations"]
+    assert result["success"] is False
+    assert result["error"] == "UNSUPPORTED_OPERATION"
+    assert "Unsupported" in str(result["message"])
+    assert "supported_operations" in result["details"]
+    assert "save" in result["details"]["supported_operations"]
 
 
 def test_session_continuity_save_requires_task(tmp_path):
     result = pipelines.session_continuity(operation="save", project_path=str(tmp_path))
     assert result["success"] is False
-    assert "task" in str(result["error"])
+    assert result["error"] == "MISSING_ARGUMENT"
+    assert "task" in str(result["message"])
 
 
 def test_task_pipeline_timeout_warning(tmp_path, monkeypatch):

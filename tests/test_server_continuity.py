@@ -11,12 +11,15 @@ def test_session_continuity_path_traversal(tmp_path):
 
     res = session_continuity_tool(operation="save", project_path=str(tmp_path / "../outside"), task="test")
     assert res["success"] is False
-    assert "Invalid project_path" in res["error"]
+    assert res["error"] == "INVALID_PATH"
+    assert "Invalid project_path" in res["message"]
 
     res = session_continuity_tool(operation="load", project_path=str(tmp_path / "../outside"))
     assert res["success"] is False
-    assert "Invalid project_path" in res["error"]
+    assert res["error"] == "INVALID_PATH"
+    assert "Invalid project_path" in res["message"]
 
     res = session_continuity_tool(operation="clear", project_path=str(tmp_path / "../outside"))
     assert res["success"] is False
-    assert "Invalid project_path" in res["error"]
+    assert res["error"] == "INVALID_PATH"
+    assert "Invalid project_path" in res["message"]

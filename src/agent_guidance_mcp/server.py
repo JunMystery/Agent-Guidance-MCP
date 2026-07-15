@@ -320,8 +320,8 @@ def create_server(
     try:
         catalog = build_catalog(root)
     except Exception as e:
-        import sys as _sys
-        print(f"Warning: catalog build failed — {e}. Starting with empty catalog.", file=_sys.stderr)
+        logger = logging.getLogger("agent-guidance-mcp")
+        logger.warning(f"Catalog build failed — {e}. Starting with empty catalog.")
         from .catalog import StandardsCatalog
         catalog = StandardsCatalog(Path(root or ".").resolve() if root else Path("."), [])
 
@@ -339,30 +339,29 @@ def create_server(
         watcher_enabled = os.environ.get("AGENT_WATCHER_ENABLED", "true").strip().lower()
 
         def _run_initial_index_bg() -> None:
+            logger = logging.getLogger("agent-guidance-mcp")
             try:
-                from .embeddings import get_embedding_model
-                get_embedding_model()
-
                 indexer = CodeGraphIndexer(project_root, db)
                 indexer.run()
 
                 # File watcher is CPU-aware; disable via AGENT_WATCHER_ENABLED=false
                 if watcher_enabled not in ("0", "false", "no", "off"):
                     watcher_interval_raw = os.environ.get("AGENT_WATCHER_INTERVAL")
-                    watcher_kwargs: dict[str, object] = {}
+                    watcher_kwargs: dict[str, Any] = {}
                     if watcher_interval_raw:
                         try:
                             watcher_kwargs["interval_seconds"] = float(watcher_interval_raw)
                         except ValueError:
                             pass
-                    watcher = CodeGraphWatcher(project_root, db, **watcher_kwargs)  # type: ignore[arg-type]
+                    watcher = CodeGraphWatcher(project_root, db, **watcher_kwargs)
                     watcher.start()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"Error in initial index background thread: {e}", exc_info=True)
 
         threading.Thread(target=_run_initial_index_bg, daemon=True).start()
-    except Exception:
-        pass
+    except Exception as e:
+        logger = logging.getLogger("agent-guidance-mcp")
+        logger.error(f"Failed to start initial index background thread: {e}", exc_info=True)
 
     try:
         from .deploy_rules import deploy_project_rules
@@ -370,19 +369,20 @@ def create_server(
         deploy_root = Path(root or ".").resolve()
 
         def _deploy_rules_bg() -> None:
+            logger = logging.getLogger("agent-guidance-mcp")
             try:
                 result = deploy_project_rules(deploy_root)
                 rules_count = sum(1 for v in result.get("rules", {}).values() if v not in ("error",))
                 skills_count = sum(1 for v in result.get("skills", {}).values() if v not in ("error",))
                 if rules_count or skills_count:
-                    logger = logging.getLogger("agent-guidance-mcp")
                     logger.info("Rules deploy: %d rule files, %d skill files deployed", rules_count, skills_count)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"Error in deploy rules background thread: {e}", exc_info=True)
 
         threading.Thread(target=_deploy_rules_bg, daemon=True).start()
-    except Exception:
-        pass
+    except Exception as e:
+        logger = logging.getLogger("agent-guidance-mcp")
+        logger.error(f"Failed to start deploy rules background thread: {e}", exc_info=True)
 
     logging.basicConfig(level=logging.WARNING, stream=sys.stderr)
 

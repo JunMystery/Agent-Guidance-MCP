@@ -27,8 +27,10 @@ def test_snapshot_accepts_agent_context_subpath(tmp_path):
 
 def test_tree_missing_directory():
     result = get_project_tree("/nonexistent/path/to/nowhere")
-    assert "error" in result
-    assert "project_path" in result
+    assert result["success"] is False
+    assert result["error"] == "INVALID_PATH"
+    assert "details" in result
+    assert "project_path" in result["details"]
 
 
 def make_sample_project(tmp_path: Path) -> Path:

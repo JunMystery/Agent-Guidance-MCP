@@ -2,6 +2,7 @@
 
 
 import json
+import logging
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -74,24 +75,16 @@ class StandardsCatalog:
 
         # Load pre-computed embeddings and dynamically embed workspace-local skills
         self.skills_embeddings = load_precomputed_embeddings()
-        for entry in self.entries:
-            if entry.kind == "skill" and entry.identifier not in self.skills_embeddings:
-                try:
-                    content = self._load_content(entry)
-                    text_to_embed = f"Title: {entry.title}\nDescription: {entry.description}\nContent: {content[:1000]}"
-                    vector = get_embedding(text_to_embed, prefix="passage")
-                    if vector:
-                        self.skills_embeddings[entry.identifier] = vector
-                except Exception as e:
-                    print(f"Warning: failed to dynamically embed local skill '{entry.identifier}' — {e}", file=sys.stderr)
+        self._local_skills_embedded = False
 
         # Initialize and populate task anchors dynamically
         self.task_anchors: dict[str, list[str]] = {k: list(v) for k, v in TASK_ANCHORS.items()}
         # Validate built-in task anchors point to real entries
+        logger = logging.getLogger("agent-guidance-mcp")
         for anchor_key, paths in self.task_anchors.items():
             for p in paths:
                 if p.replace("\\", "/").lower() not in self._by_path:
-                    print(f"Warning: task anchor '{anchor_key}' references missing file: {p}", file=sys.stderr)
+                    logger.warning(f"Task anchor '{anchor_key}' references missing file: {p}")
         for entry in self.entries:
             for anchor in entry.anchors:
                 anchor_lower = anchor.lower()
@@ -202,10 +195,28 @@ class StandardsCatalog:
     def manifest_json(self) -> str:
         return json.dumps(self.manifest(), indent=2, sort_keys=True)
 
+    def _ensure_local_skills_embedded(self) -> None:
+        """Dynamically embed workspace-local skills if not already done, lazily."""
+        if getattr(self, "_local_skills_embedded", False):
+            return
+        self._local_skills_embedded = True
+        logger = logging.getLogger("agent-guidance-mcp")
+        for entry in self.entries:
+            if entry.kind == "skill" and entry.identifier not in self.skills_embeddings:
+                try:
+                    content = self._load_content(entry)
+                    text_to_embed = f"Title: {entry.title}\nDescription: {entry.description}\nContent: {content[:1000]}"
+                    vector = get_embedding(text_to_embed, prefix="passage")
+                    if vector:
+                        self.skills_embeddings[entry.identifier] = vector
+                except Exception as e:
+                    logger.warning(f"Failed to dynamically embed local skill '{entry.identifier}' — {e}")
+
     def search_entries(
         self, query: str, limit: int = 10, kind: str | None = None
     ) -> list[dict[str, object]]:
-        terms = tokenize(query)
+        self._ensure_local_skills_embedded()
+        terms = list(dict.fromkeys(tokenize(query)))
         
         # Try semantic search embedding
         query_vector = get_embedding(query, prefix="query")

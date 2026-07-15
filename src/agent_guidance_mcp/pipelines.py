@@ -2,7 +2,7 @@
 
 
 import json
-from typing import Any
+from typing import Any, cast
 
 from . import project_context as project_context_helpers
 from . import ui_ux as ui_ux_helpers
@@ -41,7 +41,7 @@ def guidance(
     resolve_dependencies: bool = False,
     config: TokenOptimizationConfig | None = None,
     tracker: TokenTracker | None = None,
-) -> dict[str, object]:
+) -> dict[str, object] | list[dict[str, object]]:
     """Dispatch standards catalog guidance operations."""
     if operation is None:
         return _missing_argument("operation", "guidance")
@@ -61,7 +61,12 @@ def guidance(
         try:
             entry = catalog.get_entry(identifier)
         except KeyError as exc:
-            return {"error": str(exc), "identifier": identifier}
+            return {
+                "success": False,
+                "error": "NOT_FOUND",
+                "message": str(exc),
+                "details": {"identifier": identifier}
+            }
         result: dict[str, object] = entry.to_dict()
         if include_content:
             raw_content = catalog.read_entry(entry.identifier, optimize=False)
@@ -99,7 +104,7 @@ def guidance(
         results = catalog.search_entries(query=query, limit=limit, kind=kind)
         optimized = optimize_response({"results": results}, config=config)
         _record_savings(tracker, "guidance", operation_key, results, optimized["results"])
-        return optimized["results"]  # type: ignore[return-value]
+        return cast(list[dict[str, object]], optimized["results"])
 
     if operation_key == "reason":
         result = catalog.recommend_reasoning_framework(task=query)
@@ -241,7 +246,12 @@ def project_context(
             tracker=tracker,
         )
     except (PermissionError, OSError) as exc:
-        return {"error": f"Failed to write snapshot: {exc}", "output_path": output_path}
+        return {
+            "success": False,
+            "error": "WRITE_FAILED",
+            "message": f"Failed to write snapshot: {exc}",
+            "details": {"output_path": output_path}
+        }
 
 
 def ui_ux(
@@ -300,7 +310,12 @@ def ui_ux(
             output_format=output_format,
         )
     except (ValueError, FileNotFoundError, KeyError) as exc:
-        return {"error": str(exc), "supported_formats": ["markdown", "ascii"]}
+        return {
+            "success": False,
+            "error": "GENERATION_FAILED",
+            "message": str(exc),
+            "details": {"supported_formats": ["markdown", "ascii"]}
+        }
     result = {
         "operation": operation_key,
         "query": query,
@@ -334,11 +349,21 @@ def session_continuity(
     try:
         validated_root = str(resolve_project_root(project_path))
     except Exception as e:
-        return {"success": False, "error": f"Invalid project_path: {e}"}
+        return {
+            "success": False,
+            "error": "INVALID_PATH",
+            "message": f"Invalid project_path: {e}",
+            "details": {"project_path": project_path}
+        }
 
     if operation_key == "save":
         if not task:
-            return {"success": False, "error": "task is required for save operation"}
+            return {
+                "success": False,
+                "error": "MISSING_ARGUMENT",
+                "message": "task is required for save operation",
+                "details": {"argument": "task"}
+            }
         data = save_session(
             project_path=validated_root,
             task=task,
@@ -373,6 +398,12 @@ def task_pipeline(
     """Prepare task recommendations, project context, and optional UI guidance in one call."""
     from .text import extract_code_terms
     config = config or load_config_from_env()
+
+    # Pre-load embedding model and embed local skills sequentially to avoid deadlocks inside parallel threads
+    from .embeddings import get_embedding_model
+    get_embedding_model()
+    catalog._ensure_local_skills_embedded()
+
     limit = max(1, min(limit, 100))
     task = task[:10000]
     

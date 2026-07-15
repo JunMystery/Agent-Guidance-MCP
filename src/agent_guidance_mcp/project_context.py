@@ -139,7 +139,12 @@ def get_project_tree(
     try:
         root = resolve_project_root(project_path)
     except (NotADirectoryError, FileNotFoundError) as e:
-        return {"error": str(e), "project_path": project_path}
+        return {
+            "success": False,
+            "error": "INVALID_PATH",
+            "message": str(e),
+            "details": {"project_path": project_path}
+        }
     return build_project_tree(root, max(1, max_depth), excluded_paths={DEFAULT_SNAPSHOT_PATH})
 
 
@@ -347,7 +352,12 @@ def get_project_diff(
             )
             diff_text = res2.stdout or ""
     except Exception as e:
-        return {"error": f"Failed to run git diff: {e}", "project_root": str(root)}
+        return {
+            "success": False,
+            "error": "COMMAND_FAILED",
+            "message": f"Failed to run git diff: {e}",
+            "details": {"project_root": str(root)}
+        }
 
     original_len = len(diff_text)
     if not diff_text.strip():

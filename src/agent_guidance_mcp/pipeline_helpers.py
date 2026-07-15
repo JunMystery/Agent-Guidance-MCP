@@ -59,15 +59,24 @@ def _is_ui_task(value: str) -> bool:
 
 def _unsupported_operation(operation: str, supported: tuple[str, ...]) -> dict[str, object]:
     return {
-        "error": f"Unsupported operation: {operation}",
-        "supported_operations": list(supported),
+        "success": False,
+        "error": "UNSUPPORTED_OPERATION",
+        "message": f"Unsupported operation: {operation}",
+        "details": {
+            "operation": operation,
+            "supported_operations": list(supported),
+        },
     }
 
 def _missing_argument(argument: str, operation: str) -> dict[str, Any]:
     return {
-        "error": f"{argument} is required for operation '{operation}'.",
-        "required_argument": argument,
-        "operation": operation,
+        "success": False,
+        "error": "MISSING_ARGUMENT",
+        "message": f"{argument} is required for operation '{operation}'.",
+        "details": {
+            "required_argument": argument,
+            "operation": operation,
+        },
     }
 
 def _record_savings(

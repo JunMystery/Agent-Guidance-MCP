@@ -543,7 +543,8 @@ def _search_csv(
     if not filepath.is_file():
         return []
 
-    search_cols = list(config["search_cols"])  # type: ignore[index]
+    search_cols_val = config.get("search_cols")
+    search_cols = [str(col) for col in search_cols_val] if isinstance(search_cols_val, (list, tuple)) else []
     cache_key = f"{filepath}:{','.join(search_cols)}"
     if cache_key in _BM25_CACHE:
         bm25, rows = _BM25_CACHE[cache_key]
@@ -558,7 +559,8 @@ def _search_csv(
         _BM25_CACHE[cache_key] = (bm25, rows)
 
     results: list[dict[str, str]] = []
-    output_cols = list(config["output_cols"])  # type: ignore[index]
+    output_cols_val = config.get("output_cols")
+    output_cols = [str(col) for col in output_cols_val] if isinstance(output_cols_val, (list, tuple)) else []
     for index, score in bm25.score(query)[:max_results]:
         if score <= 0:
             continue

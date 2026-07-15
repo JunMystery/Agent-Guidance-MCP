@@ -1,6 +1,7 @@
 import json
 import logging
 import math
+import sys
 import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -24,7 +25,8 @@ def get_embedding_model() -> Optional[Any]:
             os.environ["TRANSFORMERS_NO_ADVISORY_WARNINGS"] = "1"
             from sentence_transformers import SentenceTransformer
             logger.info(f"Loading {_E5_MODEL} model...")
-            _model = SentenceTransformer(_E5_MODEL)
+            local_files_only = ("pytest" in sys.modules) or (os.environ.get("HF_HUB_OFFLINE", "0") == "1")
+            _model = SentenceTransformer(_E5_MODEL, local_files_only=local_files_only)
             return _model
         except ImportError:
             logger.warning(
