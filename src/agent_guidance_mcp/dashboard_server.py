@@ -35,12 +35,46 @@ class DashboardHandler(BaseHTTPRequestHandler):
         qs = self._parse_query()
         if path == "/api/stats":
             self._handle_stats(qs.get("session_id"), qs.get("project_path"))
+        elif path == "/api/dirs":
+            self._handle_dirs(qs.get("path", "."))
         elif path == "/health":
             self._handle_health()
         elif path in ("/", "/index.html"):
             self._handle_dashboard()
+        elif path == "/dashboard.css":
+            self._handle_asset("dashboard.css", "text/css")
+        elif path == "/dashboard.js":
+            self._handle_asset("dashboard.js", "application/javascript")
         else:
             self._send_json(404, {"error": "Not found"})
+
+    def do_POST(self) -> None:
+        path = self.path.split("?")[0].rstrip("/") or "/"
+        qs = self._parse_query()
+        if path == "/api/model/toggle":
+            self._handle_model_toggle(qs.get("action", ""))
+        elif path == "/api/dirs/choose":
+            self._handle_choose_dir()
+        else:
+            self._send_json(404, {"error": "Not found"})
+
+    def _handle_dirs(self, root_path: str) -> None:
+        try:
+            base = Path(root_path).resolve()
+            if not base.is_dir():
+                self._send_json(200, {"current": str(base), "dirs": [], "error": "Not a directory"})
+                return
+            entries = []
+            for entry in sorted(base.iterdir()):
+                if entry.is_dir() and not entry.name.startswith("."):
+                    try:
+                        entries.append({"name": entry.name, "path": str(entry.resolve())})
+                    except OSError:
+                        pass
+            parent = str(base.parent) if base.parent != base else None
+            self._send_json(200, {"current": str(base), "parent": parent, "dirs": entries})
+        except (OSError, PermissionError) as e:
+            self._send_json(200, {"current": root_path, "dirs": [], "error": str(e)})
 
     def _parse_query(self) -> dict[str, str]:
         qs = self.path.split("?", 1)[1] if "?" in self.path else ""
@@ -60,7 +94,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            pass
 
     def _send_html(self, status: int, html: str) -> None:
         body = html.encode("utf-8")
@@ -68,7 +105,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            pass
 
     def _handle_stats(self, session_id: str | None = None, project_path: str | None = None) -> None:
         pp = project_path or self.project_path
@@ -89,20 +129,84 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json(500, {"error": str(e)})
 
     def _handle_health(self) -> None:
-        self._send_json(200, {
-            "status": "ok",
-            "server": "agent-guidance-mcp-dashboard",
-            "version": __version__,
-        })
+        daemon_health = _query_daemon("/health")
+        if daemon_health:
+            self._send_json(200, {
+                "status": "ok",
+                "server": "agent-guidance-mcp-dashboard",
+                "version": __version__,
+                "model_loaded": daemon_health.get("model_loaded", False),
+                "clients": daemon_health.get("clients", 0),
+                "engine": daemon_health.get("engine", "unknown"),
+                "uptime_seconds": daemon_health.get("uptime_seconds", 0),
+                "last_embed_time": daemon_health.get("last_embed_time", 0),
+            })
+        else:
+            self._send_json(200, {
+                "status": "ok",
+                "server": "agent-guidance-mcp-dashboard",
+                "version": __version__,
+                "model_loaded": False,
+                "clients": 0,
+                "engine": "unknown",
+                "uptime_seconds": 0,
+                "last_embed_time": 0,
+            })
 
     def _handle_dashboard(self) -> None:
         from ._dashboard_shared import DASHBOARD_DIR, write_default_dashboard
-        index = DASHBOARD_DIR / "index.html"
-        if not index.exists():
-            DASHBOARD_DIR.mkdir(parents=True, exist_ok=True)
-            write_default_dashboard(index)
-        html = index.read_text(encoding="utf-8")
-        self._send_html(200, html)
+        write_default_dashboard(None)
+        index_path = DASHBOARD_DIR / "index.html"
+        if not index_path.exists():
+            self._send_json(500, {"error": "Dashboard files not found"})
+            return
+        content = index_path.read_text(encoding="utf-8")
+        body = content.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
+        self.end_headers()
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            pass
+
+    def _handle_asset(self, name: str, mime_type: str) -> None:
+        from ._dashboard_shared import DASHBOARD_DIR
+        try:
+            content = (DASHBOARD_DIR / name).read_text(encoding="utf-8")
+            body = content.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", f"{mime_type}; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Expires", "0")
+            self.end_headers()
+            try:
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                pass
+        except Exception as e:
+            self._send_json(500, {"error": f"Failed to load asset {name}: {e}"})
+
+    def _handle_model_toggle(self, action: str) -> None:
+        daemon_resp = _query_daemon(f"/api/model/toggle?action={action}", method="POST")
+        if daemon_resp:
+            self._send_json(200, daemon_resp)
+        else:
+            self._send_json(503, {"error": "Embedding daemon not running or unreachable"})
+
+    def _handle_choose_dir(self) -> None:
+        from ._dashboard_shared import choose_folder_native
+        path = choose_folder_native()
+        if path:
+            self._send_json(200, {"success": True, "path": path})
+        else:
+            self._send_json(200, {"success": False, "reason": "Native chooser failed or cancelled"})
 
     def log_message(self, format: str, *args: Any) -> None:
         logger.info("  <= %s", format % args)
@@ -114,15 +218,14 @@ def _query_stats(conn: sqlite3.Connection, session_id: str | None) -> dict[str, 
     sid = session_id
 
     sessions_list: list[dict[str, Any]] = []
-    if not session_id:
-        cur.execute("SELECT * FROM sessions ORDER BY started_at DESC")
-        for row in cur.fetchall():
-            s = dict(row)
-            if s.get("ended_at"):
-                s["duration_seconds"] = s["ended_at"] - s["started_at"]
-            else:
-                s["duration_seconds"] = int(time.time()) - s["started_at"]
-            sessions_list.append(s)
+    cur.execute("SELECT * FROM sessions ORDER BY started_at DESC")
+    for row in cur.fetchall():
+        s = dict(row)
+        if s.get("ended_at"):
+            s["duration_seconds"] = s["ended_at"] - s["started_at"]
+        else:
+            s["duration_seconds"] = int(time.time()) - s["started_at"]
+        sessions_list.append(s)
 
     session_info: dict[str, Any] = {}
     if sid:
@@ -206,12 +309,34 @@ def _query_stats(conn: sqlite3.Connection, session_id: str | None) -> dict[str, 
     return result
 
 
+def _query_daemon(path: str, method: str = "GET") -> dict | None:
+    from ._dashboard_shared import DAEMON_PORT_FILE
+    import urllib.request
+    import json
+    if not DAEMON_PORT_FILE.is_file():
+        return None
+    try:
+        manifest = json.loads(DAEMON_PORT_FILE.read_text(encoding="utf-8"))
+        port = manifest.get("port")
+        if not port:
+            return None
+        req = urllib.request.Request(f"http://127.0.0.1:{port}{path}", method=method)
+        with urllib.request.urlopen(req, timeout=1.0) as r:
+            if r.status == 200:
+                return json.loads(r.read().decode("utf-8"))
+    except Exception:
+        pass
+    return None
+
+
 def run_dashboard(project_path: str | None = None) -> None:
     """Start the dashboard HTTP server.
 
     Reads usage.db from project_path, serves dashboard at http://127.0.0.1:<port>/.
     """
-    from ._dashboard_shared import DAEMON_DIR, DAEMON_PORT_FILE
+    from ._dashboard_shared import DAEMON_DIR, DAEMON_PORT_FILE, kill_existing_daemon
+
+    kill_existing_daemon()
 
     pp = project_path or os.environ.get("AGENT_PROJECT_ROOT", os.getcwd())
     pp = str(Path(pp).resolve())

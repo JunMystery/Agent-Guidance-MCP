@@ -6,6 +6,8 @@ RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; PURPLE='\033[0;35m'; BOLD='\033[1m'
 GRAY='\033[0;90m'; NC='\033[0m'
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 # ── Header ────────────────────────────────────────────────────────────────────
 echo -e ""
 echo -e "${PURPLE}${BOLD}╔══════════════════════════════════════════════════════════════╗${NC}"
@@ -100,15 +102,17 @@ echo -e "  ${YELLOW}🔄${NC} Closing any running instances of agent-guidance-mc
 killall agent-guidance-mcp &>/dev/null || true
 pkill -f agent-guidance-mcp &>/dev/null || true
 
-if [ -f "pyproject.toml" ]; then
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+if [ -f "$REPO_ROOT/pyproject.toml" ]; then
     echo -e "  ${CYAN}📂${NC} Found local project — installing from source..."
-    if ! "$UV_BIN" tool install . --force -q; then
+    if ! "$UV_BIN" tool install "$REPO_ROOT/.[daemon]" --force -q; then
         echo -e "  ${YELLOW}⚠${NC}  Local install failed — falling back to GitHub..."
-        "$UV_BIN" tool install git+https://github.com/JunMystery/Agent-Guidance-MCP.git --force
+        "$UV_BIN" tool install "agent-guidance-mcp[daemon] @ git+https://github.com/JunMystery/Agent-Guidance-MCP.git" --force
     fi
 else
     echo -e "  ${CYAN}🌐${NC} Installing from GitHub repository..."
-    "$UV_BIN" tool install git+https://github.com/JunMystery/Agent-Guidance-MCP.git --force
+    "$UV_BIN" tool install "agent-guidance-mcp[daemon] @ git+https://github.com/JunMystery/Agent-Guidance-MCP.git" --force
 fi
 echo -e "  ${GREEN}✓${NC} MCP server installed"
 

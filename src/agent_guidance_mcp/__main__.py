@@ -95,6 +95,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Human-readable label for the current usage session.",
     )
     parser.add_argument(
+        "--session-id",
+        help="External session ID to sync with IDE/CLI session tracking.",
+    )
+    parser.add_argument(
         "--version", "-V",
         action="version",
         version=f"agent-guidance-mcp {__version__}",
@@ -170,6 +174,8 @@ def main() -> None:
             os.environ["AGENT_CLIENT_NAME"] = args.client_name
         if args.session_label:
             os.environ["AGENT_SESSION_LABEL"] = args.session_label
+        if args.session_id:
+            os.environ["AGENT_SESSION_ID"] = args.session_id
         server = create_server(root, config=config)
         server.run()
     except KeyboardInterrupt:

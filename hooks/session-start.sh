@@ -12,6 +12,8 @@ if [ -z "${AGENT_CLIENT_NAME:-}" ]; then
     AGENT_CLIENT_NAME="OpenCode"
   elif [ -n "${GEMINI_CLI_VERSION:-}" ]; then
     AGENT_CLIENT_NAME="Gemini CLI"
+  elif [ -n "${ANTIGRAVITY_VERSION:-}" ] || [ -f "${TARGET_PROJECT_DIR}/.antigravity/mcp.json" ]; then
+    AGENT_CLIENT_NAME="Antigravity"
   elif [ -n "${VSCODE_INJECTION:-}" ]; then
     AGENT_CLIENT_NAME="VS Code"
   elif [ -n "${CURSOR_TRACE_ID:-}" ] || [ -n "${CURSOR_VERSION:-}" ]; then
@@ -25,6 +27,21 @@ if [ -z "${AGENT_CLIENT_NAME:-}" ]; then
   fi
 fi
 export AGENT_CLIENT_NAME
+
+if [ -z "${AGENT_SESSION_ID:-}" ]; then
+  if [ -n "${OPENCODE_SESSION_ID:-}" ]; then
+    AGENT_SESSION_ID="$OPENCODE_SESSION_ID"
+  elif [ -n "${CURSOR_CHAT_SESSION_ID:-}" ]; then
+    AGENT_SESSION_ID="$CURSOR_CHAT_SESSION_ID"
+  elif [ -n "${CLAUDE_CODE_SESSION_ID:-}" ]; then
+    AGENT_SESSION_ID="$CLAUDE_CODE_SESSION_ID"
+  elif [ -n "${GEMINI_SESSION_ID:-}" ]; then
+    AGENT_SESSION_ID="$GEMINI_SESSION_ID"
+  elif [ -n "${ANTIGRAVITY_SESSION_ID:-}" ]; then
+    AGENT_SESSION_ID="$ANTIGRAVITY_SESSION_ID"
+  fi
+fi
+export AGENT_SESSION_ID
 
 run_session_start() {
   "$1" --session-start --project-path "$TARGET_PROJECT_DIR" 2>/dev/null

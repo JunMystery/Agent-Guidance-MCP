@@ -174,9 +174,14 @@ class UsageTracker:
         project_path: str | None = None,
         client_name: str | None = None,
         session_label: str | None = None,
+        external_session_id: str | None = None,
     ) -> str:
-        """Start a new usage session.  Returns session_id (UUID)."""
-        sid = uuid.uuid4().hex
+        """Start a new usage session.  Returns session_id.
+        
+        If external_session_id is given, use it instead of generating a UUID.
+        This allows syncing with IDE/CLI session IDs.
+        """
+        sid = external_session_id or uuid.uuid4().hex
         now = int(time.time())
         pp = project_path or str(self._project_root)
         self._queue.put(_WriteOp("session_start", (sid, now, pp, client_name, session_label)))
@@ -284,17 +289,16 @@ class UsageTracker:
         session_info: dict[str, Any] = {}
         sessions_list: list[dict[str, Any]] = []
 
-        if scope == "all" and not session_id:
-            cur.execute(
-                "SELECT * FROM sessions ORDER BY started_at DESC"
-            )
-            for row in cur.fetchall():
-                s = dict(row)
-                if s.get("ended_at"):
-                    s["duration_seconds"] = s["ended_at"] - s["started_at"]
-                else:
-                    s["duration_seconds"] = int(time.time()) - s["started_at"]
-                sessions_list.append(s)
+        cur.execute(
+            "SELECT * FROM sessions ORDER BY started_at DESC"
+        )
+        for row in cur.fetchall():
+            s = dict(row)
+            if s.get("ended_at"):
+                s["duration_seconds"] = s["ended_at"] - s["started_at"]
+            else:
+                s["duration_seconds"] = int(time.time()) - s["started_at"]
+            sessions_list.append(s)
 
         if sid:
             cur.execute("SELECT * FROM sessions WHERE session_id = ?", (sid,))

@@ -100,14 +100,14 @@ Stop-Process -Name agent-guidance-mcp -Force -ErrorAction SilentlyContinue
 if (Test-Path "pyproject.toml") {
     Write-Host "  -- Found local project - installing from source..." -ForegroundColor Cyan
     try {
-        & $uvBin tool install . --force -q
+        & $uvBin tool install ".[daemon]" --force -q
     } catch {
         Write-Host "  ! Local install failed - falling back to GitHub..." -ForegroundColor Yellow
-        & $uvBin tool install git+https://github.com/JunMystery/Agent-Guidance-MCP.git --force
+        & $uvBin tool install "agent-guidance-mcp[daemon] @ git+https://github.com/JunMystery/Agent-Guidance-MCP.git" --force
     }
 } else {
     Write-Host "  -- Installing from GitHub repository..." -ForegroundColor Cyan
-    & $uvBin tool install git+https://github.com/JunMystery/Agent-Guidance-MCP.git --force
+    & $uvBin tool install "agent-guidance-mcp[daemon] @ git+https://github.com/JunMystery/Agent-Guidance-MCP.git" --force
 }
 Write-Host "  v MCP server installed" -ForegroundColor Green
 

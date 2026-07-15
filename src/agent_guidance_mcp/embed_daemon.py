@@ -104,6 +104,7 @@ try:
     app = FastAPI(title="embedding-daemon")
     _clients: dict[str, int] = {}
     _last_embed_time: float = time.time()
+    _start_time: float = time.time()
     _clients_lock = threading.Lock()
     _FASTAPI_AVAILABLE = True
 
@@ -186,18 +187,121 @@ def stats(project_path: str | None = None, session_id: str | None = None) -> dic
 @app.get("/")
 def dashboard() -> HTMLResponse:
     """Serve the usage dashboard HTML."""
-    index = DASHBOARD_DIR / "index.html"
-    if not index.exists():
-        DASHBOARD_DIR.mkdir(parents=True, exist_ok=True)
-        _write_default_dashboard(index)
-    return HTMLResponse(index.read_text(encoding="utf-8"))
+    from ._dashboard_shared import DASHBOARD_DIR, write_default_dashboard
+    write_default_dashboard(None)
+    index_path = DASHBOARD_DIR / "index.html"
+    if not index_path.exists():
+        return HTMLResponse(
+            content="<h1>Dashboard files not found</h1>",
+            status_code=500,
+        )
+    content = index_path.read_text(encoding="utf-8")
+    return HTMLResponse(
+        content=content,
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
+
+
+@app.get("/dashboard.css")
+def css() -> Response:
+    from fastapi import Response
+    from ._dashboard_shared import DASHBOARD_DIR
+    css_path = DASHBOARD_DIR / "dashboard.css"
+    if not css_path.exists():
+        return Response(content="", status_code=404)
+    return Response(
+        content=css_path.read_text(encoding="utf-8"),
+        media_type="text/css",
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
+
+
+@app.get("/dashboard.js")
+def js() -> Response:
+    from fastapi import Response
+    from ._dashboard_shared import DASHBOARD_DIR
+    js_path = DASHBOARD_DIR / "dashboard.js"
+    if not js_path.exists():
+        return Response(content="", status_code=404)
+    return Response(
+        content=js_path.read_text(encoding="utf-8"),
+        media_type="application/javascript",
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
+
+
+@app.post("/api/model/toggle")
+def toggle_model(action: str) -> dict:
+    global _model
+    if action == "unload":
+        if _model is not None:
+            _model = None
+            import gc
+            gc.collect()
+            logger.info("SentenceTransformer model unloaded from memory")
+        return {"success": True, "model_loaded": False}
+    elif action == "load":
+        if _model is None:
+            _load_model()
+        return {"success": True, "model_loaded": True}
+    else:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Invalid action parameter, must be 'load' or 'unload'")
+
+
+@app.get("/api/dirs")
+def list_directories(path: str = ".") -> dict:
+    from pathlib import Path
+    try:
+        base = Path(path).resolve()
+        if not base.is_dir():
+            return {"current": str(base), "dirs": [], "error": "Not a directory"}
+        entries = []
+        for entry in sorted(base.iterdir()):
+            if entry.is_dir() and not entry.name.startswith("."):
+                try:
+                    entries.append({"name": entry.name, "path": str(entry.resolve())})
+                except OSError:
+                    pass
+        parent = str(base.parent) if base.parent != base else None
+        return {"current": str(base), "parent": parent, "dirs": entries}
+    except (OSError, PermissionError) as e:
+        return {"current": path, "dirs": [], "error": str(e)}
+
+
+@app.post("/api/dirs/choose")
+def choose_directory() -> dict:
+    from ._dashboard_shared import choose_folder_native
+    path = choose_folder_native()
+    if path:
+        return {"success": True, "path": path}
+    return {"success": False, "reason": "Native chooser failed or cancelled"}
 
 
 @app.get("/health")
 def health() -> dict:
     with _clients_lock:
         n = len(_clients)
-    return {"status": "ok", "model_loaded": _model is not None, "clients": n}
+    return {
+        "status": "ok",
+        "model_loaded": _model is not None,
+        "clients": n,
+        "engine": _E5_MODEL,
+        "uptime_seconds": int(time.time() - _start_time),
+        "last_embed_time": _last_embed_time,
+    }
 
 
 # ── Model loading ───────────────────────────────────────────────────────
@@ -269,6 +373,9 @@ from ._dashboard_shared import write_default_dashboard as _write_default_dashboa
 
 
 def main() -> None:
+    from ._dashboard_shared import kill_existing_daemon
+    kill_existing_daemon()
+
     if not _FASTAPI_AVAILABLE:
         print("Error: fastapi and uvicorn are required for the embedding daemon.", file=sys.stderr)
         print("Install with: pip install fastapi uvicorn", file=sys.stderr)

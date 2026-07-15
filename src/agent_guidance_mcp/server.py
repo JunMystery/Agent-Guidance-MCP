@@ -340,14 +340,14 @@ def create_server(
         from .catalog import StandardsCatalog
         catalog = StandardsCatalog(Path(root or ".").resolve() if root else Path("."), [])
 
-    # Auto-index project workspace on startup (watcher is optional & configurable)
+        # Auto-index project workspace on startup (watcher is optional & configurable)
     try:
         from .database import CodeGraphDatabase
         from .indexer import CodeGraphIndexer
         from .watcher import CodeGraphWatcher
         import threading
 
-        project_root = Path(root or ".").resolve()
+        project_root = Path(os.environ.get("AGENT_PROJECT_ROOT", ".")).resolve()
         db_path = project_root / ".agent-context" / "codegraph.db"
         db = CodeGraphDatabase(db_path)
 
@@ -381,7 +381,7 @@ def create_server(
     try:
         from .deploy_rules import deploy_project_rules
 
-        deploy_root = Path(root or ".").resolve()
+        deploy_root = Path(os.environ.get("AGENT_PROJECT_ROOT", ".")).resolve()
 
         def _deploy_rules_bg() -> None:
             logger = logging.getLogger("agent-guidance-mcp")
@@ -407,7 +407,12 @@ def create_server(
     _global_usage = UsageTracker(project_root)
     client_name = os.environ.get("AGENT_CLIENT_NAME", None)
     session_label = os.environ.get("AGENT_SESSION_LABEL", None)
-    _global_usage.session_start(client_name=client_name, session_label=session_label)
+    session_id = os.environ.get("AGENT_SESSION_ID", None)
+    _global_usage.session_start(
+        client_name=client_name,
+        session_label=session_label,
+        external_session_id=session_id,
+    )
 
     def _close_usage() -> None:
         u = get_usage()

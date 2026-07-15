@@ -118,6 +118,17 @@ class TestSessionLifecycle:
         assert s["session"]["session_label"] == "My Task"
         t.close()
 
+    def test_session_start_with_external_id(self, tmp_path: Path) -> None:
+        t = UsageTracker(tmp_path)
+        sid = t.session_start(external_session_id="ide-abc-123")
+        t.record_tool_call("test", "op")
+        t.session_end()
+        _flush(t)
+        s = t.summary(session_id=sid)
+        assert sid == "ide-abc-123"
+        assert s["session"]["session_id"] == "ide-abc-123"
+        t.close()
+
     def test_session_end_marks_ended(self, tmp_path: Path) -> None:
         t = UsageTracker(tmp_path)
         sid = t.session_start()
