@@ -144,7 +144,6 @@ def _spawn_daemon() -> int | None:
 
     # Wait for manifest to appear and HTTP server to respond
     deadline = time.time() + _SPAWN_WAIT_S
-    http_retries = 0
     while time.time() < deadline:
         time.sleep(_SPAWN_POLL_S)
         manifest = _read_manifest()
@@ -165,8 +164,7 @@ def _spawn_daemon() -> int | None:
                         logger.info("daemon running on port %d (pid %d)", port, pid)
                         return port
                 except httpx.RequestError:
-                    http_retries += 1
-                    # continue loop to retry health check
+                    pass  # daemon not ready yet, retry
     logger.warning("daemon did not start within %.1fs", _SPAWN_WAIT_S)
     return None
 
