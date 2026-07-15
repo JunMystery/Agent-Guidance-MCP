@@ -335,9 +335,42 @@ For full tool documentation, response formats, and examples, see [MCP Surface](d
 - [Project Context Tools](docs/reference/project-context-tools.md) — tree, search, read, snapshot, symbols, references.
 - [Skills Overview](docs/skills/SKILLS_OVERVIEW.md) — full catalog of 185+ skills.
 - [Integrated Repositories](docs/integrations/integrated-repositories.md) — third-party repos in the codebase.
-- [Potential Integrations](docs/integrations/integrated-repositories.md) — third-party repos and candidates for future inclusion.
+- [Multi-IDE Guide](docs/integrations/multi-ide.md) — memory usage, SSE mode, recommendations.
 - [Development Guide](docs/development.md) — tests, project structure, maintainer notes.
 - [MCP Integrations Guide](agent-guidance/mcp-integrations/README.md) — SQLite caching, CodeGraph, Context7 docs.
+
+---
+
+## Multi-IDE Usage
+
+Each IDE/CLI spawns its own MCP server subprocess. With multiple IDEs open simultaneously, this creates multiple server instances — each loading its own copy of the embedding model (466 MB) into RAM.
+
+### Current (stdio) behavior
+
+```
+VS Code       → agent-guidance-mcp (PID A) → model instance (466 MB)
+Cursor        → agent-guidance-mcp (PID B) → model instance (466 MB)
+Claude Desktop → agent-guidance-mcp (PID C) → model instance (466 MB)
+```
+
+Total RAM for 3 IDEs: ~1.4 GB. The model is loaded once per process and shared within that process. Opening multiple terminal windows in the same IDE reuses the same process — no extra cost.
+
+### Which tools trigger model load
+
+| Tool | Loads model? |
+|---|---|
+| `task_pipeline` | ❌ — uses precomputed `skills_embeddings.json` |
+| `guidance(operation="search")` | ✅ — loads model on first call, cached in memory after |
+| `guidance(operation="list\|get\|recommend")` | ❌ — catalog only |
+| `project_context` | ❌ — file ops only |
+| `session_continuity` | ❌ — state only |
+| `health_check / diagnose / token_stats` | ❌ — server info |
+
+On first `guidance(search)` call, the model loads in ~1 second (cached). Subsequent calls are instant. If you never use `guidance(search)`, the model never loads.
+
+### SSE mode (future)
+
+Adding SSE transport (`--transport sse`) would allow all IDEs to share a single MCP daemon process — one model instance for all clients. See [Multi-IDE Guide](docs/integrations/multi-ide.md) for details and current limitations.
 
 ---
 
