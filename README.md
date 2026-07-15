@@ -312,7 +312,7 @@ Returns: current `jsonwebtoken` API docs from Context7 — no hallucinated API c
 |---|---|---|
 | `AGENT_GUIDANCE_ROOT` | Custom standards corpus path | Bundled corpus |
 | `AGENT_PROJECT_ROOT` | Override project root for context tools | `.` (cwd) |
-| `AGENT_PROJECT_ALLOWED_ROOTS` | Whitelist directories for security | All user dirs |
+| `AGENT_PROJECT_ALLOWED_ROOTS` | Whitelist directories for security | Project root only (set to expand) |
 | `AGENT_WATCHER_ENABLED` | Enable/disable CodeGraph file watcher | `true` |
 | `AGENT_WATCHER_INTERVAL` | Watcher poll interval (seconds) | `30` |
 | `AGENT_WATCHER_DEBOUNCE_MULTIPLIER` | Debounce multiplier after changes | `2.0` |

@@ -128,10 +128,6 @@ def iter_project_files(
             yield path
 
 
-_SYSTEM_DIR_PARTS = frozenset({"etc", "proc", "sys", "var", "Windows", "System32", ".ssh", ".gnupg", ".config", "dev", "boot", "root"})
-_SENSITIVE_PATHS = frozenset({"/etc", "/proc", "/sys", "/dev", "/boot", "/root", "/tmp"})
-
-
 def _is_project_path_allowed(root: Path) -> bool:
     allowed = os.environ.get("AGENT_PROJECT_ALLOWED_ROOTS", "").strip()
     if allowed:
@@ -143,13 +139,15 @@ def _is_project_path_allowed(root: Path) -> bool:
             except ValueError:
                 continue
         return False
-    resolved = root.resolve()
-    parts = set(resolved.parts)
-    if parts & _SYSTEM_DIR_PARTS and not any(p.startswith("home") or p.startswith("Users") for p in parts):
+    # Default: only allow the current working directory and subdirectories.
+    # Blocks access to other user dirs (~/Documents, ~/.ssh, etc.) by default.
+    # User must set AGENT_PROJECT_ALLOWED_ROOTS to grant wider access.
+    cwd = Path.cwd().resolve()
+    try:
+        root.relative_to(cwd)
+        return True
+    except ValueError:
         return False
-    if str(resolved) in _SENSITIVE_PATHS or any(str(resolved).startswith(p + "/") for p in _SENSITIVE_PATHS):
-        return False
-    return True
 
 
 def resolve_project_root(project_path: str) -> Path:
