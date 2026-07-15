@@ -6,6 +6,7 @@ exits daemon when all registered clients die or idle timeout reached.
 """
 from __future__ import annotations
 
+import errno
 import json
 import logging
 import os
@@ -21,26 +22,32 @@ logger = logging.getLogger("agent-guidance-mcp.daemon")
 
 DAEMON_DIR = Path.home() / ".agent-guidance"
 DAEMON_PORT_FILE = DAEMON_DIR / "daemon.json"
-DEFAULT_PORT = 8765
-PORT_RANGE = 100
 IDLE_TIMEOUT_S = 600
 GRACE_AFTER_EMPTY_S = 30
 HEALTH_CHECK_INTERVAL = 15
 
 _E5_MODEL = "intfloat/multilingual-e5-small"
 
-# ── Port detection ──────────────────────────────────────────────────────
+# ── Port detection (TOCTOU-safe: bind port 0, keep FD) ──────────────────
 
 
-def _find_free_port(start: int = DEFAULT_PORT, max_tries: int = PORT_RANGE) -> int | None:
-    for port in range(start, start + max_tries):
+def _bind_loopback_fd() -> tuple[socket.socket, int] | None:
+    """Bind to 127.0.0.1 on OS-assigned port. Returns (socket, port).
+
+    Using OS-assigned port (bind port 0) eliminates the TOCTOU race of
+    bind-and-close-then-rebind.
+    """
+    for _ in range(3):  # retry on transient EADDRNOTAVAIL
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
-            s.bind(("127.0.0.1", port))
+            s.bind(("127.0.0.1", 0))
+            port = s.getsockname()[1]
+            return (s, port)
+        except OSError as e:
             s.close()
-            return port
-        except OSError:
-            s.close()
+            if e.errno != errno.EADDRINUSE:
+                raise
             continue
     return None
 
@@ -213,10 +220,11 @@ def _signal_handler(signum: int, _frame: object) -> None:
 
 
 def main() -> None:
-    port = _find_free_port()
-    if port is None:
-        logger.error("no free port found in range %d-%d", DEFAULT_PORT, DEFAULT_PORT + PORT_RANGE)
+    result = _bind_loopback_fd()
+    if result is None:
+        logger.error("failed to bind loopback socket")
         sys.exit(1)
+    sock, port = result
 
     _write_manifest(port, os.getpid())
     logger.info("daemon starting on 127.0.0.1:%d (pid %d)", port, os.getpid())
@@ -227,7 +235,7 @@ def main() -> None:
     t = threading.Thread(target=_reaper, daemon=True)
     t.start()
 
-    uvicorn.run(app, host="127.0.0.1", port=port, log_config=None)
+    uvicorn.run(app, fd=sock.fileno(), log_config=None)
 
 
 if __name__ == "__main__":

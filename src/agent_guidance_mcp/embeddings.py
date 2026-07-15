@@ -1,4 +1,5 @@
 import atexit
+import fcntl
 import json
 import logging
 import math
@@ -96,6 +97,28 @@ def _client_id() -> str:
     return _DAEMON_CLIENT_ID
 
 
+_DAEMON_LOCK_FILE = _DAEMON_DIR / "daemon.lock"
+
+
+def _acquire_daemon_lock() -> int | None:
+    """Acquire exclusive file lock on daemon.lock. Returns fd or None.
+
+    Prevents two concurrent MCP processes from both spawning a daemon.
+    The lock is released when the fd is closed (explicitly or on process exit).
+    """
+    _DAEMON_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        fd = os.open(_DAEMON_LOCK_FILE, os.O_CREAT | os.O_RDWR, 0o644)
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return fd
+    except (IOError, OSError):
+        try:
+            os.close(fd)
+        except (OSError, NameError):
+            pass
+        return None
+
+
 def _read_manifest() -> dict[str, Any] | None:
     if not _DAEMON_PORT_FILE.is_file():
         return None
@@ -119,8 +142,9 @@ def _spawn_daemon() -> int | None:
         logger.error("failed to spawn daemon: %s", e)
         return None
 
-    # Wait for manifest to appear
+    # Wait for manifest to appear and HTTP server to respond
     deadline = time.time() + _SPAWN_WAIT_S
+    http_retries = 0
     while time.time() < deadline:
         time.sleep(_SPAWN_POLL_S)
         manifest = _read_manifest()
@@ -134,14 +158,25 @@ def _spawn_daemon() -> int | None:
                 except OSError:
                     logger.warning("daemon pid %d died, retrying spawn", pid)
                     continue
-                logger.info("daemon running on port %d (pid %d)", port, pid)
-                return port
+                # Confirm HTTP server is actually accepting connections
+                try:
+                    r = httpx.get(f"http://127.0.0.1:{port}/health", timeout=0.5)
+                    if r.is_success:
+                        logger.info("daemon running on port %d (pid %d)", port, pid)
+                        return port
+                except httpx.RequestError:
+                    http_retries += 1
+                    # continue loop to retry health check
     logger.warning("daemon did not start within %.1fs", _SPAWN_WAIT_S)
     return None
 
 
 def _ensure_daemon() -> int | None:
-    """Return daemon port, spawning daemon if needed."""
+    """Return daemon port, spawning daemon if needed.
+
+    Uses a file lock (daemon.lock) to prevent concurrent spawns when
+    two MCP processes start simultaneously.
+    """
     global _DAEMON_PORT, _DAEMON_FAILED
 
     if _DAEMON_PORT is not None:
@@ -154,29 +189,54 @@ def _ensure_daemon() -> int | None:
         _DAEMON_FAILED = True
         return None
 
-    manifest = _read_manifest()
-    if manifest:
-        port = manifest.get("port")
-        pid = manifest.get("pid")
-        if isinstance(port, int) and isinstance(pid, int):
-            try:
-                os.kill(pid, 0)
-                logger.info("reusing existing daemon on port %d (pid %d)", port, pid)
-                _DAEMON_PORT = port
-                _register()
-                return port
-            except OSError:
-                logger.info("daemon pid %d dead — spawning new one", pid)
+    lock_fd = _acquire_daemon_lock()
+    if lock_fd is None:
+        # Another process is spawning — wait for its manifest
+        deadline = time.time() + _SPAWN_WAIT_S
+        while time.time() < deadline:
+            time.sleep(_SPAWN_POLL_S)
+            manifest = _read_manifest()
+            if manifest:
+                port = manifest.get("port")
+                pid = manifest.get("pid")
+                if isinstance(port, int) and isinstance(pid, int):
+                    try:
+                        os.kill(pid, 0)
+                        _DAEMON_PORT = port
+                        _register()
+                        return port
+                    except OSError:
+                        continue
+        _DAEMON_FAILED = True
+        logger.warning("another process's daemon did not start within %.1fs", _SPAWN_WAIT_S)
+        return None
 
-    port = _spawn_daemon()
-    if port is not None:
-        _DAEMON_PORT = port
-        _register()
-        return port
+    try:
+        manifest = _read_manifest()
+        if manifest:
+            port = manifest.get("port")
+            pid = manifest.get("pid")
+            if isinstance(port, int) and isinstance(pid, int):
+                try:
+                    os.kill(pid, 0)
+                    logger.info("reusing existing daemon on port %d (pid %d)", port, pid)
+                    _DAEMON_PORT = port
+                    _register()
+                    return port
+                except OSError:
+                    logger.info("daemon pid %d dead — spawning new one", pid)
 
-    _DAEMON_FAILED = True
-    logger.warning("daemon unavailable — falling back to in-process model")
-    return None
+        port = _spawn_daemon()
+        if port is not None:
+            _DAEMON_PORT = port
+            _register()
+            return port
+
+        _DAEMON_FAILED = True
+        logger.warning("daemon unavailable — falling back to in-process model")
+        return None
+    finally:
+        os.close(lock_fd)
 
 
 def _register() -> None:
