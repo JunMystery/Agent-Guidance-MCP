@@ -317,6 +317,8 @@ def _query_daemon(path: str, method: str = "GET") -> dict | None:
         return None
     try:
         manifest = json.loads(DAEMON_PORT_FILE.read_text(encoding="utf-8"))
+        if manifest.get("mode") == "dashboard":
+            return None
         port = manifest.get("port")
         if not port:
             return None
@@ -336,7 +338,25 @@ def run_dashboard(project_path: str | None = None) -> None:
     """
     from ._dashboard_shared import DAEMON_DIR, DAEMON_PORT_FILE, kill_existing_daemon
 
-    kill_existing_daemon()
+    daemon_alive = False
+    if DAEMON_PORT_FILE.is_file():
+        try:
+            manifest = json.loads(DAEMON_PORT_FILE.read_text(encoding="utf-8"))
+            if manifest.get("mode") != "dashboard":
+                pid = manifest.get("pid")
+                if pid:
+                    try:
+                        os.kill(pid, 0)
+                        daemon_alive = True
+                    except OSError:
+                        pass
+        except Exception:
+            pass
+
+    if daemon_alive:
+        logger.info("Embed daemon already running — dashboard will proxy requests to it")
+    else:
+        kill_existing_daemon()
 
     pp = project_path or os.environ.get("AGENT_PROJECT_ROOT", os.getcwd())
     pp = str(Path(pp).resolve())
@@ -350,11 +370,14 @@ def run_dashboard(project_path: str | None = None) -> None:
     DashboardHandler.project_path = pp
     DashboardHandler.db_path = str(Path(pp) / ".agent-context" / DB_FILENAME)
 
-    DAEMON_DIR.mkdir(parents=True, exist_ok=True)
-    DAEMON_PORT_FILE.write_text(
-        json.dumps({"port": port, "pid": os.getpid(), "started_at": time.time(), "mode": "dashboard"}),
-        encoding="utf-8",
-    )
+    if not daemon_alive:
+        DAEMON_DIR.mkdir(parents=True, exist_ok=True)
+        DAEMON_PORT_FILE.write_text(
+            json.dumps({"port": port, "pid": os.getpid(), "started_at": time.time(), "mode": "dashboard"}),
+            encoding="utf-8",
+        )
+    else:
+        logger.info("daemon.json preserved — proxy to embed daemon active")
 
     server = HTTPServer(("127.0.0.1", port), DashboardHandler)
     url = f"http://127.0.0.1:{port}/"
