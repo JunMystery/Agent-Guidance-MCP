@@ -691,9 +691,6 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             output_format: "markdown" or "ascii" (default "markdown").
             limit: Maximum results (default 3).
         """
-        gate = priority_gate_check(catalog.root)
-        if gate:
-            return gate
         t0 = _now_ms()
         try:
             result = pipelines.ui_ux(

@@ -288,6 +288,14 @@ class UsageTracker:
         )
         embed_recent = [dict(r) for r in cur.fetchall()]
 
+        cur.execute(
+            """SELECT tool_name, operation, started_at, duration_ms,
+                      tokens_original, tokens_optimized, error_message
+               FROM tool_calls
+               ORDER BY started_at DESC LIMIT 20"""
+        )
+        recent_actions = [dict(r) for r in cur.fetchall()]
+
         tot_orig = sum(r.get("tok_orig", 0) for r in tool_breakdown)
         tot_opt = sum(r.get("tok_opt", 0) for r in tool_breakdown)
         token_savings = tot_orig - tot_opt
@@ -308,6 +316,7 @@ class UsageTracker:
             "tool_breakdown": tool_breakdown,
             "embed_recent": embed_recent,
             "top_skills": top_skills,
+            "recent_actions": recent_actions,
         }
 
     # ── Internal helpers ────────────────────────────────────────────────

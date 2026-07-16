@@ -214,6 +214,12 @@ def _query_stats(conn: sqlite3.Connection) -> dict[str, Any]:
     """Aggregate all usage data (no session filter)."""
     cur = conn.cursor()
 
+    now = int(time.time())
+    cutoff_24h = now - 86400
+
+    # Auto-cleanup: drop entries older than 24h
+    cur.execute("DELETE FROM tool_calls WHERE started_at < ?", (cutoff_24h,))
+
     cur.execute(
         """SELECT tool_name, operation, COUNT(*) AS cnt,
                   COALESCE(SUM(tokens_original), 0) AS tok_orig,
@@ -227,6 +233,46 @@ def _query_stats(conn: sqlite3.Connection) -> dict[str, Any]:
         "SELECT skill_id, COUNT(*) AS cnt FROM skill_loads GROUP BY skill_id ORDER BY cnt DESC LIMIT 20"
     )
     top_skills = [dict(r) for r in cur.fetchall()]
+
+    cur.execute(
+        """SELECT tool_name, operation, started_at, duration_ms,
+                  tokens_original, tokens_optimized, error_message
+           FROM tool_calls
+           ORDER BY started_at DESC LIMIT 20"""
+    )
+    recent_actions = [dict(r) for r in cur.fetchall()]
+
+    # Hourly savings: 24 nodes, one per local hour bucket in the last 24h.
+    cur.execute(
+        """SELECT (started_at / 3600) AS hr_bucket,
+                  COALESCE(SUM(tokens_original), 0) AS original,
+                  COALESCE(SUM(tokens_optimized), 0) AS optimized,
+                  COALESCE(SUM(tokens_original), 0) - COALESCE(SUM(tokens_optimized), 0) AS saved
+           FROM tool_calls
+           WHERE started_at >= ?
+           GROUP BY hr_bucket""",
+        (cutoff_24h,),
+    )
+    bucket_data: dict[int, dict[str, int]] = {r["hr_bucket"]: dict(r) for r in cur.fetchall()}
+
+    now = int(time.time())
+    current_hour = now // 3600
+    # 24 sequential hourly buckets ending at the current hour, so the last
+    # column is always the current hour (column 0 is ~24h ago).
+    hourly_savings = []
+    for i in range(24):
+        bucket = (current_hour - 23) + i
+        bdata = bucket_data.get(bucket, {"original": 0, "optimized": 0, "saved": 0})
+        bucket_start = bucket * 3600
+        date_label = time.strftime("%Y-%m-%d", time.localtime(bucket_start))
+        hourly_savings.append({
+            "hour": bucket % 24,
+            "date": date_label,
+            "original": bdata["original"],
+            "optimized": bdata["optimized"],
+            "saved": bdata["saved"],
+            "is_current": bucket == current_hour,
+        })
 
     cur.execute("SELECT COUNT(*) AS total FROM tool_calls")
     total_calls = cur.fetchone()["total"]
@@ -255,6 +301,8 @@ def _query_stats(conn: sqlite3.Connection) -> dict[str, Any]:
         },
         "tool_breakdown": tool_breakdown,
         "top_skills": top_skills,
+        "recent_actions": recent_actions,
+        "hourly_savings": hourly_savings,
     }
 
 

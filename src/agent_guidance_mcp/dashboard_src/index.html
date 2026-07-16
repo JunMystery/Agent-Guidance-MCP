@@ -16,10 +16,8 @@
   <nav>
     <a class="active" data-view="dashboard"><span>Dashboard</span></a>
     <a data-view="actions"><span>Actions Log</span></a>
-    <a data-view="tokens"><span>Token Savings</span></a>
-    <a data-view="embed"><span>Embed Status</span></a>
+    <a data-view="recent-calls"><span>Recent Calls</span></a>
     <a data-view="guides"><span>Quick Guides</span></a>
-    <a data-view="tools"><span>MCP Tools</span></a>
   </nav>
   <div class="sidebar-footer">
     <div class="proj" id="sidebar-proj" onclick="changeProjectPath()" title="Click to change project path" style="cursor:pointer">project: --</div>
@@ -128,6 +126,77 @@
             <tbody id="dash-skills"></tbody>
           </table>
         </div>
+
+        <div class="terminal-window" style="margin-top:20px">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <div class="terminal-dot dot-red"></div>
+              <div class="terminal-dot dot-yellow"></div>
+              <div class="terminal-dot dot-green"></div>
+            </div>
+            <div class="terminal-title">Embed Status</div>
+          </div>
+          <div class="terminal-body-raw">
+            <div class="term-session">
+              <div class="term-commands">
+                <div class="term-cmd-block" data-cmd="status">
+                  <div class="term-cmd-header"><span class="term-prompt">$</span> <span class="term-fn">embed</span> --status</div>
+                  <div class="term-cmd-output" id="out-embed-status">
+                    <div class="term-output-line"><span class="term-output-label">daemon</span><span class="term-output-val" id="out-daemon-status">--</span></div>
+                    <div class="term-output-line"><span class="term-output-label">model</span><span class="term-output-val" id="out-model-status">--</span></div>
+                    <div class="term-output-line"><span class="term-output-label">engine</span><span class="term-output-val" id="out-engine">--</span></div>
+                  </div>
+                </div>
+                <div class="term-cmd-block" data-cmd="totals">
+                  <div class="term-cmd-header"><span class="term-prompt">$</span> <span class="term-fn">embed</span> --metrics</div>
+                  <div class="term-cmd-output" id="out-embed-metrics">
+                    <div class="term-output-line"><span class="term-output-label">queries</span><span class="term-output-val" id="out-embed-queries">--</span></div>
+                    <div class="term-output-line"><span class="term-output-label">uptime</span><span class="term-output-val" id="out-uptime">--</span></div>
+                    <div class="term-output-line"><span class="term-output-label">clients</span><span class="term-output-val" id="out-clients">--</span></div>
+                    <div class="term-output-line"><span class="term-output-label">last_embed</span><span class="term-output-val" id="out-last-embed">--</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="term-sysinfo">
+                <div class="sysinfo-header">
+                  <span class="term-prompt">$</span> embed
+                </div>
+                <div class="sysinfo-body">
+                  <div class="sysinfo-logo">
+  ██╗  ██╗███████╗
+  ╚██╗██╔╝╚══██╔══╝
+   ╚███╔╝    ██║   
+   ██╔██╗    ██║   
+  ██╔╝ ██╗   ██║   
+  ╚═╝  ╚═╝   ╚═╝   </div>
+                  <div class="sysinfo-divider"></div>
+                  <div class="sysinfo-row"><span class="sysinfo-key">model</span><span class="sysinfo-val" id="sys-embed-model">--</span></div>
+                  <div class="sysinfo-row"><span class="sysinfo-key">daemon</span><span class="sysinfo-val" id="sys-embed-daemon">--</span></div>
+                  <div class="sysinfo-row"><span class="sysinfo-key">clients</span><span class="sysinfo-val" id="sys-embed-clients">0</span></div>
+                  <div class="sysinfo-row"><span class="sysinfo-key">backend</span><span class="sysinfo-val" id="sys-embed-backend">--</span></div>
+                  <div class="sysinfo-divider"></div>
+                  <div class="sysinfo-row" id="sys-embed-toggle-row">
+                    <button id="btn-embed-refresh" onclick="refreshEmbedStatus()" class="btn-secondary" style="width:100%;padding:6px 10px;font-size:12px">Refresh Model Status</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="embed-recent-section">
+              <h3>Last 20 Embed Status</h3>
+              <table class="embed-recent-table">
+                <thead>
+                  <tr>
+                    <th>When</th>
+                    <th>Status</th>
+                    <th>Dim</th>
+                    <th>Results</th>
+                  </tr>
+                </thead>
+                <tbody id="embed-recent-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -158,9 +227,28 @@
         </table>
       </div>
     </div>
+
+        <div class="terminal-window" style="margin-top:20px">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <div class="terminal-dot dot-red"></div>
+              <div class="terminal-dot dot-yellow"></div>
+              <div class="terminal-dot dot-green"></div>
+            </div>
+            <div class="terminal-title">Token Savings</div>
+          </div>
+          <div class="terminal-body-raw">
+            <div id="token-bars"></div>
+            <div class="chart-card">
+              <div class="chart-card-title">Hourly Savings · last 24h</div>
+              <div id="hourly-chart" class="hourly-chart"></div>
+            </div>
+            <div class="cards" style="margin-top:20px" id="token-summary-cards"></div>
+          </div>
+        </div>
   </section>
 
-  <section id="view-tokens" class="hidden">
+  <section id="view-recent-calls" class="hidden">
     <div class="terminal-window">
       <div class="terminal-header">
         <div class="terminal-dots">
@@ -168,84 +256,24 @@
           <div class="terminal-dot dot-yellow"></div>
           <div class="terminal-dot dot-green"></div>
         </div>
-        <div class="terminal-title">Token Savings</div>
+        <div class="terminal-title">Recent Calls <span id="recent-calls-poll"></span></div>
       </div>
       <div class="terminal-body-raw">
-        <div id="token-bars"></div>
-        <div class="cards" style="margin-top:20px" id="token-summary-cards"></div>
-      </div>
-    </div>
-  </section>
-
-  <section id="view-embed" class="hidden">
-    <div class="terminal-window">
-      <div class="terminal-header">
-        <div class="terminal-dots">
-          <div class="terminal-dot dot-red"></div>
-          <div class="terminal-dot dot-yellow"></div>
-          <div class="terminal-dot dot-green"></div>
-        </div>
-        <div class="terminal-title">Embed Status</div>
-      </div>
-      <div class="terminal-body-raw">
-        <div class="term-session">
-          <div class="term-commands">
-            <div class="term-cmd-block" data-cmd="status">
-              <div class="term-cmd-header"><span class="term-prompt">$</span> <span class="term-fn">embed</span> --status</div>
-              <div class="term-cmd-output" id="out-embed-status">
-                <div class="term-output-line"><span class="term-output-label">daemon</span><span class="term-output-val" id="out-daemon-status">--</span></div>
-                <div class="term-output-line"><span class="term-output-label">model</span><span class="term-output-val" id="out-model-status">--</span></div>
-                <div class="term-output-line"><span class="term-output-label">engine</span><span class="term-output-val" id="out-engine">--</span></div>
-              </div>
-            </div>
-            <div class="term-cmd-block" data-cmd="totals">
-              <div class="term-cmd-header"><span class="term-prompt">$</span> <span class="term-fn">embed</span> --metrics</div>
-              <div class="term-cmd-output" id="out-embed-metrics">
-                <div class="term-output-line"><span class="term-output-label">queries</span><span class="term-output-val" id="out-embed-queries">--</span></div>
-                <div class="term-output-line"><span class="term-output-label">uptime</span><span class="term-output-val" id="out-uptime">--</span></div>
-                <div class="term-output-line"><span class="term-output-label">clients</span><span class="term-output-val" id="out-clients">--</span></div>
-                <div class="term-output-line"><span class="term-output-label">last_embed</span><span class="term-output-val" id="out-last-embed">--</span></div>
-              </div>
-            </div>
-          </div>
-          <div class="term-sysinfo">
-            <div class="sysinfo-header">
-              <span class="term-prompt">$</span> embed
-            </div>
-            <div class="sysinfo-body">
-              <div class="sysinfo-logo">
-  ██╗  ██╗███████╗
-  ╚██╗██╔╝╚══██╔══╝
-   ╚███╔╝    ██║   
-   ██╔██╗    ██║   
-  ██╔╝ ██╗   ██║   
-  ╚═╝  ╚═╝   ╚═╝   </div>
-              <div class="sysinfo-divider"></div>
-              <div class="sysinfo-row"><span class="sysinfo-key">model</span><span class="sysinfo-val" id="sys-embed-model">--</span></div>
-              <div class="sysinfo-row"><span class="sysinfo-key">daemon</span><span class="sysinfo-val" id="sys-embed-daemon">--</span></div>
-              <div class="sysinfo-row"><span class="sysinfo-key">clients</span><span class="sysinfo-val" id="sys-embed-clients">0</span></div>
-              <div class="sysinfo-row"><span class="sysinfo-key">backend</span><span class="sysinfo-val" id="sys-embed-backend">--</span></div>
-              <div class="sysinfo-divider"></div>
-              <div class="sysinfo-row" id="sys-embed-toggle-row">
-                <button id="btn-embed-toggle" onclick="toggleModel()" class="btn-accent" style="width:100%;padding:6px 10px;font-size:12px">Start Model</button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="embed-recent-section">
-          <h3>Last 20 Embed Status</h3>
-          <table class="embed-recent-table">
-            <thead>
-              <tr>
-                <th>When</th>
-                <th>Status</th>
-                <th>Dim</th>
-                <th>Results</th>
-              </tr>
-            </thead>
-            <tbody id="embed-recent-body"></tbody>
-          </table>
-        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Tool</th>
+              <th>Operation</th>
+              <th>Duration</th>
+              <th>Orig Tokens</th>
+              <th>Opt Tokens</th>
+              <th>Savings</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="recent-calls-body"></tbody>
+        </table>
       </div>
     </div>
   </section>
@@ -283,46 +311,45 @@
             <code>session_continuity(operation="save", task="...", checklist=[...])</code>
           </div>
         </div>
+
+        <div class="terminal-window" style="margin-top:20px">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <div class="terminal-dot dot-red"></div>
+              <div class="terminal-dot dot-yellow"></div>
+              <div class="terminal-dot dot-green"></div>
+            </div>
+            <div class="terminal-title">Available MCP Tools</div>
+          </div>
+          <div class="terminal-body-raw">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tool</th>
+                  <th>Gate</th>
+                  <th>Description</th>
+                  <th>Operations</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>task_pipeline</td><td><span class="badge green">Unlocks</span></td><td>Call first — context prep</td><td>run</td></tr>
+                <tr><td>guidance</td><td><span class="badge">Gated</span></td><td>Standards &amp; skill catalog</td><td>list, get, search, recommend, reason, docs</td></tr>
+                <tr><td>project_context</td><td><span class="badge">Gated</span></td><td>Project file ops + search</td><td>tree, search, read, symbols, references, structure, callers, callees, diff, snapshot</td></tr>
+                <tr><td>ui_ux</td><td><span class="badge">Gated</span></td><td>Design guidance</td><td>search, design_system, slides</td></tr>
+                <tr><td>session_continuity</td><td><span class="badge">Gated</span></td><td>Task state persistence</td><td>save, load, clear</td></tr>
+                <tr><td>usage_report</td><td><span class="badge">Gated</span></td><td>Usage statistics</td><td>session, all</td></tr>
+                <tr><td>workflow_prompt</td><td><span class="badge">Gated</span></td><td>Workflow prompts</td><td>plan, test, deploy, debug, etc.</td></tr>
+                <tr><td>health_check</td><td><span class="badge green">Always</span></td><td>Server status</td><td>—</td></tr>
+                <tr><td>diagnose</td><td><span class="badge green">Always</span></td><td>Self-diagnostics</td><td>—</td></tr>
+                <tr><td>token_stats</td><td><span class="badge green">Always</span></td><td>Token optimization stats</td><td>—</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
-  <section id="view-tools" class="hidden">
-    <div class="terminal-window">
-      <div class="terminal-header">
-        <div class="terminal-dots">
-          <div class="terminal-dot dot-red"></div>
-          <div class="terminal-dot dot-yellow"></div>
-          <div class="terminal-dot dot-green"></div>
-        </div>
-        <div class="terminal-title">Available MCP Tools</div>
-      </div>
-      <div class="terminal-body-raw">
-        <table>
-          <thead>
-            <tr>
-              <th>Tool</th>
-              <th>Gate</th>
-              <th>Description</th>
-              <th>Operations</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td>task_pipeline</td><td><span class="badge green">Unlocks</span></td><td>Call first — context prep</td><td>run</td></tr>
-            <tr><td>guidance</td><td><span class="badge">Gated</span></td><td>Standards &amp; skill catalog</td><td>list, get, search, recommend, reason, docs</td></tr>
-            <tr><td>project_context</td><td><span class="badge">Gated</span></td><td>Project file ops + search</td><td>tree, search, read, symbols, references, structure, callers, callees, diff, snapshot</td></tr>
-            <tr><td>ui_ux</td><td><span class="badge">Gated</span></td><td>Design guidance</td><td>search, design_system, slides</td></tr>
-            <tr><td>session_continuity</td><td><span class="badge">Gated</span></td><td>Task state persistence</td><td>save, load, clear</td></tr>
-            <tr><td>usage_report</td><td><span class="badge">Gated</span></td><td>Usage statistics</td><td>session, all</td></tr>
-            <tr><td>workflow_prompt</td><td><span class="badge">Gated</span></td><td>Workflow prompts</td><td>plan, test, deploy, debug, etc.</td></tr>
-            <tr><td>health_check</td><td><span class="badge green">Always</span></td><td>Server status</td><td>—</td></tr>
-            <tr><td>diagnose</td><td><span class="badge green">Always</span></td><td>Self-diagnostics</td><td>—</td></tr>
-            <tr><td>token_stats</td><td><span class="badge green">Always</span></td><td>Token optimization stats</td><td>—</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
 </main>
 
 <script src="/dashboard.js?v={{js_hash}}"></script>

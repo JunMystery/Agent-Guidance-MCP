@@ -15,6 +15,11 @@
     --accent-purple: #bc8cff;    /* Syntax Purple */
     --accent-gradient: linear-gradient(135deg, #58a6ff, #bc8cff);
 
+    /* Combo chart: Saved=blue (left axis), Optimized=green, Original=orange (right axis) */
+    --chart-saved: #58a6ff;
+    --chart-opt: #3fb950;
+    --chart-orig: #f0883e;
+
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --font-mono: 'Fira Code', 'Courier New', Courier, monospace;
     --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -621,6 +626,217 @@ tr:hover td {
     color: var(--text-primary);
     flex-shrink: 0;
     font-weight: 500;
+}
+
+/* Hourly savings combo chart (24h): Saved = columns, Original/Optimized = lines */
+.hourly-chart {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 4px;
+}
+
+.chart-legend {
+    display: flex;
+    gap: 16px;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.lg-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.lg-swatch {
+    width: 12px;
+    height: 0;
+    border-top-width: 2px;
+    border-top-style: solid;
+    border-radius: 2px;
+    display: inline-block;
+}
+
+.lg-line-orig { border-top-color: var(--chart-orig); }
+.lg-line-opt { border-top-color: var(--chart-opt); }
+.lg-col-saved { height: 10px; border-top: none; background: var(--chart-saved); border-radius: 2px; }
+
+.combo-chart {
+    width: 100%;
+    height: 200px;
+    display: block;
+    border-bottom: 1px solid var(--border);
+}
+
+.chart-col {
+    fill: var(--chart-saved);
+    opacity: 0.8;
+}
+
+.chart-col.is-current {
+    fill: var(--chart-saved);
+    opacity: 1;
+}
+
+.chart-line {
+    fill: none;
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+}
+
+.line-orig { stroke: var(--chart-orig); }
+.line-opt { stroke: var(--chart-opt); }
+
+.dot-orig { fill: var(--chart-orig); }
+.dot-opt { fill: var(--chart-opt); }
+
+.chart-sep {
+    stroke: var(--border);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+}
+
+.axis {
+    stroke: var(--border);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+}
+
+.axis-label {
+    font-size: 8px;
+    fill: var(--text-muted);
+}
+
+.axis-left { text-anchor: end; }
+.axis-right { text-anchor: start; }
+
+.chart-grid {
+    stroke: var(--border);
+    stroke-width: 1;
+    stroke-dasharray: 2 3;
+    opacity: 0.5;
+    vector-effect: non-scaling-stroke;
+}
+
+.chart-xlabel {
+    fill: var(--text-muted);
+    font-size: 9px;
+    text-anchor: middle;
+}
+
+.now-pill {
+    fill: var(--chart-saved);
+    font-size: 9px;
+    font-weight: 700;
+    text-anchor: middle;
+}
+
+/* KPI strip above the chart */
+.savings-kpi {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.kpi {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.kpi-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.kpi-val {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.kpi-saved { color: var(--chart-saved); }
+
+/* Chart card wrapper */
+.chart-card {
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    padding: 16px;
+    margin: 20px 0 8px;
+    background: rgba(255,255,255,0.01);
+}
+
+.chart-card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+}
+
+/* Interactive chart tooltip */
+.chart-wrap {
+    position: relative;
+}
+
+.chart-tip {
+    position: absolute;
+    pointer-events: none;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    padding: 6px 9px;
+    font-size: 11px;
+    color: var(--text-primary);
+    box-shadow: var(--shadow-md);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    white-space: nowrap;
+    z-index: 5;
+}
+
+.chart-col, .dot-orig, .dot-opt {
+    cursor: pointer;
+    transition: filter 0.15s ease;
+}
+
+.chart-col:hover, .chart-col:focus,
+.dot-orig:hover, .dot-orig:focus,
+.dot-opt:hover, .dot-opt:focus {
+    filter: brightness(1.25);
+    outline: none;
+}
+
+.chart-col:focus-visible,
+.dot-orig:focus-visible,
+.dot-opt:focus-visible {
+    stroke: var(--text-primary);
+    stroke-width: 1.5;
+}
+
+.chart-empty {
+    color: var(--text-muted);
+    font-size: 13px;
+    padding: 24px 4px;
+    text-align: center;
+    border: 1px dashed var(--border-color);
+    border-radius: var(--border-radius-md);
+}
+
+@media (max-width: 768px) {
+    .savings-kpi { grid-template-columns: repeat(2, 1fr); }
+    .combo-chart { height: 220px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chart-tip, .chart-col, .dot-orig, .dot-opt { transition: none; }
 }
 
 /* Quick guides grid */
