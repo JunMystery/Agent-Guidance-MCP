@@ -839,10 +839,9 @@ tr:hover td {
     .chart-tip, .chart-col, .dot-orig, .dot-opt { transition: none; }
 }
 
-/* Quick guides grid */
 .guide-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    display: flex;
+    flex-direction: column;
     gap: 16px;
 }
 
