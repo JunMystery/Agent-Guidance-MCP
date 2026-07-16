@@ -20,6 +20,16 @@ python -m venv .venv
 .venv\Scripts\pip install -e ".[dev]"
 ```
 
+## Source-Only Execution
+
+To run and debug the project directly from the local source directory without installing it globally (ensuring edits are used instantly):
+
+```bash
+PYTHONPATH=src python3 -m agent_guidance_mcp --dashboard
+```
+
+This works for all commands. Replace `agent-guidance-mcp` with `PYTHONPATH=src python3 -m agent_guidance_mcp`.
+
 ## Test
 
 Run the test suite:

@@ -19,7 +19,6 @@ export function renderDashboard(data) {
 
   renderSkillsTable(data.top_skills);
   renderActionsTable(data.tool_breakdown);
-  renderTokenBars(t);
   renderHourlyChart(data, t);
   renderRecentCalls(data.recent_actions);
 }
@@ -52,13 +51,4 @@ function renderActionsTable(toolBreakdown) {
   }
 }
 
-function renderTokenBars(t) {
-  const tokenBars = el('token-bars');
-  if (!tokenBars) return;
-  let barsHtml = '<h3 style="font-size:14px;margin-bottom:12px">Lifetime Summary</h3>';
-  barsHtml += '<div class="bar-row"><span class="bar-label">Original</span><div class="bar-track"><div class="bar-fill" style="width:100%"></div></div><span class="bar-num">' + fmtTokens(t.tokens_original) + '</span></div>';
-  const optW = t.tokens_original ? Math.round((t.tokens_optimized / t.tokens_original) * 100) : 0;
-  barsHtml += '<div class="bar-row"><span class="bar-label">Optimized</span><div class="bar-track"><div class="bar-fill opt" style="width:' + optW + '%"></div></div><span class="bar-num">' + fmtTokens(t.tokens_optimized) + '</span></div>';
-  barsHtml += '<div class="bar-row"><span class="bar-label">Saved</span><div class="bar-track"><div class="bar-fill" style="width:' + (100 - optW) + '%;background:var(--accent-secondary);opacity:0.6"></div></div><span class="bar-num" style="font-weight:700;color:var(--accent-secondary)">' + fmtTokens(t.token_savings) + '</span></div>';
-  tokenBars.innerHTML = barsHtml;
-}
+

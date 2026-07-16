@@ -1,5 +1,5 @@
-import { fmtTokens, fmtPct } from './format.js';
-import { el } from './dom.js';
+import { fmtTokens, fmtPct } from '../format.js';
+import { el } from '../dom.js';
 
 export function renderHourlyChart(data, totals) {
   const chart = el('hourly-chart');
