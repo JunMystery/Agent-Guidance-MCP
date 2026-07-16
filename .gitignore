@@ -8,6 +8,7 @@ build/
 dist/
 *.egg-info/
 .pytest_temp/
+tests/
 
 # Environments
 .venv/
