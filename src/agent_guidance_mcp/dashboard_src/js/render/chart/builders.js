@@ -1,6 +1,6 @@
 // SVG string builders for the combo chart. Pure: inputs in, SVG string out.
 
-import { fmtTokens } from '../format.js';
+import { fmtTokens } from '../../format.js';
 import { plotBox, slotCenter, columnWidth, CHART_W, CHART_H, PAD } from './scale.js';
 
 export function buildGrid(box) {

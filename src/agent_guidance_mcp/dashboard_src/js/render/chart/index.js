@@ -1,6 +1,6 @@
 // Hourly savings combo chart orchestrator. Public API: renderHourlyChart(data, totals).
 
-import { el } from '../dom.js';
+import { el } from '../../dom.js';
 import { plotBox, maxOf, linScale } from './scale.js';
 import {
   buildGrid, buildDaySeps, buildAxes, buildCols, buildLines, buildDots, buildXLabels, buildNowPill,

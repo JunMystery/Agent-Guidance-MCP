@@ -1,6 +1,6 @@
 // KPI + legend blocks shown above the chart SVG.
 
-import { fmtTokens, fmtPct } from '../format.js';
+import { fmtTokens, fmtPct } from '../../format.js';
 
 export function buildKpi(t) {
   return '<div class="savings-kpi">' +
