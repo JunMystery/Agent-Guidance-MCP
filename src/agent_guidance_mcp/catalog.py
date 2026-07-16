@@ -86,6 +86,7 @@ class StandardsCatalog:
         self.skills_embeddings = load_precomputed_embeddings()
         self._embed_hashes = load_embedding_hashes()
         self._local_skills_embedded = False
+        self._failed_embeddings: set[str] = set()
 
         # Initialize and populate task anchors dynamically
         self.task_anchors: dict[str, list[str]] = {k: list(v) for k, v in TASK_ANCHORS.items()}
@@ -219,6 +220,8 @@ class StandardsCatalog:
         changed = False
         for entry in self.entries:
             identifier = entry.identifier
+            if identifier in self._failed_embeddings:
+                continue
             if identifier in self.skills_embeddings:
                 # Precomputed: detect staleness via content hash.
                 stored_hash = self._embed_hashes.get(identifier)
@@ -229,10 +232,14 @@ class StandardsCatalog:
                 logger.info("re-embedding stale entry '%s'", identifier)
                 if self._embed_and_store(entry):
                     changed = True
+                else:
+                    self._failed_embeddings.add(identifier)
             else:
                 # No vector yet (workspace-local skill) — embed dynamically.
                 if self._embed_and_store(entry):
                     changed = True
+                else:
+                    self._failed_embeddings.add(identifier)
         if changed:
             self._persist_embeddings()
 

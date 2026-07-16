@@ -43,8 +43,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._handle_dashboard()
         elif path == "/dashboard.css":
             self._handle_asset("dashboard.css", "text/css")
-        elif path == "/dashboard.js":
-            self._handle_asset("dashboard.js", "application/javascript")
+        elif path.startswith("/js/"):
+            self._handle_js_asset(path[len("/js/"):])
         else:
             self._send_json(404, {"error": "Not found"})
 
@@ -172,10 +172,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             pass
 
-    def _handle_asset(self, name: str, mime_type: str) -> None:
+    def _handle_asset(self, name: str, mime_type: str, subdir: str = "") -> None:
         from ._dashboard_shared import DASHBOARD_DIR
         try:
-            content = (DASHBOARD_DIR / name).read_text(encoding="utf-8")
+            base = DASHBOARD_DIR / subdir if subdir else DASHBOARD_DIR
+            content = (base / name).read_text(encoding="utf-8")
             body = content.encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", f"{mime_type}; charset=utf-8")
@@ -190,6 +191,22 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 pass
         except Exception as e:
             self._send_json(500, {"error": f"Failed to load asset {name}: {e}"})
+
+    def _handle_js_asset(self, rel: str) -> None:
+        from ._dashboard_shared import DASHBOARD_DIR
+        import posixpath
+        rel = posixpath.normpath(rel).lstrip("/")
+        if rel != posixpath.basename(rel) and "/" not in rel.replace("\\", "/"):
+            pass
+        full = (DASHBOARD_DIR / "js" / rel).resolve()
+        base = DASHBOARD_DIR.resolve()
+        if base not in full.parents and full != base:
+            self._send_json(403, {"error": "Forbidden"})
+            return
+        if not full.is_file():
+            self._send_json(404, {"error": "Not found"})
+            return
+        self._handle_asset(rel, "application/javascript", subdir="js")
 
     def _handle_model_toggle(self, action: str) -> None:
         daemon_resp = _query_daemon(f"/api/model/toggle?action={action}", method="POST")

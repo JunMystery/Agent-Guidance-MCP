@@ -227,15 +227,19 @@ def css() -> Response:
     )
 
 
-@app.get("/dashboard.js")
-def js() -> Response:
+@app.get("/js/{path:path}")
+def js_module(path: str) -> Response:
     from fastapi import Response
+    from pathlib import Path
     from ._dashboard_shared import DASHBOARD_DIR
-    js_path = DASHBOARD_DIR / "dashboard.js"
-    if not js_path.exists():
+    full = (DASHBOARD_DIR / "js" / path).resolve()
+    base = DASHBOARD_DIR.resolve()
+    if base not in full.parents and full != base:
+        return Response(content="", status_code=403)
+    if not full.is_file():
         return Response(content="", status_code=404)
     return Response(
-        content=js_path.read_text(encoding="utf-8"),
+        content=full.read_text(encoding="utf-8"),
         media_type="application/javascript",
         headers={
             "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
@@ -337,8 +341,13 @@ def _load_model() -> None:
     os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
     os.environ["TRANSFORMERS_NO_ADVISORY_WARNINGS"] = "1"
     from sentence_transformers import SentenceTransformer
+    from .embeddings import _model_already_cached
 
-    local_files_only = "pytest" in sys.modules or os.environ.get("HF_HUB_OFFLINE", "0") == "1"
+    local_files_only = (
+        "pytest" in sys.modules
+        or os.environ.get("HF_HUB_OFFLINE", "0") == "1"
+        or _model_already_cached(_E5_MODEL)
+    )
     logger.info("loading %s (local_files_only=%s)", _E5_MODEL, local_files_only)
     _model = SentenceTransformer(_E5_MODEL, local_files_only=local_files_only)
     logger.info("model loaded")

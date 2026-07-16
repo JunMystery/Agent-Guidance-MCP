@@ -18,6 +18,7 @@ logger = logging.getLogger("agent-guidance-mcp.embeddings")
 _DAEMON_PORT: int | None = None
 _DAEMON_CLIENT_ID: str | None = None
 _DAEMON_FAILED = False
+_EMBEDDING_BACKEND = "unknown"
 
 _DAEMON_DIR = Path.home() / ".agent-guidance"
 _DAEMON_PORT_FILE = _DAEMON_DIR / "daemon.json"
@@ -55,7 +56,11 @@ def get_embedding_model() -> Optional[Any]:
             os.environ["TRANSFORMERS_NO_ADVISORY_WARNINGS"] = "1"
             from sentence_transformers import SentenceTransformer
             logger.info(f"Loading {_E5_MODEL} model...")
-            local_files_only = ("pytest" in sys.modules) or (os.environ.get("HF_HUB_OFFLINE", "0") == "1")
+            local_files_only = (
+                ("pytest" in sys.modules)
+                or (os.environ.get("HF_HUB_OFFLINE", "0") == "1")
+                or _model_already_cached(_E5_MODEL)
+            )
             _model = SentenceTransformer(_E5_MODEL, local_files_only=local_files_only)
             return _model
         except ImportError:
@@ -231,7 +236,7 @@ def _ensure_daemon() -> int | None:
     Uses a file lock (daemon.lock) to prevent concurrent spawns when
     two MCP processes start simultaneously.
     """
-    global _DAEMON_PORT, _DAEMON_FAILED
+    global _DAEMON_PORT, _DAEMON_FAILED, _EMBEDDING_BACKEND
 
     if _DAEMON_PORT is not None:
         return _DAEMON_PORT
@@ -282,17 +287,17 @@ def _ensure_daemon() -> int | None:
                 except OSError:
                     logger.info("daemon pid %d dead — spawning new one", pid)
 
-        # Retry daemon spawn up to 5 times
-        for attempt in range(1, 6):
+        # Retry daemon spawn up to 2 times
+        for attempt in range(1, 3):
             port = _spawn_daemon()
             if port is not None:
                 _DAEMON_PORT = port
                 _EMBEDDING_BACKEND = "daemon"
                 _register()
                 return port
-            logger.info("daemon spawn attempt %d/5 failed", attempt)
+            logger.info("daemon spawn attempt %d/2 failed", attempt)
 
-        logger.warning("daemon unavailable after 5 attempts — falling back to in-process model")
+        logger.warning("daemon unavailable after 2 attempts — falling back to in-process model")
         _EMBEDDING_BACKEND = "in-process"
         _DAEMON_FAILED = True
         return None
@@ -373,7 +378,7 @@ def get_embedding(text: str, prefix: str | None = None) -> Optional[List[float]]
             resp = httpx.post(
                 f"http://127.0.0.1:{port}/embed",
                 json={"text": text, "prefix": prefix},
-                timeout=30.0,
+                timeout=3.0,
             )
             if resp.is_success:
                 return resp.json()["vector"]

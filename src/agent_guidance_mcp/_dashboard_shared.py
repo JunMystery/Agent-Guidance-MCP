@@ -36,14 +36,14 @@ def read_dashboard_asset(name: str) -> str:
 def write_default_dashboard(path: Path | None) -> None:
     """Write all static dashboard files to ~/.agent-guidance/dashboard/ with content-hash cache busting."""
     import hashlib
+    import shutil
 
     target_dir = path.parent if path else DASHBOARD_DIR
     target_dir.mkdir(parents=True, exist_ok=True)
 
     css_content = read_dashboard_asset("dashboard.css")
-    js_content = read_dashboard_asset("dashboard.js")
     css_hash = hashlib.sha256(css_content.encode("utf-8")).hexdigest()[:12]
-    js_hash = hashlib.sha256(js_content.encode("utf-8")).hexdigest()[:12]
+    js_hash = hashlib.sha256(read_dashboard_asset("js/main.js").encode("utf-8")).hexdigest()[:12]
 
     index_template = read_dashboard_asset("index.html")
     index_html = index_template.replace("{{css_hash}}", css_hash).replace("{{js_hash}}", js_hash)
@@ -58,10 +58,27 @@ def write_default_dashboard(path: Path | None) -> None:
         (target_dir / "dashboard.css").write_text(css_content, encoding="utf-8")
     except Exception:
         pass
+
+    js_src = _dashboard_src_dir() / "js"
+    js_dst = target_dir / "js"
     try:
-        (target_dir / "dashboard.js").write_text(js_content, encoding="utf-8")
+        if js_dst.exists():
+            shutil.rmtree(js_dst)
+        shutil.copytree(js_src, js_dst)
     except Exception:
         pass
+
+
+def _dashboard_src_dir() -> Path:
+    """Resolve the dashboard_src directory (package resource or dev path)."""
+    dev_path = Path(__file__).resolve().parent / "dashboard_src"
+    if dev_path.is_dir():
+        return dev_path
+    for parent in Path(__file__).resolve().parents:
+        cand = parent / "agent_guidance_mcp" / "dashboard_src"
+        if cand.is_dir():
+            return cand
+    return dev_path
 
 
 def kill_existing_daemon() -> None:
