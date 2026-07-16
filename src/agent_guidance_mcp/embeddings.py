@@ -257,6 +257,7 @@ def _ensure_daemon() -> int | None:
                     try:
                         os.kill(pid, 0)
                         _DAEMON_PORT = port
+                        _EMBEDDING_BACKEND = "daemon"
                         _register()
                         return port
                     except OSError:
@@ -275,6 +276,7 @@ def _ensure_daemon() -> int | None:
                     os.kill(pid, 0)
                     logger.info("reusing existing daemon on port %d (pid %d)", port, pid)
                     _DAEMON_PORT = port
+                    _EMBEDDING_BACKEND = "daemon"
                     _register()
                     return port
                 except OSError:
@@ -285,16 +287,28 @@ def _ensure_daemon() -> int | None:
             port = _spawn_daemon()
             if port is not None:
                 _DAEMON_PORT = port
+                _EMBEDDING_BACKEND = "daemon"
                 _register()
                 return port
             logger.info("daemon spawn attempt %d/5 failed", attempt)
 
         logger.warning("daemon unavailable after 5 attempts — falling back to in-process model")
+        _EMBEDDING_BACKEND = "in-process"
         _DAEMON_FAILED = True
         return None
     finally:
         if lock_fd is not None:
             os.close(lock_fd)
+
+
+def get_embedding_backend() -> str:
+    """Return which backend answered embedding requests.
+
+    "daemon" = shared embed daemon; "in-process" = MCP server's own
+    SentenceTransformer (daemon unavailable); "unknown" = not yet determined.
+    Pushed to the daemon so the dashboard can read it from one source.
+    """
+    return _EMBEDDING_BACKEND
 
 
 def _register() -> None:
@@ -308,8 +322,21 @@ def _register() -> None:
         )
         if resp.is_success:
             logger.debug("registered with daemon (cid=%s, pid=%d)", cid, pid)
+            _push_backend()
     except httpx.RequestError as e:
         logger.warning("failed to register with daemon: %s", e)
+
+
+def _push_backend() -> None:
+    """Push the current embedding backend to the daemon (Q3=a)."""
+    try:
+        httpx.post(
+            f"http://127.0.0.1:{_DAEMON_PORT}/api/backend",
+            json={"backend": _EMBEDDING_BACKEND},
+            timeout=3.0,
+        )
+    except httpx.RequestError:
+        pass
 
 
 def _unregister_daemon() -> None:

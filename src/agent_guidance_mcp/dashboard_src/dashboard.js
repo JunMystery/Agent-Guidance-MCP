@@ -72,6 +72,8 @@ async function fetchData() {
   } catch(e) {
     renderHealth({status: 'unknown'}, data?.totals?.embed_queries);
   }
+  renderEmbedRecent(data);
+  renderModelStatus();
 }
 
 function render(data) {
@@ -144,12 +146,48 @@ function renderHealth(h, embedQueries) {
   safeText('sys-embed-model', modelStatus);
   safeText('sys-embed-daemon', h.status === 'ok' ? 'running' : 'stopped');
   safeText('sys-embed-clients', clients === null ? '0' : String(clients));
+  safeText('sys-embed-backend', h.backend || 'unknown');
 
   const btn = document.getElementById('btn-embed-toggle');
   if (btn) {
     btn.textContent = modelLoaded ? 'Stop Model' : 'Start Model';
     btn.className = modelLoaded ? 'btn-secondary' : 'btn-accent';
   }
+}
+
+function renderModelStatus() {
+  fetch('/api/model/status')
+    .then(r => r.ok ? r.json() : null)
+    .then(s => {
+      if (!s) return;
+      const btn = document.getElementById('btn-embed-toggle');
+      if (!btn) return;
+      // Pinned state is authoritative: Stop sticks until user Starts again.
+      const started = s.pinned === true || (s.pinned === null && s.loaded);
+      btn.textContent = started ? 'Stop Model' : 'Start Model';
+      btn.className = started ? 'btn-secondary' : 'btn-accent';
+      safeText('sys-embed-backend', s.backend || 'unknown');
+    })
+    .catch(() => {});
+}
+
+function renderEmbedRecent(data) {
+  const body = document.getElementById('embed-recent-body');
+  if (!body) return;
+  const rows = (data && data.embed_recent) || [];
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="4" style="color:var(--text-muted)">No embed queries yet</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map(r => {
+    const status = r.status === 'fallback' ? 'fallback' : 'ok';
+    const badge = status === 'fallback' ? 'badge red' : 'badge green';
+    const dim = r.vector_dim || 0;
+    return '<tr><td>' + timeAgo(r.queried_at) + '</td>' +
+           '<td><span class="' + badge + '">' + status + '</span></td>' +
+           '<td>' + dim + '</td>' +
+           '<td>' + (r.result_count || 0) + '</td></tr>';
+  }).join('');
 }
 
 function fmtDuration(sec) {
@@ -159,11 +197,15 @@ function fmtDuration(sec) {
   return Math.floor(sec / 86400) + 'd ' + Math.floor((sec % 86400) / 3600) + 'h';
 }
 
-function toggleModel(loaded) {
-  const action = loaded ? 'unload' : 'load';
+function toggleModel() {
+  const btn = document.getElementById('btn-embed-toggle');
+  // The button label reflects the desired NEXT state (Stop if started).
+  const started = btn && btn.textContent.trim() === 'Stop Model';
+  const action = started ? 'unload' : 'load';
   fetch('/api/model/toggle?action=' + action, { method: 'POST' })
     .then(r => {
       if (!r.ok) throw new Error('HTTP ' + r.status);
+      renderModelStatus();
       fetchData();
     })
     .catch(e => alert('Failed to toggle: ' + e.message));

@@ -146,6 +146,7 @@ class UsageTracker:
             ("skill_loads", "project_path", "TEXT"),
             ("skill_loads", "run_id", "TEXT"),
             ("embed_queries", "run_id", "TEXT"),
+            ("embed_queries", "status", "TEXT"),
         ):
             try:
                 cur.execute(f"ALTER TABLE {table} ADD COLUMN {col} {coltype}")
@@ -216,13 +217,16 @@ class UsageTracker:
         vector_dim: int = 0,
         duration_ms: int = 0,
         result_count: int = 0,
+        status: str = "ok",
     ) -> None:
-        """Record an embedding query."""
+        """Record an embedding query. status="ok" for a real vector,
+        "fallback" for a silent keyword-only degrade.
+        """
         now = int(time.time())
         self._queue.put(
             _WriteOp("record_embed_query",
                      (query_text, prefix_type, model_name, vector_dim,
-                      duration_ms, result_count, now, self._run_id))
+                      duration_ms, result_count, status, now, self._run_id))
         )
 
     def record_llm_query(
@@ -271,8 +275,18 @@ class UsageTracker:
         total_skills_count = cur.fetchone()["total"]
         cur.execute("SELECT COUNT(*) AS total FROM embed_queries")
         total_embeds = cur.fetchone()["total"]
+        cur.execute(
+            "SELECT COUNT(*) AS total FROM embed_queries WHERE status='fallback'"
+        )
+        total_embed_fallback = cur.fetchone()["total"]
         cur.execute("SELECT COUNT(*) AS total FROM llm_queries")
         total_llm = cur.fetchone()["total"]
+
+        cur.execute(
+            """SELECT id, queried_at, status, vector_dim, result_count
+               FROM embed_queries ORDER BY queried_at DESC LIMIT 20"""
+        )
+        embed_recent = [dict(r) for r in cur.fetchall()]
 
         tot_orig = sum(r.get("tok_orig", 0) for r in tool_breakdown)
         tot_opt = sum(r.get("tok_opt", 0) for r in tool_breakdown)
@@ -284,6 +298,7 @@ class UsageTracker:
                 "tool_calls": total_calls,
                 "skills_loaded": total_skills_count,
                 "embed_queries": total_embeds,
+                "embed_fallback": total_embed_fallback,
                 "llm_queries": total_llm,
                 "tokens_original": tot_orig,
                 "tokens_optimized": tot_opt,
@@ -291,6 +306,7 @@ class UsageTracker:
                 "savings_pct": savings_pct,
             },
             "tool_breakdown": tool_breakdown,
+            "embed_recent": embed_recent,
             "top_skills": top_skills,
         }
 
@@ -359,13 +375,13 @@ def _w_skill_load(conn, skill_id, query, search_term, embed_used, now, proj, run
     )
 
 
-def _w_embed_query(conn, qtext, ptype, model, vdim, dur, rcnt, now, run_id):
+def _w_embed_query(conn, qtext, ptype, model, vdim, dur, rcnt, status, now, run_id):
     conn.execute(
         """INSERT INTO embed_queries
                 (query_text, prefix_type, model_name, vector_dim,
-                 duration_ms, result_count, queried_at, run_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-        (qtext, ptype, model, vdim, dur, rcnt, now, run_id),
+                 duration_ms, result_count, status, queried_at, run_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (qtext, ptype, model, vdim, dur, rcnt, status, now, run_id),
     )
 
 

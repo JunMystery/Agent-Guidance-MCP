@@ -404,7 +404,7 @@ def create_server(
     # Start persistent usage tracker
     import atexit
     from .usage import UsageTracker
-    _global_usage = UsageTracker()
+    set_usage(UsageTracker())
 
     def _close_usage() -> None:
         u = get_usage()

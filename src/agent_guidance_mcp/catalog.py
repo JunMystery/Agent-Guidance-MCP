@@ -323,29 +323,30 @@ class StandardsCatalog:
         results.sort(key=lambda result: (-result[0], result[1].path))
         returned = results[: max(1, limit)]
 
-        # Only log when an embedding was actually produced; keyword-only
-        # fallback must not record an embed query (F3/F4).
-        if query_vector is not None:
-            try:
-                from .server import get_usage
+        # Log every query (semantic + silent fallback) with status="ok"/"fallback"
+        # so the dashboard can show whether the embed model actually worked.
+        try:
+            from .server import get_usage
 
-                _u = get_usage()
-                if _u is not None:
-                    _u.record_embed_query(
-                        query_text=query,
-                        prefix_type="query",
-                        model_name=_E5_MODEL,
-                        vector_dim=len(query_vector),
-                        result_count=len(returned),
-                    )
-            except Exception:
-                pass
+            _u = get_usage()
+            if _u is not None:
+                _u.record_embed_query(
+                    query_text=query,
+                    prefix_type="query",
+                    model_name=_E5_MODEL,
+                    vector_dim=len(query_vector) if query_vector is not None else 0,
+                    result_count=len(returned),
+                    status="ok" if query_vector is not None else "fallback",
+                )
+        except Exception:
+            pass
 
         return [
             {
                 **entry.to_dict(),
                 "score": score,
                 "snippet": snippet,
+                "embedding_used": query_vector is not None,
             }
             for score, entry, snippet in returned
         ]

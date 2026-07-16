@@ -27,6 +27,14 @@ HEALTH_CHECK_INTERVAL = 15
 
 _E5_MODEL = "intfloat/multilingual-e5-small"
 
+# Pinned model intent: None=auto-load on first /embed, False=user Stopped
+# (hard 503, never reload), True=user Started.
+_MODEL_PINNED: bool | None = None
+
+# Backend answered the MCP server's queries ("daemon"/"in-process"/"unknown"),
+# pushed by the MCP server so the dashboard can read it from one source.
+_EMBED_BACKEND: str = "unknown"
+
 # ── Port detection (TOCTOU-safe: bind port 0, keep FD) ──────────────────
 
 
@@ -141,6 +149,9 @@ def unregister(req: UnregisterRequest) -> dict:
 def embed(req: EmbedRequest) -> EmbedResponse:
     global _model, _last_embed_time
     if _model is None:
+        if _MODEL_PINNED is False:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=503, detail="model pinned off")
         _load_model()
     _last_embed_time = time.time()
     text = req.text
@@ -236,21 +247,42 @@ def js() -> Response:
 
 @app.post("/api/model/toggle")
 def toggle_model(action: str) -> dict:
-    global _model
+    global _model, _MODEL_PINNED
     if action == "unload":
         if _model is not None:
             _model = None
             import gc
             gc.collect()
             logger.info("SentenceTransformer model unloaded from memory")
+        _MODEL_PINNED = False
         return {"success": True, "model_loaded": False}
     elif action == "load":
         if _model is None:
             _load_model()
+        _MODEL_PINNED = True
         return {"success": True, "model_loaded": True}
     else:
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="Invalid action parameter, must be 'load' or 'unload'")
+
+
+@app.post("/api/backend")
+def set_backend(payload: dict) -> dict:
+    global _EMBED_BACKEND
+    backend = payload.get("backend") if isinstance(payload, dict) else None
+    if backend in ("daemon", "in-process", "unknown"):
+        _EMBED_BACKEND = backend
+    return {"success": True, "backend": _EMBED_BACKEND}
+
+
+@app.get("/api/model/status")
+def model_status() -> dict:
+    return {
+        "loaded": _model is not None,
+        "pinned": _MODEL_PINNED,
+        "engine": _E5_MODEL,
+        "backend": _EMBED_BACKEND,
+    }
 
 
 @app.get("/api/dirs")
@@ -291,6 +323,7 @@ def health() -> dict:
         "model_loaded": _model is not None,
         "clients": n,
         "engine": _E5_MODEL,
+        "backend": _EMBED_BACKEND,
         "uptime_seconds": int(time.time() - _start_time),
         "last_embed_time": _last_embed_time,
     }

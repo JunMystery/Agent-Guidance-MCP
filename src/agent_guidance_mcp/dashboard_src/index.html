@@ -224,12 +224,27 @@
               <div class="sysinfo-row"><span class="sysinfo-key">model</span><span class="sysinfo-val" id="sys-embed-model">--</span></div>
               <div class="sysinfo-row"><span class="sysinfo-key">daemon</span><span class="sysinfo-val" id="sys-embed-daemon">--</span></div>
               <div class="sysinfo-row"><span class="sysinfo-key">clients</span><span class="sysinfo-val" id="sys-embed-clients">0</span></div>
+              <div class="sysinfo-row"><span class="sysinfo-key">backend</span><span class="sysinfo-val" id="sys-embed-backend">--</span></div>
               <div class="sysinfo-divider"></div>
               <div class="sysinfo-row" id="sys-embed-toggle-row">
-                <button id="btn-embed-toggle" onclick="toggleModel(document.getElementById('sys-embed-model').textContent === 'loaded')" class="btn-accent" style="width:100%;padding:6px 10px;font-size:12px">Start Model</button>
+                <button id="btn-embed-toggle" onclick="toggleModel()" class="btn-accent" style="width:100%;padding:6px 10px;font-size:12px">Start Model</button>
               </div>
             </div>
           </div>
+        </div>
+        <div class="embed-recent-section">
+          <h3>Last 20 Embed Status</h3>
+          <table class="embed-recent-table">
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Status</th>
+                <th>Dim</th>
+                <th>Results</th>
+              </tr>
+            </thead>
+            <tbody id="embed-recent-body"></tbody>
+          </table>
         </div>
       </div>
     </div>
