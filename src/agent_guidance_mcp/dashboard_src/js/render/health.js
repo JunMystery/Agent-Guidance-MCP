@@ -14,6 +14,7 @@ export function renderHealthPanel(h, embedQueries) {
   setText('out-model-status', modelStatus);
   setText('out-engine', h.engine || 'unknown');
   setText('out-embed-queries', String(embedQueries || 0));
+  setText('out-embed-metrics-queries', String(embedQueries || 0));
   setText('out-uptime', h.uptime_seconds ? fmtDuration(h.uptime_seconds) : '--');
   setText('out-clients', clients === null ? '0' : String(clients));
   setText('out-last-embed', h.last_embed_time ? timeAgo(h.last_embed_time) : '--');

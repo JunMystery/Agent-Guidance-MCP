@@ -1,14 +1,28 @@
-import { setText, el } from '../dom.js';
+import { el, emptyState } from '../dom.js';
 import { fmtTokens, savingsBadge } from '../format.js';
 import { timeAgo } from '../format.js';
+import { makeSortable, filterRows, bindFilter } from '../interactions.js';
+import { store } from '../state.js';
 
 export function renderRecentCalls(recentActions) {
+  store.recent_actions = (recentActions || []).map(r => {
+    const saved = (r.tokens_original || 0) - (r.tokens_optimized || 0);
+    return { ...r, savings: saved, status: r.error_message ? 'error' : 'ok' };
+  });
+  bindFilter('recent-filter', () => drawRecentCalls());
+  makeSortable('recent-calls-body', store.recent_actions);
+  drawRecentCalls();
+}
+
+function drawRecentCalls() {
   const body = el('recent-calls-body');
   if (!body) return;
+  const query = el('recent-filter')?.value || '';
+  const rows = filterRows(store.recent_actions, query, ['tool_name', 'operation', 'status']);
   body.innerHTML = '';
-  if (recentActions && recentActions.length) {
-    recentActions.forEach(r => {
-      const saved = (r.tokens_original || 0) - (r.tokens_optimized || 0);
+  if (rows.length) {
+    rows.forEach(r => {
+      const saved = r.savings;
       const { pct, badgeClass } = savingsBadge(saved, r.tokens_original);
       const duration = r.duration_ms ? r.duration_ms + 'ms' : '--';
       const statusClass = r.error_message ? 'badge red' : 'badge green';
@@ -26,7 +40,7 @@ export function renderRecentCalls(recentActions) {
         '</tr>';
     });
   } else {
-    body.innerHTML = '<tr><td colspan="8" style="color:var(--text-muted)">No recent calls recorded yet</td></tr>';
+    emptyState('recent-calls-body', 8, 'No matching calls.');
   }
 }
 
@@ -35,7 +49,7 @@ export function renderEmbedRecentTable(data) {
   if (!body) return;
   const rows = (data && data.embed_recent) || [];
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="4" style="color:var(--text-muted)">No embed queries yet</td></tr>';
+    emptyState('embed-recent-body', 4, 'No embed queries yet.');
     return;
   }
   body.innerHTML = rows.map(r => {

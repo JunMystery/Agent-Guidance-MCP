@@ -40,14 +40,19 @@ class LLMSelector:
         try:
             from transformers import AutoTokenizer, AutoModelForCausalLM
             logger.info("loading LLM skill selector: %s", self._model_name)
-            self._tokenizer = AutoTokenizer.from_pretrained(self._model_name)
+            local_files_only = _model_already_cached(self._model_name)
+            self._tokenizer = AutoTokenizer.from_pretrained(
+                self._model_name,
+                local_files_only=local_files_only,
+            )
             self._model = AutoModelForCausalLM.from_pretrained(
                 self._model_name,
                 torch_dtype="auto",
                 device_map="auto",
+                local_files_only=local_files_only,
             )
             self._loaded = True
-            logger.info("LLM skill selector loaded")
+            logger.info("LLM skill selector loaded (local_files_only=%s)", local_files_only)
         except Exception as e:
             logger.warning("failed to load LLM skill selector: %s", e)
             self._loaded = False

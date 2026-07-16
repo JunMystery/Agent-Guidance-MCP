@@ -12,6 +12,24 @@ export function setDisplay(id, val) {
   if (node) node.style.display = val;
 }
 
+export function setLoading(on) {
+  document.body.classList.toggle('is-loading', !!on);
+}
+
+export function emptyState(tbodyId, colspan, message) {
+  const node = el(tbodyId);
+  if (!node) return;
+  if (node.children.length === 0) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = colspan;
+    td.className = 'table-empty';
+    td.textContent = message || 'No data yet.';
+    tr.appendChild(td);
+    node.appendChild(tr);
+  }
+}
+
 export function activeView() {
   return qs('.sidebar nav a.active')?.dataset?.view;
 }

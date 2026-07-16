@@ -1,5 +1,5 @@
 import { el, activeView, pollSpanFor } from './dom.js';
-import { resetBackoff } from './state.js';
+import { pollBackoff } from './state.js';
 import { fetchData } from './api.js';
 
 let pollTimer = null;
@@ -9,10 +9,9 @@ export function startPoll() {
   const spanId = pollSpanFor(activeView());
   if (spanId) {
     const node = el(spanId);
-    if (node) node.textContent = '(polling 5s)';
+    if (node) node.textContent = '(polling ' + (pollBackoff / 1000).toFixed(0) + 's)';
   }
-  if (!document.hidden) pollTimer = setInterval(fetchData, 5000);
-  resetBackoff();
+  if (!document.hidden) pollTimer = setInterval(fetchData, pollBackoff);
 }
 
 export function stopPoll() {

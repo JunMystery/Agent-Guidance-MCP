@@ -1,11 +1,11 @@
-import { setText, setDisplay, activeView, pollSpanFor } from './dom.js';
+import { setText, setDisplay, setLoading, activeView, pollSpanFor } from './dom.js';
 import { renderDashboard } from './render/statsView.js';
 import { renderHealthPanel } from './render/health.js';
 import { renderEmbedRecentTable } from './render/recent.js';
 import { pollBackoff, setBackoff, resetBackoff } from './state.js';
 
 async function fetchStats() {
-  const resp = await fetch('/api/stats');
+  const resp = await fetch('/api/stats?window=24h');
   if (!resp.ok) throw new Error('HTTP ' + resp.status);
   return resp.json();
 }
@@ -21,7 +21,7 @@ async function showFetchError(e) {
   setDisplay('error-banner', 'block');
   const pollSpanId = pollSpanFor(activeView());
   if (pollSpanId) {
-    setText(pollSpanId, e.message ? '(retry in ' + (pollBackoff / 1000).toFixed(0) + 's)' : '');
+    setText(pollSpanId, '(retry in ' + (pollBackoff / 1000).toFixed(0) + 's)');
   }
 }
 
@@ -32,6 +32,7 @@ async function clearFetchError() {
 }
 
 export async function fetchData() {
+  setLoading(true);
   let data;
   try {
     data = await fetchStats();
@@ -48,6 +49,7 @@ export async function fetchData() {
     renderHealthPanel({ status: 'unknown' }, data?.totals?.embed_queries);
   }
   renderEmbedRecentTable(data);
+  setLoading(false);
 }
 
 export async function refreshEmbedStatus() {

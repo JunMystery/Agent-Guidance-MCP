@@ -29,6 +29,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
     # Shared reference — set by run_dashboard()
     project_path: str = ""
     db_path: str = ""
+    server_port: int = 0
 
     def do_GET(self) -> None:
         path = self.path.split("?")[0].rstrip("/") or "/"
@@ -55,6 +56,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._handle_model_toggle(qs.get("action", ""))
         elif path == "/api/dirs/choose":
             self._handle_choose_dir()
+        elif path == "/api/dirs/select":
+            self._handle_select_dir()
         else:
             self._send_json(404, {"error": "Not found"})
 
@@ -117,11 +120,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 "message": f"No usage.db at {DB_PATH}",
             })
             return
+        qs = self._parse_query()
+        window = qs.get("window", "24h")
         try:
             conn = sqlite3.connect(str(DB_PATH))
             conn.row_factory = sqlite3.Row
-            data = _query_stats(conn)
+            data = _query_stats(conn, window=window)
             conn.close()
+            # Inject active server config
+            data["project_path"] = DashboardHandler.project_path
+            data["server_port"] = DashboardHandler.server_port
             self._send_json(200, data)
         except Exception as e:
             self._send_json(500, {"error": str(e)})
@@ -219,30 +227,55 @@ class DashboardHandler(BaseHTTPRequestHandler):
         from ._dashboard_shared import choose_folder_native
         path = choose_folder_native()
         if path:
+            DashboardHandler.project_path = path
             self._send_json(200, {"success": True, "path": path})
         else:
             self._send_json(200, {"success": False, "reason": "Native chooser failed or cancelled"})
+
+    def _handle_select_dir(self) -> None:
+        content_length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(content_length).decode('utf-8') if content_length else ""
+        try:
+            params = json.loads(body)
+        except Exception:
+            params = {}
+        path = params.get("path")
+        if not path:
+            qs = self._parse_query()
+            path = qs.get("path")
+        if path:
+            resolved_path = str(Path(path).expanduser().resolve())
+            if Path(resolved_path).is_dir():
+                DashboardHandler.project_path = resolved_path
+                self._send_json(200, {"success": True, "path": resolved_path})
+            else:
+                self._send_json(400, {"error": f"Path is not a directory: {path}"})
+        else:
+            self._send_json(400, {"error": "Missing path parameter"})
 
     def log_message(self, format: str, *args: Any) -> None:
         logger.info("  <= %s", format % args)
 
 
-def _query_stats(conn: sqlite3.Connection) -> dict[str, Any]:
-    """Aggregate all usage data (no session filter)."""
+def _query_stats(conn: sqlite3.Connection, window: str = "24h") -> dict[str, Any]:
+    """Aggregate usage data. window="24h" filters to the last 24h, "all" uses lifetime."""
     cur = conn.cursor()
 
     now = int(time.time())
     cutoff_24h = now - 86400
+    window_filter = "" if window == "all" else "WHERE started_at >= ?"
 
     # Auto-cleanup: drop entries older than 24h
     cur.execute("DELETE FROM tool_calls WHERE started_at < ?", (cutoff_24h,))
 
+    params = () if window == "all" else (cutoff_24h,)
     cur.execute(
         """SELECT tool_name, operation, COUNT(*) AS cnt,
                   COALESCE(SUM(tokens_original), 0) AS tok_orig,
                   COALESCE(SUM(tokens_optimized), 0) AS tok_opt
-           FROM tool_calls
-           GROUP BY tool_name, operation ORDER BY cnt DESC"""
+           FROM tool_calls {wf}
+           GROUP BY tool_name, operation ORDER BY cnt DESC""".format(wf=window_filter),
+        params,
     )
     tool_breakdown = [dict(r) for r in cur.fetchall()]
 
@@ -254,10 +287,18 @@ def _query_stats(conn: sqlite3.Connection) -> dict[str, Any]:
     cur.execute(
         """SELECT tool_name, operation, started_at, duration_ms,
                   tokens_original, tokens_optimized, error_message
-           FROM tool_calls
-           ORDER BY started_at DESC LIMIT 20"""
+           FROM tool_calls {wf}
+           ORDER BY started_at DESC LIMIT 20""".format(wf=window_filter),
+        params,
     )
     recent_actions = [dict(r) for r in cur.fetchall()]
+
+    cur.execute(
+        """SELECT id, queried_at, status, vector_dim, result_count
+           FROM embed_queries
+           ORDER BY queried_at DESC LIMIT 20"""
+    )
+    embed_recent = [dict(r) for r in cur.fetchall()]
 
     # Hourly savings: 24 nodes, one per local hour bucket in the last 24h.
     cur.execute(
@@ -320,6 +361,7 @@ def _query_stats(conn: sqlite3.Connection) -> dict[str, Any]:
         "top_skills": top_skills,
         "recent_actions": recent_actions,
         "hourly_savings": hourly_savings,
+        "embed_recent": embed_recent,
     }
 
 
@@ -383,6 +425,7 @@ def run_dashboard(project_path: str | None = None) -> None:
 
     DashboardHandler.project_path = pp
     DashboardHandler.db_path = str(DB_PATH)
+    DashboardHandler.server_port = port
 
     if not daemon_alive:
         DAEMON_DIR.mkdir(parents=True, exist_ok=True)

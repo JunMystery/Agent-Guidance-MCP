@@ -20,7 +20,7 @@ DB_DIR = Path.home() / ".agent-guidance"
 DB_PATH = DB_DIR / "usage.db"
 _MAX_QUEUE_SIZE = 5000
 _FLUSH_INTERVAL_S = 2.0
-_DEFAULT_RETENTION_DAYS = 30
+_DEFAULT_RETENTION_DAYS = 1
 
 
 class _WriteOp:
@@ -354,6 +354,15 @@ def _flush_loop(conn, queue, stop_event):
                 drained += 1
             except Empty:
                 break
+        # Auto-cleanup on commit: drop entries older than 24h to prevent overflow
+        try:
+            cutoff = int(time.time()) - 86400
+            conn.execute("DELETE FROM tool_calls WHERE started_at < ?", (cutoff,))
+            conn.execute("DELETE FROM skill_loads WHERE loaded_at < ?", (cutoff,))
+            conn.execute("DELETE FROM embed_queries WHERE queried_at < ?", (cutoff,))
+            conn.execute("DELETE FROM llm_queries WHERE queried_at < ?", (cutoff,))
+        except Exception:
+            pass
         conn.commit()
 
 

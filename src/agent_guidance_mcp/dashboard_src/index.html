@@ -8,16 +8,17 @@
 <link rel="stylesheet" href="/dashboard.css?v={{css_hash}}">
 </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to content</a>
 
-<button class="hamburger" onclick="toggleSidebar()" aria-label="Toggle sidebar">☰</button>
+<button class="hamburger" onclick="toggleSidebar()" aria-label="Toggle sidebar" aria-expanded="false" aria-controls="sidebar">☰</button>
 
 <aside class="sidebar" id="sidebar">
   <h2>MCP Stats</h2>
-  <nav>
-    <a class="active" data-view="dashboard"><span>Dashboard</span></a>
-    <a data-view="actions"><span>Actions Log</span></a>
-    <a data-view="recent-calls"><span>Recent Calls</span></a>
-    <a data-view="guides"><span>Quick Guides</span></a>
+  <nav role="tablist" aria-label="Dashboard views">
+    <a class="active" role="tab" aria-selected="true" aria-controls="view-dashboard" id="tab-dashboard" data-view="dashboard"><span>Dashboard</span></a>
+    <a role="tab" aria-selected="false" aria-controls="view-actions" id="tab-actions" data-view="actions"><span>Actions Log</span></a>
+    <a role="tab" aria-selected="false" aria-controls="view-recent-calls" id="tab-recent-calls" data-view="recent-calls"><span>Recent Calls</span></a>
+    <a role="tab" aria-selected="false" aria-controls="view-guides" id="tab-guides" data-view="guides"><span>Quick Guides</span></a>
   </nav>
   <div class="sidebar-footer">
     <div class="proj" id="sidebar-proj" onclick="changeProjectPath()" title="Click to change project path" style="cursor:pointer">project: --</div>
@@ -25,9 +26,11 @@
   </div>
 </aside>
 
-<main class="main">
-  <div class="error-banner" id="error-banner"></div>
-  
+<main class="main" id="main-content" tabindex="-1">
+  <div class="error-banner" id="error-banner" role="alert" aria-live="assertive"></div>
+
+
+
     <div class="modal-overlay" id="dir-modal">
     <div class="modal-content terminal-window">
       <div class="terminal-header">
@@ -51,7 +54,7 @@
   </div>
 
   <!-- VIEWS -->
-  <section id="view-dashboard">
+  <section id="view-dashboard" role="tabpanel" aria-labelledby="tab-dashboard">
     <div class="terminal-window">
       <div class="terminal-header">
         <div class="terminal-dots">
@@ -150,7 +153,7 @@
                 <div class="term-cmd-block" data-cmd="totals">
                   <div class="term-cmd-header"><span class="term-prompt">$</span> <span class="term-fn">embed</span> --metrics</div>
                   <div class="term-cmd-output" id="out-embed-metrics">
-                    <div class="term-output-line"><span class="term-output-label">queries</span><span class="term-output-val" id="out-embed-queries">--</span></div>
+                    <div class="term-output-line"><span class="term-output-label">queries</span><span class="term-output-val" id="out-embed-metrics-queries">--</span></div>
                     <div class="term-output-line"><span class="term-output-label">uptime</span><span class="term-output-val" id="out-uptime">--</span></div>
                     <div class="term-output-line"><span class="term-output-label">clients</span><span class="term-output-val" id="out-clients">--</span></div>
                     <div class="term-output-line"><span class="term-output-label">last_embed</span><span class="term-output-val" id="out-last-embed">--</span></div>
@@ -201,7 +204,7 @@
     </div>
   </section>
 
-  <section id="view-actions" class="hidden">
+  <section id="view-actions" class="hidden" role="tabpanel" aria-labelledby="tab-actions">
     <div class="terminal-window">
       <div class="terminal-header">
         <div class="terminal-dots">
@@ -209,22 +212,25 @@
           <div class="terminal-dot dot-yellow"></div>
           <div class="terminal-dot dot-green"></div>
         </div>
-        <div class="terminal-title">Actions Log <span id="actions-poll"></span></div>
-      </div>
-      <div class="terminal-body-raw">
-        <table>
-          <thead>
-            <tr>
-              <th>Tool</th>
-              <th>Operation</th>
-              <th>Calls</th>
-              <th>Orig Tokens</th>
-              <th>Opt Tokens</th>
-              <th>Savings</th>
-            </tr>
-          </thead>
-          <tbody id="actions-body"></tbody>
-        </table>
+            <div class="terminal-title">Actions Log <span id="actions-poll"></span></div>
+          </div>
+          <div class="terminal-body-raw">
+            <div class="table-toolbar">
+              <input type="text" id="actions-filter" placeholder="Filter by tool, operation…" aria-label="Filter actions log">
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th data-sort="tool_name">Tool</th>
+                  <th data-sort="operation">Operation</th>
+                  <th data-sort="cnt">Calls</th>
+                  <th data-sort="tok_orig">Orig Tokens</th>
+                  <th data-sort="tok_opt">Opt Tokens</th>
+                  <th data-sort="savings">Savings</th>
+                </tr>
+              </thead>
+              <tbody id="actions-body"></tbody>
+            </table>
       </div>
     </div>
 
@@ -247,7 +253,7 @@
         </div>
   </section>
 
-  <section id="view-recent-calls" class="hidden">
+  <section id="view-recent-calls" class="hidden" role="tabpanel" aria-labelledby="tab-recent-calls">
     <div class="terminal-window">
       <div class="terminal-header">
         <div class="terminal-dots">
@@ -255,29 +261,32 @@
           <div class="terminal-dot dot-yellow"></div>
           <div class="terminal-dot dot-green"></div>
         </div>
-        <div class="terminal-title">Recent Calls <span id="recent-calls-poll"></span></div>
-      </div>
-      <div class="terminal-body-raw">
-        <table>
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Tool</th>
-              <th>Operation</th>
-              <th>Duration</th>
-              <th>Orig Tokens</th>
-              <th>Opt Tokens</th>
-              <th>Savings</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="recent-calls-body"></tbody>
-        </table>
+            <div class="terminal-title">Recent Calls <span id="recent-calls-poll"></span></div>
+          </div>
+          <div class="terminal-body-raw">
+            <div class="table-toolbar">
+              <input type="text" id="recent-filter" placeholder="Filter by tool, operation, status…" aria-label="Filter recent calls">
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th data-sort="started_at">Time</th>
+                  <th data-sort="tool_name">Tool</th>
+                  <th data-sort="operation">Operation</th>
+                  <th data-sort="duration_ms">Duration</th>
+                  <th data-sort="tokens_original">Orig Tokens</th>
+                  <th data-sort="tokens_optimized">Opt Tokens</th>
+                  <th data-sort="savings">Savings</th>
+                  <th data-sort="status">Status</th>
+                </tr>
+              </thead>
+              <tbody id="recent-calls-body"></tbody>
+            </table>
       </div>
     </div>
   </section>
 
-  <section id="view-guides" class="hidden">
+  <section id="view-guides" class="hidden" role="tabpanel" aria-labelledby="tab-guides">
     <div class="terminal-window">
       <div class="terminal-header">
         <div class="terminal-dots">
