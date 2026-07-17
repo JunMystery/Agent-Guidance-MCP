@@ -517,6 +517,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         except Exception as exc:  # record errored calls (F5)
             _track_error("task_pipeline", "run", _now_ms() - t0, error=str(exc))
             raise
+        _record_savings("task_pipeline", "run", result, result, duration_ms=_now_ms() - t0, project_path=project_path)
         return result
 
     @mcp.tool()
@@ -587,7 +588,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
                 # the skill-call metric with candidate lists. The e5 embed query
                 # for recommend is logged inside search_entries on success.
                 usage.record_recommend_skill_loads(result, query)
-        _record_savings("guidance", operation, result, result, project_path=None)
+        _record_savings("guidance", operation, result, result, duration_ms=_now_ms() - t0, project_path=None)
         return result
 
     @mcp.tool()
@@ -660,7 +661,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         except Exception as exc:  # record errored calls (F5)
             _track_error("project_context", operation, _now_ms() - t0, error=str(exc))
             raise
-        _record_savings("project_context", operation, result, result, project_path=project_path)
+        _record_savings("project_context", operation, result, result, duration_ms=_now_ms() - t0, project_path=project_path)
         return result
 
     @mcp.tool()
@@ -712,7 +713,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         except Exception as exc:  # record errored calls (F5)
             _track_error("ui_ux", operation, _now_ms() - t0, error=str(exc))
             raise
-        _record_savings("ui_ux", operation, result, result, project_path=None)
+        _record_savings("ui_ux", operation, result, result, duration_ms=_now_ms() - t0, project_path=None)
         return result
 
     @mcp.tool()
@@ -756,6 +757,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         except Exception as exc:  # record errored calls (F5)
             _track_error("session_continuity", operation, _now_ms() - t0, error=str(exc))
             raise
+        _record_savings("session_continuity", operation, result, result, duration_ms=_now_ms() - t0, project_path=project_path)
         return result
 
     @mcp.tool()
@@ -849,6 +851,7 @@ def _record_savings(
     operation: str,
     original: str,
     optimized: str,
+    duration_ms: int = 0,
     project_path: str | None = None,
 ) -> None:
     """Record token savings in-memory and persist token values to SQLite."""
@@ -860,7 +863,7 @@ def _record_savings(
         from .response_optimizer import estimate_tokens
         tok_orig = estimate_tokens(original if isinstance(original, str) else str(original))
         tok_opt = estimate_tokens(optimized if isinstance(optimized, str) else str(optimized))
-        usage.record_tool_call(tool_name, operation, tokens_original=tok_orig, tokens_optimized=tok_opt, project_path=project_path)
+        usage.record_tool_call(tool_name, operation, duration_ms=duration_ms, tokens_original=tok_orig, tokens_optimized=tok_opt, project_path=project_path)
 
 
 def _now_ms() -> int:
