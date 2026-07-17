@@ -1,5 +1,15 @@
 # AGENTS.md
 
+## IMPORTANT — MCP Server Constraint (READ FIRST)
+
+**Serena MCP is REMOVED.** Only ONE code-intelligence MCP can be active at a time.
+The `agent-guidance-mcp` pipeline is the primary MCP. Do NOT re-add Serena alongside
+it — running both MCPs simultaneously causes Serena's `initial_instructions` gate to
+stall the session (it injects a "call initial_instructions first" CRITICAL instruction
+while the `agent` context excludes that tool). Use agent-guidance-mcp as the single
+source of truth for context/code search. If Serena is ever needed, disable
+agent-guidance-mcp first (one at a time, never both).
+
 ## CRITICAL — Tool Rules (READ FIRST)
 
 For EVERY user interaction — planning, implementation, testing, debugging, reviewing, refactoring, or any other action:
