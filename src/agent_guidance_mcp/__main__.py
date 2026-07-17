@@ -7,7 +7,7 @@ import sys
 
 from . import __version__
 from .catalog import find_standards_root
-from .server import create_server, run_session_start
+from .server import create_server, run_re_gate, run_session_start
 from .token_config import TokenOptimizationConfig
 
 
@@ -69,7 +69,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--project-path",
         default=".",
-        help="Project root path for --session-start (default: current dir).",
+        help="Project root path for --session-start and --re-gate (default: current dir).",
+    )
+    parser.add_argument(
+        "--re-gate",
+        action="store_true",
+        help="Re-pass the priority gate and refresh the sentinel file. "
+             "Use after a subagent returns to recover gate state if the server restarted.",
     )
     parser.add_argument(
         "--no-optimize",
@@ -112,6 +118,16 @@ def main() -> None:
         if args.uninstall:
             from .setup import run_uninstall
             run_uninstall()
+            sys.exit(0)
+
+        if args.re_gate:
+            old_stdout = sys.stdout
+            sys.stdout = sys.stderr
+            try:
+                result_json = run_re_gate(project_path=args.project_path)
+            finally:
+                sys.stdout = old_stdout
+            print(result_json)
             sys.exit(0)
 
         if args.session_start:

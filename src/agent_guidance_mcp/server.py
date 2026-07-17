@@ -158,44 +158,43 @@ def priority_gate_check(
     process) is recognised as having already passed the gate.
 
     When *catalog*, *tool_name*, and *tool_params* are provided and gate
-    hasn't been passed, auto-runs lightweight context enrichment and passes
-    the gate so the caller gets useful context instead of a bare error.
+    hasn't been passed, auto-runs lightweight context enrichment as a side
+    effect and passes the gate (no hijack — tool still executes normally).
     """
     global _priority_gate_passed
     with _priority_gate_lock:
         if not _priority_gate_passed:
             if _gate_sentinel_check(project_path):
                 _priority_gate_passed = True
-                _gate_sentinel_clear()
             elif catalog and tool_name:
                 try:
                     task = _infer_task_from_params(tool_name, tool_params or {})
                     from . import pipelines as _p
-                    ctx = _p.auto_context(
+                    _p.auto_context(
                         catalog,
                         task=task,
                         project_path=str(project_path or "."),
                         config=get_config(),
                     )
-                    _priority_gate_passed = True
-                    return {
-                        "success": True,
-                        "auto_context": True,
-                        "message": f"Auto-loaded context for: {task or 'your task'}",
-                        **ctx,
-                    }
                 except Exception:
-                    return dict(PRIORITY_ERROR)
+                    pass
+                _priority_gate_passed = True
+                return None
             else:
                 return dict(PRIORITY_ERROR)
     return None
 
 
-def priority_gate_pass() -> None:
-    """Mark the priority gate as passed (called by task_pipeline)."""
+def priority_gate_pass(project_path: str = ".") -> None:
+    """Mark the priority gate as passed (called by task_pipeline).
+
+    Also re-writes the sentinel file so a future server restart (e.g. after
+    subagent spawn) can recover the gate state.
+    """
     global _priority_gate_passed
     with _priority_gate_lock:
         _priority_gate_passed = True
+    _gate_sentinel_write(project_path)
 
 
 def priority_gate_reset() -> None:
@@ -208,9 +207,12 @@ def priority_gate_reset() -> None:
 def _gate_sentinel_write(project_path: str) -> None:
     AGENT_GUIDANCE_DIR.mkdir(parents=True, exist_ok=True)
     import json
+    import time as _time
     sentinel_data = json.dumps({
-        "project_path": project_path,
+        "project_path": str(Path(project_path).resolve()),
         "version": __import__("agent_guidance_mcp").__version__,
+        "written_at": _time.time(),
+        "expires_at": _time.time() + 86400,
     })
     GATE_SENTINEL_PATH.write_text(sentinel_data, encoding="utf-8")
 
@@ -220,8 +222,13 @@ def _gate_sentinel_check(expected_project_path: Path | str | None = None) -> boo
         return False
     try:
         import json
+        import time as _time
         data = json.loads(GATE_SENTINEL_PATH.read_text(encoding="utf-8"))
         if not (isinstance(data, dict) and "project_path" in data):
+            return False
+        expires_at = data.get("expires_at")
+        if expires_at is not None and _time.time() > expires_at:
+            _gate_sentinel_clear()
             return False
         if expected_project_path:
             sentinel_path = Path(data["project_path"]).resolve()
@@ -264,8 +271,7 @@ def run_session_start(
     config = load_config_from_env()
     tracker = TokenTracker(enabled=False)
 
-    priority_gate_pass()
-    _gate_sentinel_write(project_path)
+    priority_gate_pass(project_path)
 
     resolved_path = str(Path(project_path).resolve())
     effective_task = task or "Initialize project context for workspace awareness"
@@ -312,6 +318,20 @@ def run_session_start(
     return _json.dumps({
         "priority": "IMPORTANT",
         "message": "\n".join(lines),
+    })
+
+
+def run_re_gate(project_path: str = ".") -> str:
+    """Re-pass the priority gate and refresh the sentinel file.
+
+    Call this after a subagent returns to recover gate state if the MCP
+    server restarted during the subagent lifecycle.
+    """
+    import json as _json
+    priority_gate_pass(project_path)
+    return _json.dumps({
+        "success": True,
+        "message": "Gate re-passed. All gated MCP tools are available.",
     })
 
 
@@ -462,10 +482,11 @@ def create_server(
 
     atexit.register(_close_usage)
 
-    # Check for sentinel file from --session-start (cross-process gate persistence)
+    # Check for sentinel file from --session-start (cross-process gate persistence).
+    # Sentinel is NOT cleared — it persists for the session lifetime so a future
+    # server restart (e.g. after subagent spawn) can recover the gate state.
     if _gate_sentinel_check(deploy_root):
         _priority_gate_passed = True
-        _gate_sentinel_clear()
 
     mcp = FastMCP("Agent Guidance MCP", instructions=AGENT_INSTRUCTIONS, json_response=True)
     register_handlers(mcp, catalog)
@@ -520,6 +541,15 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         """Return priority gate instructions — read when PRIORITY_REQUIRED error is returned."""
         return PRIORITY_RESOURCE_CONTENT
 
+    @mcp.resource("agent-guidance-mcp://system/gate", mime_type="application/json")
+    def gate_status() -> str:
+        """Return gate status: passed (bool) and sentinel_present (bool)."""
+        import json
+        return json.dumps({
+            "passed": _priority_gate_passed,
+            "sentinel_present": GATE_SENTINEL_PATH.exists(),
+        })
+
     @mcp.tool()
     def task_pipeline(
         task: str,
@@ -547,7 +577,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             limit: Maximum number of recommendations to return (default 8).
             timeout: Per-task timeout in seconds (default 30.0).
         """
-        priority_gate_pass()
+        priority_gate_pass(project_path)
         t0 = _now_ms()
         try:
             result = pipelines.task_pipeline(
