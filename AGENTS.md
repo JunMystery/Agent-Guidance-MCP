@@ -10,6 +10,22 @@ while the `agent` context excludes that tool). Use agent-guidance-mcp as the sin
 source of truth for context/code search. If Serena is ever needed, disable
 agent-guidance-mcp first (one at a time, never both).
 
+## Token Saving — Built-in Optimization
+
+agent-guidance-mcp saves tokens through 4 automatic mechanisms:
+
+1. **Bounded reads** — `project_context(operation="read")` caps at 300 lines; `search` caps snippets at 300 chars and `limit` at 20 results. Replaces expensive raw file reads.
+2. **Content compression** — Language-aware comment/whitespace removal, dedup, badge-stripping. Applies to every read/search response automatically.
+3. **Per-type token budgets** — Source files 3K, docs 2K, skills 3K, task_pipeline 12K tokens max per call.
+4. **Tracking & reporting** — Every optimized call records original vs. optimized tokens to SQLite. View with `token_stats` (session) or `usage_report(scope="all")` (lifetime).
+
+**Config** (already set globally): `AGENT_GUIDANCE_FILTER_LEVEL=aggressive`, doc/skill caps reduced to 2K/3K — aggressive filtering by default.
+
+**How to maximize savings:**
+- Always use `task_pipeline` → `project_context`/`guidance` instead of raw tools (Rule 3).
+- Call `token_stats` at end of each phase to verify compression ratio.
+- If token usage is still high, set `AGENT_GUIDANCE_TOKEN_OPT=0` to disable (not recommended).
+
 ## CRITICAL — Tool Rules (READ FIRST)
 
 For EVERY user interaction — planning, implementation, testing, debugging, reviewing, refactoring, or any other action:
