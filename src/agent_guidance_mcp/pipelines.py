@@ -107,6 +107,12 @@ def guidance(
 
     if operation_key == "search":
         results = catalog.search_entries(query=query, limit=limit, kind=kind)
+        if not results:
+            return {
+                "success": False,
+                "message": f"No skills or standards found matching query: '{query}'",
+                "suggestions": ["Try broader terms", "Filter by category or kind", "Run list operation to view all"]
+            }
         try:
             from .llm_selector import LLMSelector
             selector = LLMSelector()
@@ -173,6 +179,15 @@ def project_context(
 
     limit = max(1, min(limit, 100))
 
+    def _project_error(exc: Exception, details: dict[str, object] | None = None) -> dict[str, object]:
+        return {
+            "success": False,
+            "error": type(exc).__name__,
+            "message": str(exc),
+            "operation": operation_key,
+            **({"details": details} if details else {})
+        }
+
     if operation_key == "tree":
         return project_context_helpers.get_project_tree(
             project_path=project_path, max_depth=max_depth
@@ -181,79 +196,103 @@ def project_context(
     if operation_key == "search":
         if not query:
             return _missing_argument("query", operation_key)
-        return project_context_helpers.search_project_code(
-            project_path=project_path, query=query, limit=limit
-        )
+        try:
+            return project_context_helpers.search_project_code(
+                project_path=project_path, query=query, limit=limit
+            )
+        except (ValueError, FileNotFoundError, NotADirectoryError) as exc:
+            return _project_error(exc, {"project_path": project_path})
 
     if operation_key == "read":
         if not relative_path:
             return _missing_argument("relative_path", operation_key)
-        return project_context_helpers.read_project_file(
-            project_path=project_path,
-            relative_path_value=relative_path,
-            start_line=start_line,
-            max_lines=max_lines,
-            config=config,
-            tracker=tracker,
-        )
+        try:
+            return project_context_helpers.read_project_file(
+                project_path=project_path,
+                relative_path_value=relative_path,
+                start_line=start_line,
+                max_lines=max_lines,
+                config=config,
+                tracker=tracker,
+            )
+        except (ValueError, FileNotFoundError, NotADirectoryError) as exc:
+            return _project_error(exc, {"relative_path": relative_path})
 
     if operation_key == "symbols":
         if not relative_path:
             return _missing_argument("relative_path", operation_key)
-        return project_context_helpers.extract_project_symbols(
-            project_path=project_path,
-            relative_path_value=relative_path,
-            config=config,
-            tracker=tracker,
-        )
+        try:
+            return project_context_helpers.extract_project_symbols(
+                project_path=project_path,
+                relative_path_value=relative_path,
+                config=config,
+                tracker=tracker,
+            )
+        except (ValueError, FileNotFoundError, NotADirectoryError) as exc:
+            return _project_error(exc, {"relative_path": relative_path})
 
     if operation_key == "references":
         if not query:
             return _missing_argument("query", operation_key)
-        return project_context_helpers.find_project_references(
-            project_path=project_path,
-            symbol_name=query,
-            limit=limit,
-            config=config,
-            tracker=tracker,
-        )
+        try:
+            return project_context_helpers.find_project_references(
+                project_path=project_path,
+                symbol_name=query,
+                limit=limit,
+                config=config,
+                tracker=tracker,
+            )
+        except (ValueError, FileNotFoundError, NotADirectoryError) as exc:
+            return _project_error(exc, {"symbol_name": query})
 
     if operation_key == "structure":
         if not relative_path:
             return _missing_argument("relative_path", operation_key)
-        return project_context_helpers.get_project_file_structure(
-            project_path=project_path,
-            relative_path_value=relative_path,
-            config=config,
-            tracker=tracker,
-        )
+        try:
+            return project_context_helpers.get_project_file_structure(
+                project_path=project_path,
+                relative_path_value=relative_path,
+                config=config,
+                tracker=tracker,
+            )
+        except (ValueError, FileNotFoundError, NotADirectoryError) as exc:
+            return _project_error(exc, {"relative_path": relative_path})
 
     if operation_key == "callers":
         if not query:
             return _missing_argument("query", operation_key)
-        return project_context_helpers.get_project_callers(
-            project_path=project_path,
-            symbol_id=query,
-            config=config,
-            tracker=tracker,
-        )
+        try:
+            return project_context_helpers.get_project_callers(
+                project_path=project_path,
+                symbol_id=query,
+                config=config,
+                tracker=tracker,
+            )
+        except (ValueError, FileNotFoundError, NotADirectoryError) as exc:
+            return _project_error(exc, {"symbol_id": query})
 
     if operation_key == "callees":
         if not query:
             return _missing_argument("query", operation_key)
-        return project_context_helpers.get_project_callees(
-            project_path=project_path,
-            symbol_id=query,
-            config=config,
-            tracker=tracker,
-        )
+        try:
+            return project_context_helpers.get_project_callees(
+                project_path=project_path,
+                symbol_id=query,
+                config=config,
+                tracker=tracker,
+            )
+        except (ValueError, FileNotFoundError, NotADirectoryError) as exc:
+            return _project_error(exc, {"symbol_id": query})
 
     if operation_key == "diff":
-        return project_context_helpers.get_project_diff(
-            project_path=project_path,
-            config=config,
-            tracker=tracker,
-        )
+        try:
+            return project_context_helpers.get_project_diff(
+                project_path=project_path,
+                config=config,
+                tracker=tracker,
+            )
+        except (ValueError, FileNotFoundError, NotADirectoryError) as exc:
+            return _project_error(exc, {"project_path": project_path})
 
     try:
         return project_context_helpers.export_project_snapshot(
@@ -264,10 +303,10 @@ def project_context(
             config=config,
             tracker=tracker,
         )
-    except (PermissionError, OSError) as exc:
+    except (PermissionError, OSError, ValueError, FileNotFoundError, NotADirectoryError) as exc:
         return {
             "success": False,
-            "error": "WRITE_FAILED",
+            "error": type(exc).__name__,
             "message": f"Failed to write snapshot: {exc}",
             "details": {"output_path": output_path}
         }
@@ -392,11 +431,20 @@ def session_continuity(
             current_step_index=current_step_index,
             metadata=metadata,
         )
-        result = {"success": True, "session": data}
+        if isinstance(data, dict) and data.get("success") is False:
+            result = data
+        else:
+            result = {"success": True, "session": data}
     elif operation_key == "load":
         data = load_session(project_path=validated_root)
-        if data:
+        if data and not data.get("_corrupt"):
             result = {"success": True, "session_active": True, "session": data}
+        elif data and data.get("_corrupt"):
+            result = {
+                "success": False,
+                "error": "SESSION_CORRUPT",
+                "message": data.get("error", "Session file unreadable"),
+            }
         else:
             result = {"success": True, "session_active": False, "message": "No active session found."}
     else:  # clear

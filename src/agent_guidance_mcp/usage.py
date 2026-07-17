@@ -97,7 +97,8 @@ class UsageTracker:
                 duration_ms INTEGER DEFAULT 0,
                 result_count INTEGER DEFAULT 0,
                 queried_at INTEGER NOT NULL,
-                run_id TEXT
+                run_id TEXT,
+                status TEXT
             )
         """)
         cur.execute("""
@@ -245,54 +246,65 @@ class UsageTracker:
 
     # ── Aggregation / summary ───────────────────────────────────────────
 
-    def summary(self) -> dict[str, Any]:
+    def summary(self, scope: str = "session") -> dict[str, Any]:
         """Return aggregated usage summary across all calls."""
         self._flush_now()
         cur = self._conn.cursor()
 
+        is_session = (scope == "session")
+        where_clause = " WHERE run_id = ?" if is_session else ""
+        params = (self._run_id,) if is_session else ()
+
         cur.execute(
-            """SELECT tool_name, operation, COUNT(*) AS cnt,
+            f"""SELECT tool_name, operation, COUNT(*) AS cnt,
                       COALESCE(SUM(tokens_original), 0) AS tok_orig,
                       COALESCE(SUM(tokens_optimized), 0) AS tok_opt
                FROM tool_calls
+               {where_clause}
                GROUP BY tool_name, operation
-               ORDER BY cnt DESC"""
+               ORDER BY cnt DESC""",
+            params
         )
         tool_breakdown = [dict(r) for r in cur.fetchall()]
 
         cur.execute(
-            """SELECT skill_id, COUNT(*) AS cnt
+            f"""SELECT skill_id, COUNT(*) AS cnt
                FROM skill_loads
+               {where_clause}
                GROUP BY skill_id
                ORDER BY cnt DESC
-               LIMIT 20"""
+               LIMIT 20""",
+            params
         )
         top_skills = [dict(r) for r in cur.fetchall()]
 
-        cur.execute("SELECT COUNT(*) AS total FROM tool_calls")
+        cur.execute(f"SELECT COUNT(*) AS total FROM tool_calls{where_clause}", params)
         total_calls = cur.fetchone()["total"]
-        cur.execute("SELECT COUNT(*) AS total FROM skill_loads")
+        cur.execute(f"SELECT COUNT(*) AS total FROM skill_loads{where_clause}", params)
         total_skills_count = cur.fetchone()["total"]
-        cur.execute("SELECT COUNT(*) AS total FROM embed_queries")
+        cur.execute(f"SELECT COUNT(*) AS total FROM embed_queries{where_clause}", params)
         total_embeds = cur.fetchone()["total"]
-        cur.execute(
-            "SELECT COUNT(*) AS total FROM embed_queries WHERE status='fallback'"
-        )
+        
+        fallback_where = " WHERE status='fallback' AND run_id = ?" if is_session else " WHERE status='fallback'"
+        cur.execute(f"SELECT COUNT(*) AS total FROM embed_queries{fallback_where}", params)
         total_embed_fallback = cur.fetchone()["total"]
-        cur.execute("SELECT COUNT(*) AS total FROM llm_queries")
+        cur.execute(f"SELECT COUNT(*) AS total FROM llm_queries{where_clause}", params)
         total_llm = cur.fetchone()["total"]
 
         cur.execute(
-            """SELECT id, queried_at, status, vector_dim, result_count
-               FROM embed_queries ORDER BY queried_at DESC LIMIT 20"""
+            f"""SELECT id, queried_at, status, vector_dim, result_count
+               FROM embed_queries {where_clause} ORDER BY queried_at DESC LIMIT 20""",
+            params
         )
         embed_recent = [dict(r) for r in cur.fetchall()]
 
         cur.execute(
-            """SELECT tool_name, operation, started_at, duration_ms,
+            f"""SELECT tool_name, operation, started_at, duration_ms,
                       tokens_original, tokens_optimized, error_message
                FROM tool_calls
-               ORDER BY started_at DESC LIMIT 20"""
+               {where_clause}
+               ORDER BY started_at DESC LIMIT 20""",
+            params
         )
         recent_actions = [dict(r) for r in cur.fetchall()]
 

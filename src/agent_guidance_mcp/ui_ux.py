@@ -396,11 +396,13 @@ def search_ui_ux_guidance(
         stack_key = stack.lower()
         if stack_key not in STACK_CONFIG:
             return {
+                "success": False,
                 "error": f"Unknown stack: {stack}",
                 "available_stacks": sorted(STACK_CONFIG),
             }
         config = {**STACK_CONFIG[stack_key], **STACK_COLS}
         results = _search_csv(data_dir / config["file"], config, query, max_results)
+        hint = None if results else f"No results for '{query}' in stack '{stack_key}'. Try a different query."
         return {
             "domain": "stack",
             "stack": stack_key,
@@ -408,23 +410,27 @@ def search_ui_ux_guidance(
             "file": config["file"],
             "count": len(results),
             "results": results,
+            **({"hint": hint} if hint else {}),
         }
 
     domain_key = (domain or _detect_ui_domain(query)).lower()
     if domain_key not in CSV_CONFIG:
         return {
+            "success": False,
             "error": f"Unknown domain: {domain}",
             "available_domains": sorted(CSV_CONFIG),
         }
 
     config = CSV_CONFIG[domain_key]
     results = _search_csv(data_dir / config["file"], config, query, max_results)
+    hint = None if results else f"No results for '{query}' in domain '{domain_key}'. Try a different query or domain."
     return {
         "domain": domain_key,
         "query": query,
         "file": config["file"],
         "count": len(results),
         "results": results,
+        **({"hint": hint} if hint else {}),
     }
 
 def generate_ui_ux_design_system(
@@ -452,18 +458,21 @@ def search_slide_guidance(
     domain_key = (domain or _detect_slide_domain(query)).lower()
     if domain_key not in SLIDE_CSV_CONFIG:
         return {
+            "success": False,
             "error": f"Unknown slide domain: {domain}",
             "available_domains": sorted(SLIDE_CSV_CONFIG),
         }
 
     config = SLIDE_CSV_CONFIG[domain_key]
     results = _search_csv(data_dir / config["file"], config, query, _bounded_limit(limit))
+    hint = None if results else f"No slide results for '{query}' in domain '{domain_key}'. Try a different query or domain."
     return {
         "domain": domain_key,
         "query": query,
         "file": config["file"],
         "count": len(results),
         "results": results,
+        **({"hint": hint} if hint else {}),
     }
 
 

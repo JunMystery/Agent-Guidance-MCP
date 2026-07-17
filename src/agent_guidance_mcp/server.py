@@ -347,7 +347,7 @@ def create_server(
         from .watcher import CodeGraphWatcher
         import threading
 
-        project_root = Path(os.environ.get("AGENT_PROJECT_ROOT", ".")).resolve()
+        project_root = Path(os.environ.get("AGENT_PROJECT_ROOT", str(catalog.root))).resolve()
         db_path = project_root / ".agent-context" / "codegraph.db"
         db = CodeGraphDatabase(db_path)
 
@@ -381,7 +381,7 @@ def create_server(
     try:
         from .deploy_rules import deploy_project_rules
 
-        deploy_root = Path(os.environ.get("AGENT_PROJECT_ROOT", ".")).resolve()
+        deploy_root = Path(os.environ.get("AGENT_PROJECT_ROOT", str(catalog.root))).resolve()
 
         def _deploy_rules_bg() -> None:
             logger = logging.getLogger("agent-guidance-mcp")
@@ -660,6 +660,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         except Exception as exc:  # record errored calls (F5)
             _track_error("project_context", operation, _now_ms() - t0, error=str(exc))
             raise
+        _record_savings("project_context", operation, result, result, project_path=project_path)
         return result
 
     @mcp.tool()
@@ -691,6 +692,9 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             output_format: "markdown" or "ascii" (default "markdown").
             limit: Maximum results (default 3).
         """
+        gate = priority_gate_check(catalog.root)
+        if gate:
+            return gate
         t0 = _now_ms()
         try:
             result = pipelines.ui_ux(
@@ -769,16 +773,29 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         usage = get_usage()
         if usage is None:
             return {"success": False, "error": "Usage tracking not started."}
+        if scope not in ("session", "all"):
+            return {"success": False, "error": f"Invalid scope '{scope}'. Must be 'session' or 'all'."}
         return usage.summary(scope=scope)
 
     @mcp.tool()
     def health_check() -> dict[str, object]:
         """Return server health status and basic metadata. No parameters."""
+        try:
+            manifest = catalog.manifest()
+            entry_count = manifest.get("entry_count", 0)
+        except Exception as exc:
+            return {
+                "status": "degraded",
+                "server": "agent-guidance-mcp",
+                "version": __version__,
+                "error": str(exc),
+            }
+        status = "ok" if entry_count > 0 else "degraded"
         return {
-            "status": "ok",
+            "status": status,
             "server": "agent-guidance-mcp",
             "version": __version__,
-            "entries": catalog.manifest()["entry_count"],
+            "entries": entry_count,
         }
 
     @mcp.tool()

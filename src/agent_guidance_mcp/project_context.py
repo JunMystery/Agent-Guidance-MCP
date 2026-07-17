@@ -169,6 +169,7 @@ def read_project_file(
     max_lines = max(1, max_lines)
     selected: list[str] = []
     truncated = False
+    line_number = 0
 
     with path.open("r", encoding="utf-8", errors="replace") as file:
         for line_number, line in enumerate(file, start=1):
@@ -249,7 +250,11 @@ def search_project_code(
     root = resolve_project_root(project_path)
     limit = max(1, min(limit, 100))
     if not query:
-        return {"project_root": str(root), "query": query, "matches": []}
+        return {
+            "success": False,
+            "message": "query is required for search",
+            "suggestions": ["Provide a non-empty search term", "Use operation='tree' to browse the project"]
+        }
 
     # Try SQLite FTS5 first
     db = _get_db(root)

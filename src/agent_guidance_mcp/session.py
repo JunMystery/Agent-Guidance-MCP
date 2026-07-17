@@ -59,8 +59,8 @@ def load_session(project_path: str) -> Optional[Dict[str, Any]]:
         data = json.loads(content)
         if isinstance(data, dict) and "task" in data:
             return data
-    except Exception:
-        pass
+    except Exception as exc:
+        return {"_corrupt": True, "error": str(exc)}
     return None
 
 def clear_session(project_path: str) -> bool:

@@ -198,20 +198,13 @@ class CodeGraphDatabase:
         return cur.fetchall()
 
     def optimize(self) -> None:
-        """Run FTS5 optimize and VACUUM/PRAGMA optimize for DB health."""
+        """Run FTS5 optimize and PRAGMA optimize for DB health."""
         with self.conn:
             try:
                 self.conn.execute("INSERT INTO symbols_fts(symbols_fts) VALUES('optimize');")
                 self.conn.execute("PRAGMA optimize;")
-                # Note: VACUUM cannot be run inside a transaction transaction.
-                # So we run it outside if autocommit is not active, but since we are in `with self.conn`,
-                # it executes in a transaction. We can execute it on the connection directly.
             except sqlite3.OperationalError:
                 pass
-        try:
-            self.conn.execute("VACUUM;")
-        except sqlite3.OperationalError:
-            pass
 
     def close(self) -> None:
         self.conn.close()

@@ -96,10 +96,9 @@ def run_diagnostics(project_root: Path, catalog: StandardsCatalog) -> dict[str, 
         network_info["ip_address"] = ip
         
         # Test quick TCP connection on port 443
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(2.0)
-        s.connect((host, 443))
-        s.close()
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(2.0)
+            s.connect((host, 443))
         network_info["tcp_connection"] = "success"
     except Exception as e:
         network_info["dns_resolves"] = False
@@ -110,7 +109,6 @@ def run_diagnostics(project_root: Path, catalog: StandardsCatalog) -> dict[str, 
     # 5. File Watcher Status
     try:
         from .watcher import CodeGraphWatcher
-        db_path = project_root / ".agent-context" / "codegraph.db"
         diagnostics["watcher"] = {
             "db_exists": db_path.is_file(),
             "db_size": db_path.stat().st_size if db_path.is_file() else 0,
@@ -118,7 +116,7 @@ def run_diagnostics(project_root: Path, catalog: StandardsCatalog) -> dict[str, 
     except Exception as e:
         diagnostics["watcher"] = {"error": str(e)}
 
-    # 7. Standards Catalog Stats
+    # 6. Standards Catalog Stats
     try:
         manifest = catalog.manifest()
         diagnostics["catalog"] = {
