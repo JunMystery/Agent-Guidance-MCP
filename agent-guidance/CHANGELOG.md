@@ -10,8 +10,8 @@ Track versions and updates for the AI Agent Coding Standards framework.
 ## [3.3.0] - 2026-06-22
 
 ### Added
-- **Topological Dependency Resolution:** Added DFS-based dependency sorting inside the `guidance` get resource handler, exposing flat topologically sorted execution sequences under the `dependency_execution_order` key.
-- **Zero-Config Framework Detection:** Integrated manifest-based project stack detection in `task_pipeline` to dynamically load framework-specific rules/skills.
+- **Topological Dependency Resolution:** Added DFS-based dependency sorting inside the `agent-guidance-mcp_guidance` get resource handler, exposing flat topologically sorted execution sequences under the `dependency_execution_order` key.
+- **Zero-Config Framework Detection:** Integrated manifest-based project stack detection in `agent-guidance-mcp_task_pipeline` to dynamically load framework-specific rules/skills.
 - **Standardized Pytest Configuration:** Configured default pytest options to automatically define the base temp directory for testing.
 
 ## [3.2.3] - 2026-06-21
@@ -27,7 +27,7 @@ Track versions and updates for the AI Agent Coding Standards framework.
 - **Consolidation Unit Tests:** Added `tests/test_consolidation.py` to verify unified tokenization and savings tracking.
 
 ### Changed
-- **Codebase Consolidation:** Merged token savings tracking across `server.py`, `pipelines.py`, and `project_context.py` into a shared `utils.py`. Consolidated duplicate `tokenize` functions across `text.py` and `project_scan.py`.
+- **Codebase Consolidation:** Merged token savings tracking across `server.py`, `pipelines.py`, and `agent-guidance-mcp_project_context.py` into a shared `utils.py`. Consolidated duplicate `tokenize` functions across `text.py` and `project_scan.py`.
 - **Version Bump:** Upgraded version to v3.2.2 across project configuration and repository logs.
 
 ## [3.1.1] - 2026-06-12

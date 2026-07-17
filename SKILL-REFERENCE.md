@@ -23,11 +23,11 @@ Manual `@reference` is only required if you are using a standard web chatbot (wi
 
 The root instruction file for each agent should still be the primary entrypoint; these references are task-specific additions, not a shared instruction surface.
 
-The MCP server provides `guidance(operation="search", query="your task")` to auto-discover relevant skills from the 168-skill catalog.
+The MCP server provides `agent-guidance-mcp_guidance(operation="search", query="your task")` to auto-discover relevant skills from the 168-skill catalog.
 
 ## Local Skills Implemented Here
 
-The following on-demand skill capsules are available in [skills/](./skills/). The catalog auto-discovers all 168 skills — use `guidance(operation="search", query="your task")` to find relevant ones. Key skills by category:
+The following on-demand skill capsules are available in [skills/](./skills/). The catalog auto-discovers all 168 skills — use `agent-guidance-mcp_guidance(operation="search", query="your task")` to find relevant ones. Key skills by category:
 
 ### Backend & API
 - [backend-patterns](./skills/backend-patterns/SKILL.md)
@@ -82,7 +82,7 @@ The following on-demand skill capsules are available in [skills/](./skills/). Th
 - [git-workflow](./skills/git-workflow/SKILL.md)
 - [humanizer](./skills/humanizer/SKILL.md)
 
-Full catalog (168 skills): `guidance(operation="list", kind="skill")`
+Full catalog (168 skills): `agent-guidance-mcp_guidance(operation="list", kind="skill")`
 
 
 ---

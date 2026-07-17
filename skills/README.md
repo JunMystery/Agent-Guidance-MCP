@@ -2,7 +2,7 @@
 
 This directory contains 168 on-demand skill capsules sourced from [ECC v2.0.0](https://github.com/affaan-m/ECC) and community contributions. Each skill is a standalone Markdown file (SKILL.md) loaded on-demand by the catalog.
 
-For the full searchable catalog, use `guidance(operation="list", kind="skill")` or `guidance(operation="search", query="your task")`.
+For the full searchable catalog, use `agent-guidance-mcp_guidance(operation="list", kind="skill")` or `agent-guidance-mcp_guidance(operation="search", query="your task")`.
 
 ## Implemented Skills
 
@@ -172,7 +172,7 @@ For the full searchable catalog, use `guidance(operation="list", kind="skill")` 
 - `using-agent-skills`
 - `verification-loop`
 - `vue-patterns`
-- `workflow-modes`
+- `agent-guidance-mcp_workflow-modes`
 - `workspace-surface-audit`
 
 _Total: 168 skills_

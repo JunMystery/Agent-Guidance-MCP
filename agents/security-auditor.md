@@ -116,11 +116,11 @@ Map findings to the OWASP Top 10 for LLM Applications where relevant.
 Whenever the user prompts you to perform any coding action, repository lookup, refactoring, or planning, you MUST involve the custom `agent-guidance-mcp` server tools.
 
 ### Rules:
-1. **Always Start with Context Gathering**: Before you read files or make changes, invoke `task_pipeline` or `project_context(operation="tree" / "search" / "read")` to load optimized project states.
-2. **Consult Standards**: Use the `guidance` tool (with `operation="search"` or `operation="recommend"`) to check if any coding standard or instruction applies to the implementation.
+1. **Always Start with Context Gathering**: Before you read files or make changes, invoke `agent-guidance-mcp_task_pipeline` or `agent-guidance-mcp_project_context(operation="tree" / "search" / "read")` to load optimized project states.
+2. **Consult Standards**: Use the `agent-guidance-mcp_guidance` tool (with `operation="search"` or `operation="recommend"`) to check if any coding standard or instruction applies to the implementation.
 3. **Minimize Tokens**: Ensure that you leverage the optimized output of the MCP server tools to run context-efficient development.
 4. **Enforce Execution**: Never perform direct filesystem lookups or file reads manually if the corresponding context can be loaded and optimized through the MCP server tools.
-5. **Grounding & Planning**: Always find related files, functions, and symbols (using `project_context(operation="search")` or `task_pipeline`) and formulate an implementation plan before proposing changes. Even if the user prompt does not mention specific files/code directly, or references a function name without its location, AI Agents MUST NOT guess anything; they must verify via search first.
+5. **Grounding & Planning**: Always find related files, functions, and symbols (using `agent-guidance-mcp_project_context(operation="search")` or `agent-guidance-mcp_task_pipeline`) and formulate an implementation plan before proposing changes. Even if the user prompt does not mention specific files/code directly, or references a function name without its location, AI Agents MUST NOT guess anything; they must verify via search first.
 6. **Max 300 LOC Files**: Keep code files focused and split them when they exceed 300 lines of code (LOC). Avoid monolithic files and dumping grounds.
 
 **CRITICAL**: All 6 rules MUST be evaluated and executed for every single coding action, repository lookup, refactoring, or planning phase without exception.
@@ -129,18 +129,18 @@ Whenever the user prompts you to perform any coding action, repository lookup, r
 
 | You need to... | Use THIS tool first | Why |
 |---|---|---|
-| Start any coding task | `task_pipeline(task="...")` | Recommendations + tree + code search + UI in ONE call |
-| Check coding standards | `guidance(operation="search", query="...")` | No other tool provides standards or skill lookup |
-| Read a file | `project_context(operation="read", relative_path="...")` | Token-capped at 300 lines — prevents context blowout |
-| Search codebase text | `project_context(operation="search", query="...")` | Ranked, bounded results. Fallback when codegraph unavailable |
+| Start any coding task | `agent-guidance-mcp_task_pipeline(task="...")` | Recommendations + tree + code search + UI in ONE call |
+| Check coding standards | `agent-guidance-mcp_guidance(operation="search", query="...")` | No other tool provides standards or skill lookup |
+| Read a file | `agent-guidance-mcp_project_context(operation="read", relative_path="...")` | Token-capped at 300 lines — prevents context blowout |
+| Search codebase text | `agent-guidance-mcp_project_context(operation="search", query="...")` | Ranked, bounded results. Fallback when codegraph unavailable |
 | Understand code structure | codegraph_explore (if available) | Call graph + symbol lookup. Fallback: project_context(operation="search") |
-| Get UI/design guidance | `ui_ux(operation="search", query="...")` | Style, colors, typography, charts, slides |
-| Browse project tree | `project_context(operation="tree")` | Optimized directory tree view |
+| Get UI/design guidance | `agent-guidance-mcp_ui_ux(operation="search", query="...")` | Style, colors, typography, charts, slides |
+| Browse project tree | `agent-guidance-mcp_project_context(operation="tree")` | Optimized directory tree view |
 
 ### Six Mandatory Rules
 
-1. **Context First**: Call `task_pipeline` or `project_context` BEFORE any file read or code change.
-2. **Standards Check**: Use `guidance(operation="search")` BEFORE implementing.
+1. **Context First**: Call `agent-guidance-mcp_task_pipeline` or `agent-guidance-mcp_project_context` BEFORE any file read or code change.
+2. **Standards Check**: Use `agent-guidance-mcp_guidance(operation="search")` BEFORE implementing.
 3. **Token Budget**: Prefer MCP tools over raw file reads — built-in limits prevent context blowout.
 4. **No Direct FS**: Never manually read/search files when MCP tools do it with optimization.
 5. **Ground & Plan**: Verify files/functions/symbols via search BEFORE proposing changes. Never guess.

@@ -246,7 +246,7 @@ The harness should simplify as models improve. Following Anthropic's evolution:
 
 1. **Evaluator too lenient** — If the evaluator passes everything on iteration 1, your rubric is too generous. Tighten scoring criteria and add explicit penalties for common AI patterns.
 
-2. **Generator ignoring feedback** — Ensure feedback is passed as a file, not inline. The generator should read `feedback-NNN.md` at the start of each iteration.
+2. **Generator ignoring feedback** — Ensure feedback is passed as a file, not inline. The generator should read `agent-guidance-mcp_feedback-NNN.md` at the start of each iteration.
 
 3. **Infinite loops** — Always set `GAN_MAX_ITERATIONS`. If the generator can't improve past a score plateau after 3 iterations, stop and flag for human review.
 

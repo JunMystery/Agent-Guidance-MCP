@@ -18,10 +18,10 @@ Open the printed URL, usually `http://localhost:5173`, and inspect the registere
 
 At the start of a coding session:
 
-1. Call `task_pipeline(task, project_path)` to load relevant standards, skill recommendations, and an initial project tree.
-2. For large refactors, upgrades, audits, or unfamiliar code, also use `project_context(operation="search", project_path=..., query=...)` and `project_context(operation="snapshot", project_path=...)` when a reusable overview is useful.
-3. Before editing any file, inspect the current target file with `project_context(operation="read", project_path=..., relative_path=...)` or an equivalent file-read tool.
-4. Use `ui_ux(operation=...)` for frontend, design-system, branding, landing page, dashboard, or slide guidance.
+1. Call `agent-guidance-mcp_task_pipeline(task, project_path)` to load relevant standards, skill recommendations, and an initial project tree.
+2. For large refactors, upgrades, audits, or unfamiliar code, also use `agent-guidance-mcp_project_context(operation="search", project_path=..., query=...)` and `agent-guidance-mcp_project_context(operation="snapshot", project_path=...)` when a reusable overview is useful.
+3. Before editing any file, inspect the current target file with `agent-guidance-mcp_project_context(operation="read", project_path=..., relative_path=...)` or an equivalent file-read tool.
+4. Use `agent-guidance-mcp_ui_ux(operation=...)` for frontend, design-system, branding, landing page, dashboard, or slide guidance.
 5. Run the smallest relevant verification command after changes.
 
 Avoid repeated broad scans during the same session unless the project changed significantly.
@@ -36,7 +36,7 @@ Avoid repeated broad scans during the same session unless the project changed si
 }
 ```
 
-Use `task_pipeline` for the normal first call. Use `guidance(operation="recommend", query=...)` when you only need catalog recommendations.
+Use `agent-guidance-mcp_task_pipeline` for the normal first call. Use `agent-guidance-mcp_guidance(operation="recommend", query=...)` when you only need catalog recommendations.
 
 ## Example: Project Code Context
 
@@ -75,9 +75,9 @@ Read the current source file before editing:
 
 ## Example: Workflow Prompt
 
-Use `workflow_prompt(mode, subject, target)` when the client exposes MCP prompts.
+Use `agent-guidance-mcp_workflow_prompt(mode, subject, target)` when the client exposes MCP prompts.
 
-For example, `workflow_prompt(mode="plan", subject="Build billing export")` loads the planning workflow capsule and appends the subject.
+For example, `agent-guidance-mcp_workflow_prompt(mode="plan", subject="Build billing export")` loads the planning workflow capsule and appends the subject.
 
 ## Token Guidance
 

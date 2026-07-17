@@ -146,15 +146,15 @@ atexit.register(_close_usage)
 
 | Tool | Tracking |
 |------|----------|
-| `task_pipeline()` | `_track_usage("task_pipeline", "run")` + `usage.update_session_label(sid, task)` |
-| `guidance()` | `_track_usage("guidance", operation)` + `usage.record_skill_load()` on `get` |
-| `project_context()` | `_track_usage("project_context", operation)` |
-| `ui_ux()` | `_track_usage("ui_ux", operation)` |
-| `session_continuity()` | `_track_usage("session_continuity", operation)` |
-| `workflow_prompt` prompt | `usage.record_tool_call("workflow_prompt", mode_key)` |
+| `agent-guidance-mcp_task_pipeline()` | `_track_usage("task_pipeline", "run")` + `usage.update_session_label(sid, task)` |
+| `agent-guidance-mcp_guidance()` | `_track_usage("guidance", operation)` + `usage.record_skill_load()` on `get` |
+| `agent-guidance-mcp_project_context()` | `_track_usage("project_context", operation)` |
+| `agent-guidance-mcp_ui_ux()` | `_track_usage("ui_ux", operation)` |
+| `agent-guidance-mcp_session_continuity()` | `_track_usage("session_continuity", operation)` |
+| `agent-guidance-mcp_workflow_prompt` prompt | `usage.record_tool_call("workflow_prompt", mode_key)` |
 | `standards://skill/{name}` resource | `usage.record_skill_load(name)` |
 
-### New MCP tool: `usage_report()`
+### New MCP tool: `agent-guidance-mcp_usage_report()`
 
 ```python
 @mcp.tool()
@@ -205,7 +205,7 @@ def stats(project_path: str | None = None, session_id: str | None = None) -> dic
 | Source | How |
 |--------|-----|
 | `--session-label` flag | Explicit |
-| `task_pipeline(task)` first call | Auto-capture via `update_session_label(sid, task)` |
+| `agent-guidance-mcp_task_pipeline(task)` first call | Auto-capture via `update_session_label(sid, task)` |
 | Fallback | `client_name + formatted timestamp` |
 
 ### Display format
@@ -307,7 +307,7 @@ setInterval(async () => {
 | File | Action | Priority |
 |------|--------|----------|
 | `src/agent_guidance_mcp/usage.py` | Update schema v2, add `client_name`/`session_label`, `update_session_label()`, `summary(session_id)` filter | HIGH |
-| `src/agent_guidance_mcp/server.py` | Pass `client_name` to `session_start()`, auto-label from `task_pipeline` | HIGH |
+| `src/agent_guidance_mcp/server.py` | Pass `client_name` to `session_start()`, auto-label from `agent-guidance-mcp_task_pipeline` | HIGH |
 | `src/agent_guidance_mcp/embed_daemon.py` | Accept `session_id` param, return `sessions` list | HIGH |
 | `src/agent_guidance_mcp/__main__.py` | Add `--client-name`, `--session-label` flags | MED |
 | `~/.agent-guidance/dashboard/index.html` | Create dashboard (sidebar + 6 views) | HIGH |
@@ -379,8 +379,8 @@ Three project-planning skills reviewed against plan. Below: gaps found + propose
 
 #### B2. `server.py` client_name + auto-label
 
-- Context: `docs/usage-dashboard-plan.md` §2. In `create_server()`, read `AGENT_CLIENT_NAME` env and pass to `session_start()`. In `task_pipeline()` handler, after first call call `usage.update_session_label(sid, task)`.
-- **Done when**: `usage_report()` shows `client_name` from env, `session_label` = first `task_pipeline` task string.
+- Context: `docs/usage-dashboard-plan.md` §2. In `create_server()`, read `AGENT_CLIENT_NAME` env and pass to `session_start()`. In `agent-guidance-mcp_task_pipeline()` handler, after first call call `usage.update_session_label(sid, task)`.
+- **Done when**: `agent-guidance-mcp_usage_report()` shows `client_name` from env, `session_label` = first `agent-guidance-mcp_task_pipeline` task string.
 - Est: ~15 LOC
 
 ### Phase 2: API + Dashboard (HIGH)

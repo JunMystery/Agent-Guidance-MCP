@@ -18,7 +18,7 @@ _priority_gate_passed: bool = False  # line 83 — module-level, resets on every
 ```
 
 The `_priority_gate_passed` flag is a Python module-level global in `server.py`.
-Once `task_pipeline` calls `priority_gate_pass()`, the flag is `True` for the
+Once `agent-guidance-mcp_task_pipeline` calls `priority_gate_pass()`, the flag is `True` for the
 lifetime of that Python process.
 
 **Problem:** If the MCP server process is killed and restarted (e.g., IDE/CLI
@@ -88,7 +88,7 @@ return {
 }
 ```
 
-**Problem:** The LLM asked for `guidance(operation="get", identifier="humanizer")`
+**Problem:** The LLM asked for `agent-guidance-mcp_guidance(operation="get", identifier="humanizer")`
 but receives auto-context instead. The auto-context response format differs from
 the expected tool response. This can:
 
@@ -106,7 +106,7 @@ error.
 
 **File:** `src/agent_guidance_mcp/server.py:600-640`
 
-The `guidance` tool declares:
+The `agent-guidance-mcp_guidance` tool declares:
 ```python
 def guidance(...) -> dict[str, object] | list[dict[str, object]]:
 ```
@@ -169,7 +169,7 @@ and re-write the sentinel.
 
 In `priority_gate_check()`, add a fallback: if `_priority_gate_passed` is `False`
 and no sentinel exists, check if the server has been running > N seconds (heuristic:
-the gate should have been passed by now), and if a prior `task_pipeline` was
+the gate should have been passed by now), and if a prior `agent-guidance-mcp_task_pipeline` was
 recorded in the usage DB (`usage.db`), auto-pass the gate.
 
 ### Fix 3: Add `--re-gate` CLI Flag

@@ -40,7 +40,7 @@ Test locally with MCP Inspector:
 DANGEROUSLY_OMIT_AUTH=true npx @modelcontextprotocol/inspector .venv/bin/python -m agent_guidance_mcp
 ```
 
-Then call `task_pipeline(...)` to load guidance and bounded project context. See [Usage Guide](docs/usage.md) for workflows.
+Then call `agent-guidance-mcp_task_pipeline(...)` to load guidance and bounded project context. See [Usage Guide](docs/usage.md) for workflows.
 
 ### Upgrading
 
@@ -118,16 +118,16 @@ Works with any MCP-compatible client. Auto-configured by the installer:
 
 | Tool | Gate | Role | Key Operations |
 |---|---|---|---|
-| `task_pipeline` | **Unlocks** | **Call first** — context prep | Recommendations + tree + search + UI + execution sequence |
-| `guidance` | Gated | Standards & skill catalog | `list`, `get`, `search`, `recommend`, `reason`, `docs` (Context7) |
-| `project_context` | Gated | Project file ops + 3-tier search | `tree`, `search` (FTS5 docs config general), `read`, `symbols`, `references`, `structure`, `callers`, `callees`, `diff`, `snapshot` |
-| `ui_ux` | Gated | Design guidance | `search`, `design_system`, `slides` |
-| `session_continuity` | Gated | Task state persistence | `save`, `load`, `clear` |
-| `workflow_prompt` | Gated | Workflow prompts | `plan`, `test`, `deploy`, `debug`, etc. |
-| `usage_report` | Gated | Usage statistics | `session`, `all` |
-| `health_check` / `diagnose` / `token_stats` | Whitelisted | Operational | Server status, self-diagnostics, token savings |
+| `agent-guidance-mcp_task_pipeline` | **Unlocks** | **Call first** — context prep | Recommendations + tree + search + UI + execution sequence |
+| `agent-guidance-mcp_guidance` | Gated | Standards & skill catalog | `list`, `get`, `search`, `recommend`, `reason`, `docs` (Context7) |
+| `agent-guidance-mcp_project_context` | Gated | Project file ops + 3-tier search | `tree`, `search` (FTS5 docs config general), `read`, `symbols`, `references`, `structure`, `callers`, `callees`, `diff`, `snapshot` |
+| `agent-guidance-mcp_ui_ux` | Gated | Design guidance | `search`, `design_system`, `slides` |
+| `agent-guidance-mcp_session_continuity` | Gated | Task state persistence | `save`, `load`, `clear` |
+| `agent-guidance-mcp_workflow_prompt` | Gated | Workflow prompts | `plan`, `test`, `deploy`, `debug`, etc. |
+| `agent-guidance-mcp_usage_report` | Gated | Usage statistics | `session`, `all` |
+| `agent-guidance-mcp_health_check` / `agent-guidance-mcp_diagnose` / `agent-guidance-mcp_token_stats` | Whitelisted | Operational | Server status, self-diagnostics, token savings |
 
-Gated tools return `PRIORITY_REQUIRED` if called before `task_pipeline`. Whitelisted tools bypass the gate.
+Gated tools return `PRIORITY_REQUIRED` if called before `agent-guidance-mcp_task_pipeline`. Whitelisted tools bypass the gate.
 
 ### Resources
 
@@ -141,7 +141,7 @@ Gated tools return `PRIORITY_REQUIRED` if called before `task_pipeline`. Whiteli
 
 ### Prompt
 
-`workflow_prompt(mode, subject, target)` — Load workflow by mode: plan, test, deploy, debug, etc.
+`agent-guidance-mcp_workflow_prompt(mode, subject, target)` — Load workflow by mode: plan, test, deploy, debug, etc.
 
 ---
 
@@ -151,7 +151,7 @@ AI coding agents burn context fast. Every file read, every grep, every web searc
 
 | Layer | What It Does | Your Gain |
 |---|---|---|
-| **Priority Enforcement** | `task_pipeline` must be called before gated tools (guidance, project_context, ui_ux, session_continuity, workflow_prompt). Session-start hook auto-passes gate. | Agent always has project context before acting. No more "forgot to call task_pipeline" |
+| **Priority Enforcement** | `agent-guidance-mcp_task_pipeline` must be called before gated tools (guidance, project_context, ui_ux, session_continuity, workflow_prompt). Session-start hook auto-passes gate. | Agent always has project context before acting. No more "forgot to call task_pipeline" |
 | **Context Budgeting** | Caps file reads at 300 lines; smart-truncates source code preserving structure | Agent stays focused on relevant code, never drowns in noise |
 | **Guidance Catalog** | 168 skills + coding standards + security rules served on-demand | Agent follows production patterns without you reminding it |
 | **Token Optimization** | Strips comments, collapses whitespace, deduplicates output before it hits the LLM | **40–80% fewer tokens** per MCP response |
@@ -201,14 +201,14 @@ Agent Guidance MCP features a hybrid semantic search engine designed to dynamica
 
 - **Pre-computed Embeddings**: The 168 global catalog skills have pre-computed embeddings mapped using the lightweight `intfloat/multilingual-e5-small` model. This ensures instant retrieval on startup.
 - **Workspace-Local Skills**: The server automatically scans your project workspace for custom local skills defined in `.agents/skills/`, `.opencode/skills/`, or `.claude/skills/` directories, dynamically embeds them on startup, and merges them into the search index.
-- **Hybrid Similarity Ranking**: `guidance(operation="search")` blends traditional keyword matching with vector cosine similarity calculations to rank skills accurately, even when the task query contains no exact keyword overlaps (e.g., matching "reducing context size" to the `context-budget` skill).
+- **Hybrid Similarity Ranking**: `agent-guidance-mcp_guidance(operation="search")` blends traditional keyword matching with vector cosine similarity calculations to rank skills accurately, even when the task query contains no exact keyword overlaps (e.g., matching "reducing context size" to the `context-budget` skill).
 - **Zero-Configuration Download**: The query embedding model is automatically downloaded on-demand when the server first runs, requiring zero manual setup or configuration.
 
 ---
 
 ## Priority Enforcement
 
-Agent Guidance MCP ensures that `task_pipeline` is always called before any gated tool, across all agents and IDEs.
+Agent Guidance MCP ensures that `agent-guidance-mcp_task_pipeline` is always called before any gated tool, across all agents and IDEs.
 
 ### Three Enforcement Layers
 
@@ -233,13 +233,13 @@ Session starts
 
 | Tool | Gate Behavior |
 |---|---|
-| `task_pipeline` | **Unlocks gate** — call first to enable all gated tools |
-| `guidance`, `project_context`, `ui_ux`, `session_continuity`, `workflow_prompt` | **Gated** — return `PRIORITY_REQUIRED` error if called before `task_pipeline` |
-| `health_check`, `diagnose`, `token_stats` | **Whitelisted** — always available, no gate check |
+| `agent-guidance-mcp_task_pipeline` | **Unlocks gate** — call first to enable all gated tools |
+| `agent-guidance-mcp_guidance`, `agent-guidance-mcp_project_context`, `agent-guidance-mcp_ui_ux`, `agent-guidance-mcp_session_continuity`, `agent-guidance-mcp_workflow_prompt` | **Gated** — return `PRIORITY_REQUIRED` error if called before `agent-guidance-mcp_task_pipeline` |
+| `agent-guidance-mcp_health_check`, `agent-guidance-mcp_diagnose`, `agent-guidance-mcp_token_stats` | **Whitelisted** — always available, no gate check |
 
 ### Per-Phase Reset Rule
 
-For each new work phase (plan → implement → test → review → refactor), re-call `task_pipeline` with the phase goal. This refreshes skill recommendations, project context, and execution sequence for the new scope. The rule is deployed to all IDEs via `AGENTS.md` and `SKILL.md` files.
+For each new work phase (plan → implement → test → review → refactor), re-call `agent-guidance-mcp_task_pipeline` with the phase goal. This refreshes skill recommendations, project context, and execution sequence for the new scope. The rule is deployed to all IDEs via `AGENTS.md` and `SKILL.md` files.
 
 ### Session-Start Hook
 
@@ -247,7 +247,7 @@ Every supported CLI agent fires a session-start hook that auto-calls `agent-guid
 
 1. Builds the skill catalog
 2. Passes the priority gate (writes sentinel file)
-3. Runs `task_pipeline` for default context
+3. Runs `agent-guidance-mcp_task_pipeline` for default context
 4. Returns a JSON payload injected into the conversation
 
 The hook tries: installed binary → `python -m agent_guidance_mcp` → legacy meta-skill fallback.
@@ -262,7 +262,7 @@ Rule blocks and skill content are wrapped in HTML-comment tags (`<!-- agent-guid
 
 ### Scenario: "Add JWT authentication to my Express API"
 
-**Step 1 — Agent calls `task_pipeline` (ONE call)**
+**Step 1 — Agent calls `agent-guidance-mcp_task_pipeline` (ONE call)**
 
 ```
 Agent: task_pipeline(task="Add JWT auth to Express API", focus="backend")
@@ -325,10 +325,10 @@ agent-guidance-mcp --dashboard
 
 | Data | Tracked via | Shown in dashboard |
 |------|-------------|-------------------|
-| Tool calls | Every `task_pipeline`, `guidance`, `project_context`, `ui_ux`, `session_continuity` call | Actions Log view |
+| Tool calls | Every `agent-guidance-mcp_task_pipeline`, `agent-guidance-mcp_guidance`, `agent-guidance-mcp_project_context`, `agent-guidance-mcp_ui_ux`, `agent-guidance-mcp_session_continuity` call | Actions Log view |
 | Token savings | Per-tool origin vs optimized token counts | Token Savings view |
-| Skill loads | `guidance(get)`, `standards://skill/{name}` resource | Dashboard view |
-| Embed queries | `guidance(search)`, `guidance(recommend)` | Embed Status view |
+| Skill loads | `agent-guidance-mcp_guidance(get)`, `standards://skill/{name}` resource | Dashboard view |
+| Embed queries | `agent-guidance-mcp_guidance(search)`, `agent-guidance-mcp_guidance(recommend)` | Embed Status view |
 | Session identity | `AGENT_CLIENT_NAME` env var or `--client-name` flag | Session selector |
 
 ### Dashboard views
@@ -399,14 +399,14 @@ Total RAM for 3 IDEs: ~1.4 GB. The model is loaded once per process and shared w
 
 | Tool | Loads model? |
 |---|---|
-| `task_pipeline` | ❌ — uses precomputed `skills_embeddings.json` |
-| `guidance(operation="search")` | ✅ — loads model on first call, cached in memory after |
-| `guidance(operation="list\|get\|recommend")` | ❌ — catalog only |
-| `project_context` | ❌ — file ops only |
-| `session_continuity` | ❌ — state only |
-| `health_check / diagnose / token_stats` | ❌ — server info |
+| `agent-guidance-mcp_task_pipeline` | ❌ — uses precomputed `skills_embeddings.json` |
+| `agent-guidance-mcp_guidance(operation="search")` | ✅ — loads model on first call, cached in memory after |
+| `agent-guidance-mcp_guidance(operation="list\|get\|recommend")` | ❌ — catalog only |
+| `agent-guidance-mcp_project_context` | ❌ — file ops only |
+| `agent-guidance-mcp_session_continuity` | ❌ — state only |
+| `agent-guidance-mcp_health_check / diagnose / token_stats` | ❌ — server info |
 
-On first `guidance(search)` call, the model loads in ~1 second (cached). Subsequent calls are instant. If you never use `guidance(search)`, the model never loads.
+On first `agent-guidance-mcp_guidance(search)` call, the model loads in ~1 second (cached). Subsequent calls are instant. If you never use `agent-guidance-mcp_guidance(search)`, the model never loads.
 
 ### SSE mode (future)
 

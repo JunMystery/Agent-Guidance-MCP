@@ -259,6 +259,6 @@ All ──► Phase 6 (review)
 | Jul 15 | 1 | Standalone `--dashboard` server created | User didn't want to run embed daemon just for stats | Replaces embed daemon as primary dashboard server |
 | Jul 15 | 1 | `AGENT_SESSION_LABEL` env var added | Needed for `--session-label` flag without changing create_server signature | server.py reads env, not param |
 | Jul 15 | 3 | `_ensure_daemon()` retries 5 times before fallback | User requested always try daemon first, only fallback after 5 retries | embeddings.py logic redesigned |
-| Jul 15 | 3 | `guidance(search)` records embed queries in usage.db | User noticed model loads but queries not logged | Added record_embed_query in server.py guidance handler |
+| Jul 15 | 3 | `agent-guidance-mcp_guidance(search)` records embed queries in usage.db | User noticed model loads but queries not logged | Added record_embed_query in server.py guidance handler |
 | Jul 15 | 6 | Exponential polling backoff added | Anti-pattern review found constant 5s poll on error | pollBackoff doubles to 30s max |
 | Jul 15 | 6 | Error banner added to dashboard | No visual feedback when API unreachable | error-banner div + show/hide logic |

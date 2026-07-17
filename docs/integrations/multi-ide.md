@@ -28,18 +28,18 @@ When the IDE starts, it spawns the command as a child process. This is **stdio t
 | 3 | 3 | 3 | 1.4 GB |
 | 4 | 4 | 4 | 1.86 GB |
 
-The model is loaded lazily on the first `guidance(operation="search")` call. If you never use semantic search across all your IDEs, the model never loads and the cost is just the base server process (~30 MB).
+The model is loaded lazily on the first `agent-guidance-mcp_guidance(operation="search")` call. If you never use semantic search across all your IDEs, the model never loads and the cost is just the base server process (~30 MB).
 
 ## When It Matters
 
 - **You use 2+ IDEs regularly** (e.g., VS Code for frontend + Cursor for backend + Claude Desktop for ad-hoc)
 - **You run on memory-constrained hardware** (8-16 GB)
-- **You frequently use semantic search** (`guidance(search)`) in all IDEs
+- **You frequently use semantic search** (`agent-guidance-mcp_guidance(search)`) in all IDEs
 
 ## When It Doesn't
 
 - **Single IDE user** — one process, one model, no waste
-- **You never use `guidance(search)`** — model never loads
+- **You never use `agent-guidance-mcp_guidance(search)`** — model never loads
 - **You only open one IDE at a time** — only one process exists
 - **16+ GB RAM machine** — 466 MB overhead per additional IDE is negligible
 
@@ -47,13 +47,13 @@ The model is loaded lazily on the first `guidance(operation="search")` call. If 
 
 | Tool | Model loaded? | Notes |
 |---|---|---|
-| `task_pipeline` | No | Uses precomputed embeddings JSON |
-| `guidance(operation="search")` | **Yes** | Loads on first call, cached in process memory |
-| `guidance(operation="list\|get\|recommend")` | No | Catalog metadata only |
-| `guidance(operation="docs")` | No | Context7 API, no model needed |
-| `project_context` (all ops) | No | File system operations |
-| `session_continuity` | No | JSON state, no model |
-| `health_check / diagnose` | No | Server info |
+| `agent-guidance-mcp_task_pipeline` | No | Uses precomputed embeddings JSON |
+| `agent-guidance-mcp_guidance(operation="search")` | **Yes** | Loads on first call, cached in process memory |
+| `agent-guidance-mcp_guidance(operation="list\|get\|recommend")` | No | Catalog metadata only |
+| `agent-guidance-mcp_guidance(operation="docs")` | No | Context7 API, no model needed |
+| `agent-guidance-mcp_project_context` (all ops) | No | File system operations |
+| `agent-guidance-mcp_session_continuity` | No | JSON state, no model |
+| `agent-guidance-mcp_health_check / diagnose` | No | Server info |
 
 ## SSE Mode (Not Yet Implemented)
 

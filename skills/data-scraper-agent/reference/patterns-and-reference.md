@@ -114,7 +114,7 @@ Before marking the agent complete:
 - [ ] `.env.example` provided for onboarding
 - [ ] `setup.py` creates DB schema on first run
 - [ ] `enrich_existing.py` backfills AI scores on old rows
-- [ ] GitHub Actions workflow commits `feedback.json` after each run
+- [ ] GitHub Actions workflow commits `agent-guidance-mcp_feedback.json` after each run
 - [ ] README covers: setup in < 5 minutes, required secrets, customisation
 
 ---

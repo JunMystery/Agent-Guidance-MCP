@@ -73,7 +73,7 @@ Agent-Guidance-MCP/
 - `catalog.py`: standards catalog indexing, search, and recommendations.
 - `paths.py`: standards root discovery and safe corpus path resolution.
 - `text.py`: text normalization, snippet, and keyword helpers.
-- `project_context.py`: public project-context tool helpers.
+- `agent-guidance-mcp_project_context.py`: public project-context tool helpers.
 - `project_scan.py`: project-context traversal and filtering internals.
 - `__main__.py`: command-line module launcher.
 

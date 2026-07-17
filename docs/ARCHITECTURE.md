@@ -4,7 +4,7 @@
 
 ## Overview
 
-Agent Guidance MCP is a Python MCP server that gives AI coding agents standards guidance, skill references, workflow prompts, and bounded project code context. It enforces a priority gate so `task_pipeline` is always called before gated tools.
+Agent Guidance MCP is a Python MCP server that gives AI coding agents standards guidance, skill references, workflow prompts, and bounded project code context. It enforces a priority gate so `agent-guidance-mcp_task_pipeline` is always called before gated tools.
 
 ---
 
@@ -86,13 +86,13 @@ Tool call
 
 | Tool | Built-in | Behavior |
 |---|---|---|
-| `task_pipeline` | ✅ | **Unlocks** gate via `priority_gate_pass()` |
-| `guidance` | ✅ | Gated — blocked before `task_pipeline` |
-| `project_context` | ✅ | Gated — blocked before `task_pipeline` |
-| `ui_ux` | ✅ | **Ungated** — callable directly (design guidance, no gate) |
-| `session_continuity` | ✅ | Gated — blocked before `task_pipeline` |
-| `workflow_prompt` (prompt) | ✅ | Gated — blocked before `task_pipeline` |
-| `health_check`, `diagnose`, `token_stats` | ✅ | Whitelisted — always open |
+| `agent-guidance-mcp_task_pipeline` | ✅ | **Unlocks** gate via `priority_gate_pass()` |
+| `agent-guidance-mcp_guidance` | ✅ | Gated — blocked before `agent-guidance-mcp_task_pipeline` |
+| `agent-guidance-mcp_project_context` | ✅ | Gated — blocked before `agent-guidance-mcp_task_pipeline` |
+| `agent-guidance-mcp_ui_ux` | ✅ | **Ungated** — callable directly (design guidance, no gate) |
+| `agent-guidance-mcp_session_continuity` | ✅ | Gated — blocked before `agent-guidance-mcp_task_pipeline` |
+| `agent-guidance-mcp_workflow_prompt` (prompt) | ✅ | Gated — blocked before `agent-guidance-mcp_task_pipeline` |
+| `agent-guidance-mcp_health_check`, `agent-guidance-mcp_diagnose`, `agent-guidance-mcp_token_stats` | ✅ | Whitelisted — always open |
 
 ---
 
@@ -103,7 +103,7 @@ separate (design note F8):
 
 | Tracker | Module | Lifetime | Purpose |
 |---|---|---|---|
-| `TokenTracker` (in-memory) | `token_analytics.py` | Per process, ephemeral | Live token savings; surfaced via `token_stats` |
+| `TokenTracker` (in-memory) | `token_analytics.py` | Per process, ephemeral | Live token savings; surfaced via `agent-guidance-mcp_token_stats` |
 | `UsageTracker` (persistent) | `usage.py` | Append-only SQLite, 30-day retention | Drives the `--dashboard`; survives restarts |
 
 ### Persistent recorder (`usage.py`)
@@ -171,18 +171,18 @@ Tables:
 - `tool_calls` — one row per tool invocation: `tool_name`, `operation`,
   `tokens_original`, `tokens_optimized`, `duration_ms`, `project_path`,
   `run_id`, `error_message`.
-- `skill_loads` — `record_skill_load` calls (e.g. `guidance(get)`, workspace
+- `skill_loads` — `record_skill_load` calls (e.g. `agent-guidance-mcp_guidance(get)`, workspace
   skills, and LLM `recommend` picks), with `project_path` / `run_id`.
   `embed_used = 1` flags loads backed by an e5 embed query (F2/F5/F6):
   `recommend` picks are recorded as loads with `embed_used = 1`; bulk
   `search` hits are intentionally NOT counted to avoid inflating the
   "skills called" metric with candidate lists.
-- `embed_queries` — semantic search queries (`guidance(search/recommend)`),
+- `embed_queries` — semantic search queries (`agent-guidance-mcp_guidance(search/recommend)`),
   recorded ONLY when a real vector is computed (semantic success), with
   `model_name` / `vector_dim` / `result_count` / `run_id`. Keyword-only
   fallback (no vector) does NOT write a row (F3/F4).
 - `llm_queries` — LLM skill-selector queries (Qwen2.5-0.5B-Instruct used by
-  `guidance(recommend)`), with `model_name` / `duration_ms` / `result_count`
+  `agent-guidance-mcp_guidance(recommend)`), with `model_name` / `duration_ms` / `result_count`
   / `run_id` (F1).
 
 ### Single recording path (no double counting)
@@ -195,13 +195,13 @@ project_path=)`. The server `@mcp.tool` handlers previously emitted a second
 NULL-token row through a separate `_track_usage` writer; that duplicate path was
 removed so the dashboard's `COUNT(*)` reflects real call counts.
 
-- `task_pipeline` → recorded once as `("task_pipeline", "run")`.
-- `guidance` / `project_context` / `ui_ux` / `session_continuity` → recorded
-  inside their pipelines. `session_continuity` records a single row whose
+- `agent-guidance-mcp_task_pipeline` → recorded once as `("task_pipeline", "run")`.
+- `agent-guidance-mcp_guidance` / `agent-guidance-mcp_project_context` / `agent-guidance-mcp_ui_ux` / `agent-guidance-mcp_session_continuity` → recorded
+  inside their pipelines. `agent-guidance-mcp_session_continuity` records a single row whose
   original == optimized, so savings read 0 (the payload is small control JSON).
-- `workflow_prompt` → recorded once via `_record_savings` (a redundant NULL row
+- `agent-guidance-mcp_workflow_prompt` → recorded once via `_record_savings` (a redundant NULL row
   was removed).
-- Resolved transitive skill dependencies (`guidance(resolve_dependencies=True)`)
+- Resolved transitive skill dependencies (`agent-guidance-mcp_guidance(resolve_dependencies=True)`)
   are each recorded via `record_skill_load`.
 
 ### Error-path recording
@@ -213,9 +213,9 @@ records a `tool_calls` row carrying the exception message in `error_message`
 ### Attribution
 
 `project_path` (the tool's `project_path` argument) and `run_id` let the
-dashboard group calls by project and by process run. `guidance`/`ui_ux` handlers
+dashboard group calls by project and by process run. `agent-guidance-mcp_guidance`/`agent-guidance-mcp_ui_ux` handlers
 currently record with `project_path=None` (global) because they expose no
-`project_path` argument; `task_pipeline`/`project_context`/`session_continuity`
+`project_path` argument; `agent-guidance-mcp_task_pipeline`/`agent-guidance-mcp_project_context`/`agent-guidance-mcp_session_continuity`
 carry the real path.
 
 ---
@@ -284,7 +284,7 @@ project_context(operation="search", query="...")
 
 ### Semantic Skill Search (embeddings pipeline)
 
-`guidance(operation="search")` blends keyword matching with vector cosine
+`agent-guidance-mcp_guidance(operation="search")` blends keyword matching with vector cosine
 similarity over `intfloat/multilingual-e5-small` (384-dim, `passage:` / `query:`
 prefixes, normalized). Implementation notes:
 
@@ -305,7 +305,7 @@ prefixes, normalized). Implementation notes:
 - **Daemon diagnostics** (`embeddings.py`): if the shared embedding daemon fails
   to spawn, its stdout/stderr are appended to `~/.agent-guidance/daemon.log`
   instead of being discarded.
-- **Telemetry**: `guidance(search/recommend)` records each query to
+- **Telemetry**: `agent-guidance-mcp_guidance(search/recommend)` records each query to
   `embed_queries` with `prefix_type = "query"` — but ONLY when a real e5
   vector is computed (semantic success). Keyword-only fallback paths write
   no `embed_queries` row (F3/F4). The LLM `recommend` selector additionally
@@ -394,7 +394,7 @@ Five repositories managed by `updater.py`:
 | Key | Repository | Update check |
 |---|---|---|
 | `ecc` | `affaan-m/ECC` (main) | Commit SHA |
-| `ui_ux` | `nextlevelbuilder/ui-ux-pro-max-skill` (main) | Commit SHA |
+| `agent-guidance-mcp_ui_ux` | `nextlevelbuilder/ui-ux-pro-max-skill` (main) | Commit SHA |
 | `anthropic` | `anthropics/skills` (main) | Commit SHA |
 | `owasp` | `OWASP/CheatSheetSeries` (master) | Commit SHA |
 | `system_design` | `donnemartin/system-design-primer` (master) | Commit SHA |
@@ -419,7 +419,7 @@ To develop against the **live source** in this repo without reinstalling:
   redirects the import to this repo's `src/`, so edits are live. The `.pth`
   path is **machine-specific** and must be recreated per checkout — it is not
   part of the install and should not be copied between machines.
-- `ui_ux` is **ungated** (callable directly, no `task_pipeline` first) so design
+- `agent-guidance-mcp_ui_ux` is **ungated** (callable directly, no `agent-guidance-mcp_task_pipeline` first) so design
   passes can run during development.
 
 Launch opencode from inside this repo so the project-local config takes

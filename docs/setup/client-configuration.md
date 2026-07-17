@@ -126,12 +126,12 @@ These `TokenOptimizationConfig` fields in `src/agent_guidance_mcp/token_config.p
 
 | Field | Default | Description |
 |---|---|---|
-| `workflow_max_tokens` | `8000` | Max token cap for workflow prompts |
+| `agent-guidance-mcp_workflow_max_tokens` | `8000` | Max token cap for workflow prompts |
 | `source_file_max_tokens` | `3000` | Max tokens per source file |
 | `snapshot_total_max_tokens` | `50000` | Total token budget for project snapshots |
 | `snapshot_per_file_max_tokens` | `2000` | Per-file token cap in snapshots |
-| `task_pipeline_max_tokens` | `12000` | Max token cap for `task_pipeline` output |
-| `guidance_content_max_tokens` | `4000` | Max token cap for guidance response content |
+| `agent-guidance-mcp_task_pipeline_max_tokens` | `12000` | Max token cap for `agent-guidance-mcp_task_pipeline` output |
+| `agent-guidance-mcp_guidance_content_max_tokens` | `4000` | Max token cap for guidance response content |
 | `strip_comments` | `true` | Strip comments during optimization |
 | `collapse_whitespace` | `true` | Collapse redundant whitespace |
 | `deduplicate_lines` | `true` | Deduplicate repeated lines |

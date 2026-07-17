@@ -8,9 +8,9 @@ Complete reference for every public MCP tool, resource, and prompt exposed by th
 
 ## Tools (6 + 3 whitelisted)
 
-All tools except `health_check`, `diagnose`, and `token_stats` require `task_pipeline` to be called first. Gated tools return `PRIORITY_REQUIRED` if called before `task_pipeline`.
+All tools except `agent-guidance-mcp_health_check`, `agent-guidance-mcp_diagnose`, and `agent-guidance-mcp_token_stats` require `agent-guidance-mcp_task_pipeline` to be called first. Gated tools return `PRIORITY_REQUIRED` if called before `agent-guidance-mcp_task_pipeline`.
 
-### 1. `task_pipeline` -- Call First (unlocks gate)
+### 1. `agent-guidance-mcp_task_pipeline` -- Call First (unlocks gate)
 
 One-stop context preparation. Returns standards recommendations, project tree, code search, and optional UI/UX guidance in a single optimized call. Uses parallel execution internally.
 
@@ -31,7 +31,7 @@ task_pipeline(
 - `recommendations` — skill/standard recommendations with reasons
 - `project_tree` — bounded directory tree (if `include_tree=True`)
 - `code_search` — ranked code matches (if auto-detected or provided query)
-- `ui_ux` — UI/UX guidance (if UI intent detected and `include_ui=True`)
+- `agent-guidance-mcp_ui_ux` — UI/UX guidance (if UI intent detected and `include_ui=True`)
 - `execution_sequence` — recommended skills sorted by lifecycle order
 
 **Example:**
@@ -41,7 +41,7 @@ task_pipeline(task="Add JWT auth to Express API", focus="backend")
 
 ---
 
-### 2. `guidance` -- Standards & Skill Catalog
+### 2. `agent-guidance-mcp_guidance` -- Standards & Skill Catalog
 
 Standards catalog and skill lookup. 250 entries available on-demand. Supports 6 operations.
 
@@ -76,11 +76,11 @@ guidance(operation="reason", query="should I use microservices vs monolith")
 guidance(operation="docs", query="jsonwebtoken sign options", identifier="node-jsonwebtoken")
 ```
 
-**Loading skills on-demand:** The built-in `skill` tool only lists a few external skills. Use `guidance(operation="get", identifier="skill-name", include_content=True)` to load any of the 250 Agent Guidance skills.
+**Loading skills on-demand:** The built-in `skill` tool only lists a few external skills. Use `agent-guidance-mcp_guidance(operation="get", identifier="skill-name", include_content=True)` to load any of the 250 Agent Guidance skills.
 
 ---
 
-### 3. `project_context` -- Bounded File Operations
+### 3. `agent-guidance-mcp_project_context` -- Bounded File Operations
 
 Read, search, and explore project files with built-in token budgets. Supports 10 operations.
 
@@ -128,7 +128,7 @@ project_context(operation="diff")
 
 ---
 
-### 4. `ui_ux` -- Design Guidance
+### 4. `agent-guidance-mcp_ui_ux` -- Design Guidance
 
 UI/UX Pro Max design guidance. Supports 3 operations.
 
@@ -161,7 +161,7 @@ ui_ux(operation="slides", query="pitch deck", domain="landing")
 
 ---
 
-### 5. `session_continuity` -- Task State Persistence
+### 5. `agent-guidance-mcp_session_continuity` -- Task State Persistence
 
 Persist or recover task session state for continuity across interruptions.
 
@@ -184,7 +184,7 @@ session_continuity(
 
 ---
 
-### 6. `usage_report` -- Usage Statistics
+### 6. `agent-guidance-mcp_usage_report` -- Usage Statistics
 
 ```
 usage_report(scope: str = "session") -> dict
@@ -210,7 +210,7 @@ View the dashboard in a browser: `agent-guidance-mcp --dashboard`
 
 ---
 
-### 7. `token_stats` -- Session Statistics
+### 7. `agent-guidance-mcp_token_stats` -- Session Statistics
 
 ```
 token_stats() -> dict
@@ -220,7 +220,7 @@ Returns token optimization statistics: `total_calls`, `total_original_tokens`, `
 
 ---
 
-### 7. `health_check` -- Server Status
+### 7. `agent-guidance-mcp_health_check` -- Server Status
 
 ```
 health_check() -> dict
@@ -230,7 +230,7 @@ Returns `status`, `server`, `version`, `entries` (catalog entry count).
 
 ---
 
-### 8. `diagnose` -- Self-Diagnostics
+### 8. `agent-guidance-mcp_diagnose` -- Self-Diagnostics
 
 ```
 diagnose() -> dict
@@ -263,9 +263,9 @@ Comprehensive diagnostics across 7 subsystems:
 
 ## Prompt (1 — gated)
 
-### `workflow_prompt`
+### `agent-guidance-mcp_workflow_prompt`
 
-**Gate**: Returns `PRIORITY_REQUIRED` if called before `task_pipeline`.
+**Gate**: Returns `PRIORITY_REQUIRED` if called before `agent-guidance-mcp_task_pipeline`.
 
 ```
 workflow_prompt(

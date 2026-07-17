@@ -89,7 +89,7 @@ generate(
 | `image_size` | string | `square`, `portrait_4_3`, `landscape_16_9`, `portrait_16_9`, `landscape_4_3` | Aspect ratio |
 | `num_images` | number | 1-4 | How many to generate |
 | `seed` | number | any integer | Reproducibility |
-| `guidance_scale` | number | 1-20 | How closely to follow the prompt (higher = more literal) |
+| `agent-guidance-mcp_guidance_scale` | number | 1-20 | How closely to follow the prompt (higher = more literal) |
 
 ### Image Editing
 Use Nano Banana 2 with an input image for inpainting, outpainting, or style transfer:

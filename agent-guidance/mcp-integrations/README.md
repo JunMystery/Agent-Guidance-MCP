@@ -27,7 +27,7 @@ To avoid relying on external CodeGraph daemons, we built local-first semantic in
 
 ## 2. Context7 Documentation Search
 
-We integrated Context7 live documentation lookup directly into the MCP `guidance` tool under the `"docs"` operation.
+We integrated Context7 live documentation lookup directly into the MCP `agent-guidance-mcp_guidance` tool under the `"docs"` operation.
 
 ### Architecture & Files
 - **API Client:** [docs.py](file:///e:/Github/Agent-Guidance-MCP/src/agent_guidance_mcp/docs.py)

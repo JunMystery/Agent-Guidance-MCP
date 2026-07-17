@@ -26,7 +26,7 @@ venv/
 .continue/
 .claude-plugin/
 .claude/
-.serena/
+
 
 # Runtime artifacts (generated at server startup)
 .codegraph/

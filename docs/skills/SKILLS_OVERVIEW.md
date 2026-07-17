@@ -1,6 +1,6 @@
 # Skills Overview
 
-A compact index of the **168** local skills sourced from ECC and community contributions. Use `guidance(operation="list", kind="skill")` via the MCP server for full details.
+A compact index of the **168** local skills sourced from ECC and community contributions. Use `agent-guidance-mcp_guidance(operation="list", kind="skill")` via the MCP server for full details.
 
 | Skill | Description |
 | :--- | :--- |
@@ -170,5 +170,5 @@ A compact index of the **168** local skills sourced from ECC and community contr
 | [`using-agent-skills`](../../skills/using-agent-skills/SKILL.md) | Discovers and invokes agent skills. Use when starting a session or when you need to discover which skill applies to the ... |
 | [`verification-loop`](../../skills/verification-loop/SKILL.md) | A comprehensive verification system for Claude Code sessions. |
 | [`vue-patterns`](../../skills/vue-patterns/SKILL.md) | Vue.js 3 Composition API patterns, component architecture, reactivity best practices, Pinia state management, Vue Router... |
-| [`workflow-modes`](../../skills/workflow-modes/SKILL.md) | Canonical workflow mode prompts for init, plan, design, code, run, test, deploy, debug, refactor, audit, review, rollbac... |
+| [`agent-guidance-mcp_workflow-modes`](../../skills/workflow-modes/SKILL.md) | Canonical workflow mode prompts for init, plan, design, code, run, test, deploy, debug, refactor, audit, review, rollbac... |
 | [`workspace-surface-audit`](../../skills/workspace-surface-audit/SKILL.md) | Audit the active repo, MCP servers, plugins, connectors, env surfaces, and harness setup, then recommend the highest-val... |
