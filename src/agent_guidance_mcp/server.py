@@ -24,15 +24,23 @@ AGENT_INSTRUCTIONS = (
     "It returns recommendations, project tree, code search, and UI guidance in ONE call.\n\n"
     "Available tools:\n"
     "- task_pipeline: context prep (call first)\n"
+    "- workflow: structured dev workflow with next-step chaining\n"
+    "- precode_check: checklist of conventions/security/testing/arch rules before writing code\n"
+    "- verify: verification steps after code changes (auto-detects test/review/security/audit/deploy)\n"
     "- guidance: standards, skills, live docs, reasoning frameworks\n"
     "- project_context: bounded file ops (read/search/tree/symbols/references/diff)\n"
     "- ui_ux: design guidance (search/design_system/slides)\n"
     "- session_continuity: persist task state (save/load/clear)\n"
+    "- feedback: rate a skill (1-5) to improve future recommendations\n"
     "- health_check / diagnose / token_stats / usage_report: operational\n\n"
     "LOADING SKILLS: guidance(operation='get', identifier='skill-name', include_content=True) "
     "loads any of 168 skills on-demand. Search first: guidance(operation='search', "
     "query='humanizer') then load with 'get'. The built-in skill tool only lists a few "
     "external skills; use guidance for all Agent-Guidance-MCP skills.\n\n"
+    "WORKFLOW MODES: workflow(mode='plan') → design → code → test → review → deploy → audit.\n"
+    "Each mode returns structured instructions + the suggested next mode for task completion.\n\n"
+    "CODEGEN: task_pipeline returns a `codegen_plan` (phases + matched skills) when the "
+    "task signals code intent — then call precode_check before editing and verify after.\n\n"
     "For detailed tool usage and the 9 mandatory rules, see AGENTS.md."
 )
 
@@ -69,7 +77,6 @@ else:
 
 _global_config: TokenOptimizationConfig | None = None
 _global_tracker: TokenTracker | None = None
-_global_usage: UsageTracker | None = None
 _config_lock = threading.Lock()
 
 # ── Priority Gate ───────────────────────────────────────────────────────────
@@ -108,7 +115,10 @@ Call `task_pipeline(task="<your task>")` FIRST before any other tool on this ser
 - project_context
 - ui_ux
 - session_continuity
+- workflow
 - workflow_prompt
+- precode_check
+- verify
 
 ## Always-available tools (no gate)
 - health_check
@@ -125,11 +135,31 @@ AGENT_GUIDANCE_DIR = Path.home() / ".agent-guidance"
 GATE_SENTINEL_PATH = AGENT_GUIDANCE_DIR / ".gate_passed"
 
 
-def priority_gate_check(project_path: Path | str | None = None) -> dict[str, object] | None:
+def _infer_task_from_params(tool_name: str, params: dict[str, Any]) -> str:
+    """Derive a human-readable task from a tool call's parameters."""
+    task = params.get("task", "")
+    query = params.get("query", "")
+    subject = params.get("subject", "")
+    identifier = params.get("identifier", "")
+    description = params.get("description", "")
+    mode = params.get("mode", "")
+    return task or query or subject or identifier or description or mode or f"using {tool_name}"
+
+
+def priority_gate_check(
+    project_path: Path | str | None = None,
+    catalog: "StandardsCatalog | None" = None,
+    tool_name: str = "",
+    tool_params: dict[str, Any] | None = None,
+) -> dict[str, object] | None:
     """Return an error dict if the priority gate has not been passed, else None.
 
     Falls back to the sentinel file so a prior --session-start call (different
     process) is recognised as having already passed the gate.
+
+    When *catalog*, *tool_name*, and *tool_params* are provided and gate
+    hasn't been passed, auto-runs lightweight context enrichment and passes
+    the gate so the caller gets useful context instead of a bare error.
     """
     global _priority_gate_passed
     with _priority_gate_lock:
@@ -137,6 +167,25 @@ def priority_gate_check(project_path: Path | str | None = None) -> dict[str, obj
             if _gate_sentinel_check(project_path):
                 _priority_gate_passed = True
                 _gate_sentinel_clear()
+            elif catalog and tool_name:
+                try:
+                    task = _infer_task_from_params(tool_name, tool_params or {})
+                    from . import pipelines as _p
+                    ctx = _p.auto_context(
+                        catalog,
+                        task=task,
+                        project_path=str(project_path or "."),
+                        config=get_config(),
+                    )
+                    _priority_gate_passed = True
+                    return {
+                        "success": True,
+                        "auto_context": True,
+                        "message": f"Auto-loaded context for: {task or 'your task'}",
+                        **ctx,
+                    }
+                except Exception:
+                    return dict(PRIORITY_ERROR)
             else:
                 return dict(PRIORITY_ERROR)
     return None
@@ -305,14 +354,14 @@ def reset_tracker() -> None:
 
 def get_usage() -> UsageTracker | None:
     """Return the process-level usage tracker, or None if not started."""
-    global _global_usage
-    return _global_usage
+    from .usage import get_usage as _gu
+    return _gu()
 
 
 def set_usage(usage: UsageTracker | None) -> None:
     """Set the process-level usage tracker."""
-    global _global_usage
-    _global_usage = usage
+    from .usage import set_usage as _su
+    _su(usage)
 
 
 _CONFIG_UNSET = object()
@@ -557,7 +606,9 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             include_content: Set True for "get" to include full skill body (default False).
             resolve_dependencies: Set True for "get" to recursively load transitive dependencies (default False).
         """
-        gate = priority_gate_check(catalog.root)
+        gate = priority_gate_check(catalog.root, catalog, "guidance", {
+            "query": query, "identifier": identifier, "operation": operation,
+        })
         if gate:
             return gate
         t0 = _now_ms()
@@ -638,7 +689,9 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             max_total_bytes: Total cap for snapshot (default 2000000).
             limit: Maximum search or reference results (default 20).
         """
-        gate = priority_gate_check(catalog.root)
+        gate = priority_gate_check(catalog.root, catalog, "project_context", {
+            "query": query, "relative_path": relative_path, "operation": operation,
+        })
         if gate:
             return gate
         t0 = _now_ms()
@@ -693,7 +746,9 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             output_format: "markdown" or "ascii" (default "markdown").
             limit: Maximum results (default 3).
         """
-        gate = priority_gate_check(catalog.root)
+        gate = priority_gate_check(catalog.root, catalog, "ui_ux", {
+            "query": query, "operation": operation,
+        })
         if gate:
             return gate
         t0 = _now_ms()
@@ -740,7 +795,9 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             current_step_index: Index of current checklist step (default 0).
             metadata: Optional context variables as a dict.
         """
-        gate = priority_gate_check(catalog.root)
+        gate = priority_gate_check(catalog.root, catalog, "session_continuity", {
+            "task": task, "operation": operation,
+        })
         if gate:
             return gate
         t0 = _now_ms()
@@ -808,10 +865,147 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         return run_diagnostics(root_path, catalog)
 
 
+    @mcp.tool()
+    def workflow(
+        mode: str = "plan",
+        subject: str = "",
+        target: str = "",
+    ) -> dict[str, object]:
+        """Load a workflow mode with enriched context and next-step suggestion.
+
+        Use this to get structured workflow instructions for each dev phase.
+        Unlike workflow_prompt (passive resource), this tool returns enriched
+        context and auto-chains to the next suggested mode.
+
+        Args:
+            mode: Workflow mode key — init/plan/design/visualize/code/run/test/
+                  deploy/debug/refactor/audit/rollback/recap/review/next/help/
+                  readme/customize/brainstorm/save_brain (default 'plan').
+            subject: Optional subject to contextualize the workflow.
+            target: Optional target description.
+        """
+        gate = priority_gate_check(catalog.root, catalog, "workflow", {
+            "mode": mode, "subject": subject, "target": target,
+        })
+        if gate:
+            return gate
+        t0 = _now_ms()
+        try:
+            result = pipelines.workflow_mode(
+                catalog=catalog,
+                mode=mode,
+                subject=subject,
+                target=target,
+                config=get_config(),
+            )
+        except Exception as exc:
+            _track_error("workflow", mode, _now_ms() - t0, error=str(exc))
+            raise
+        _record_savings("workflow", mode, result, result, duration_ms=_now_ms() - t0, project_path=None)
+        return result
+
+
+    @mcp.tool()
+    def precode_check(
+        task: str,
+        paths: str = "",
+    ) -> dict[str, object]:
+        """Return a structured checklist before writing code.
+
+        Searches coding conventions, security rules, testing patterns,
+        architecture guidelines, and deployment rules relevant to your
+        task and project framework. Load relevant skill content with
+        guidance(operation='get', identifier='<skill-id>', include_content=True).
+
+        Args:
+            task: Description of what you're about to implement.
+            paths: Optional comma-separated file paths to check against.
+        """
+        gate = priority_gate_check(catalog.root, catalog, "precode_check", {
+            "task": task, "paths": paths,
+        })
+        if gate:
+            return gate
+        t0 = _now_ms()
+        try:
+            result = pipelines.precode_check(
+                catalog=catalog,
+                task=task,
+                paths=paths,
+                config=get_config(),
+            )
+        except Exception as exc:
+            _track_error("precode_check", "run", _now_ms() - t0, error=str(exc))
+            raise
+        _record_savings("precode_check", "run", result, result, duration_ms=_now_ms() - t0, project_path=None)
+        return result
+
+
+    @mcp.tool()
+    def verify(
+        changes: str,
+        kind: str | None = None,
+    ) -> dict[str, object]:
+        """Return verification steps after code changes.
+
+        Infers verification kind from changed files (test / review / security /
+        audit / deploy) and loads relevant patterns. Auto-suggests the next
+        workflow mode. Use after implementing to close the dev loop.
+
+        Args:
+            changes: Description of what changed or file paths (comma-separated).
+            kind: Optional explicit verification kind — test, review, security,
+                  audit, or deploy. Auto-detected from changes if omitted.
+        """
+        gate = priority_gate_check(catalog.root, catalog, "verify", {
+            "changes": changes, "kind": kind,
+        })
+        if gate:
+            return gate
+        t0 = _now_ms()
+        try:
+            result = pipelines.verify(
+                catalog=catalog,
+                changes=changes,
+                kind=kind,
+                config=get_config(),
+            )
+        except Exception as exc:
+            _track_error("verify", kind or "auto", _now_ms() - t0, error=str(exc))
+            raise
+        _record_savings("verify", kind or "auto", result, result, duration_ms=_now_ms() - t0, project_path=None)
+        return result
+
+
+    @mcp.tool()
+    def feedback(skill_id: str, rating: int, task: str = "") -> dict[str, object]:
+        """Record a rating (1-5) for a skill to improve future recommendations.
+
+        Skills rated >=4 for a task get boosted in recommend_context for similar
+        future tasks. This is the feedback loop that makes the MCP learn from use.
+
+        Args:
+            skill_id: Identifier of the skill you rated (e.g. 'backend-patterns').
+            rating: Integer 1-5 (5 = very useful).
+            task: Optional description of the task the skill was used for.
+        """
+        rating = max(1, min(5, int(rating)))
+        usage = get_usage()
+        if usage is not None:
+            usage.record_feedback(skill_id, rating, task or None)
+        return {
+            "success": True,
+            "skill_id": skill_id,
+            "rating": rating,
+            "message": "Feedback recorded — future recommendations will learn from it.",
+        }
+
     @mcp.prompt()
     def workflow_prompt(mode: str = "plan", subject: str = "", target: str = "") -> str:
         """Load a workflow prompt by mode. Parameters: mode (str) — workflow mode key: init/plan/design/visualize/code/run/test/deploy/debug/refactor/audit/rollback/recap/review/next/help/readme/customize/brainstorm/save_brain (default 'plan'); subject (str) — optional subject to contextualize the prompt; target (str) — optional target description."""
-        gate = priority_gate_check(catalog.root)
+        gate = priority_gate_check(catalog.root, catalog, "workflow_prompt", {
+            "mode": mode, "subject": subject, "target": target,
+        })
         if gate:
             return gate
         mode_key = mode.lower().replace("-", "_")

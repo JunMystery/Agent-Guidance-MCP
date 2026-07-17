@@ -25,7 +25,13 @@ from .pipeline_helpers import (
     _record_savings,
     _wrap_response,
     lifecycle_sort_key,
+    next_workflow_mode,
+    PRECODE_CATEGORY_QUERIES,
+    infer_verification_kind,
+    _is_codegen_task,
+    infer_codegen_plan,
 )
+from .response_optimizer import optimize_markdown
 
 SESSION_CONTINUITY_OPERATIONS = ("save", "load", "clear")
 
@@ -558,13 +564,203 @@ def task_pipeline(
     else:
         recs = []
     skills_to_chain = [r["identifier"] for r in recs if r.get("kind") == "skill"]
-    
+
     sorted_skills = sorted(skills_to_chain, key=lifecycle_sort_key)
     if sorted_skills:
         result["execution_sequence"] = sorted_skills
+
+    # Codegen Scaffolding: If task signals code-creation intent, attach a plan
+    if _is_codegen_task(f"{task} {focus} {active_code_query or ''}"):
+        try:
+            codegen_plan = infer_codegen_plan(
+                catalog=catalog,
+                task=task,
+                frameworks=detected_tags,
+                skills=sorted_skills,
+            )
+            result["codegen_plan"] = codegen_plan
+        except Exception:
+            pass
 
     optimized = optimize_response(
         result, max_content_tokens=config.task_pipeline_max_tokens, config=config
     )
     _record_savings(tracker, "task_pipeline", "task_pipeline", result, optimized, project_path=project_path)
     return optimized
+
+
+def auto_context(
+    catalog: StandardsCatalog,
+    task: str = "",
+    project_path: str = ".",
+    config: TokenOptimizationConfig | None = None,
+) -> dict[str, object]:
+    """Lightweight context enrichment for gate auto-pass. Runs framework
+    detection + essential skills (no tree/code search)."""
+    config = config or load_config_from_env()
+    try:
+        frameworks = _detect_frameworks(project_path)
+    except Exception:
+        frameworks = []
+    ecosystem_str = " ".join(frameworks)
+    weighted_task = f"{task} {ecosystem_str}".strip() if ecosystem_str else task
+
+    try:
+        context = catalog.recommend_context(
+            task=weighted_task or "general development",
+            limit=5,
+            include_content=False,
+            config=config,
+        )
+    except Exception as e:
+        context = {"error": str(e), "recommendations": []}
+
+    return {
+        "task": task or "auto-detected",
+        "frameworks": frameworks,
+        "context": context,
+    }
+
+
+def workflow_mode(
+    catalog: StandardsCatalog,
+    mode: str = "plan",
+    subject: str = "",
+    target: str = "",
+    config: TokenOptimizationConfig | None = None,
+) -> dict[str, object]:
+    """Load a workflow mode with enriched context and next-step suggestion."""
+    config = config or load_config_from_env()
+    mode_key = mode.lower().replace("-", "_")
+
+    from .server import WORKFLOW_MODE_MAP  # lazy import — safe at call time
+
+    if mode_key not in WORKFLOW_MODE_MAP:
+        supported = ", ".join(sorted(WORKFLOW_MODE_MAP))
+        return {
+            "success": False,
+            "error": f"Unsupported workflow mode: {mode}",
+            "supported": supported,
+        }
+
+    try:
+        raw_content = catalog.read_path(WORKFLOW_MODE_MAP[mode_key])
+    except Exception as exc:
+        return {"success": False, "error": f"Workflow '{mode}' could not be loaded: {exc}"}
+
+    if config.enabled:
+        content = optimize_markdown(
+            raw_content,
+            max_tokens=config.workflow_max_tokens,
+            config=config,
+        )
+    else:
+        content = raw_content
+
+    result: dict[str, object] = {
+        "mode": mode_key,
+        "content": content,
+        "suggested_next": next_workflow_mode(mode_key),
+    }
+    if subject:
+        result["subject"] = subject
+    if target:
+        result["target"] = target
+
+    return result
+
+
+def precode_check(
+    catalog: StandardsCatalog,
+    task: str,
+    paths: str = "",
+    config: TokenOptimizationConfig | None = None,
+) -> dict[str, object]:
+    """Return a structured checklist for code-writing readiness.
+
+    Searches the catalog for relevant coding conventions, security patterns,
+    testing patterns, architecture guidelines, and deployment rules based
+    on the task and detected frameworks.
+    """
+    config = config or load_config_from_env()
+    try:
+        frameworks = _detect_frameworks(".")
+    except Exception:
+        frameworks = []
+
+    weighted_task = f"{task} {' '.join(frameworks)}".strip()
+
+    checklist: dict[str, list[dict[str, object]]] = {}
+    for category, query in PRECODE_CATEGORY_QUERIES.items():
+        try:
+            results = catalog.search_entries(query, limit=3, kind="skill")
+            if results:
+                checklist[category] = [
+                    {"identifier": r["identifier"], "title": r.get("title", ""),
+                     "description": r.get("description", "")}
+                    for r in results
+                ]
+        except Exception:
+            checklist[category] = []
+
+    return {
+        "task": task,
+        "frameworks": frameworks,
+        "checklist": checklist,
+        "total_checks": sum(len(v) for v in checklist.values()),
+    }
+
+
+def verify(
+    catalog: StandardsCatalog,
+    changes: str,
+    kind: str | None = None,
+    config: TokenOptimizationConfig | None = None,
+) -> dict[str, object]:
+    """Return verification steps after code changes.
+
+    Infers verification kind from changed files (test / review / security /
+    audit / deploy) and loads relevant patterns from the catalog.
+    """
+    config = config or load_config_from_env()
+    verification_kind = infer_verification_kind(changes, kind)
+
+    query_map = {
+        "test": "testing tdd verification",
+        "review": "code review quality patterns",
+        "security": "security audit review",
+        "audit": "audit review checklist health",
+        "deploy": "deployment ci cd patterns",
+    }
+    search_query = query_map.get(verification_kind, "review patterns")
+
+    try:
+        skill_results = catalog.search_entries(search_query, limit=4, kind="skill")
+        doc_results = catalog.search_entries(search_query, limit=3, kind="doc")
+    except Exception:
+        skill_results = []
+        doc_results = []
+
+    skills_list = [
+        {"identifier": r["identifier"], "title": r.get("title", ""),
+         "description": r.get("description", "")}
+        for r in skill_results
+    ]
+    docs_list = [
+        {"identifier": r["identifier"], "title": r.get("title", ""),
+         "description": r.get("description", "")}
+        for r in doc_results
+    ]
+
+    next_mode = next_workflow_mode(verification_kind)
+
+    return {
+        "kind": verification_kind,
+        "changes": changes,
+        "patterns": skills_list,
+        "references": docs_list,
+        "suggested_next": next_mode,
+        "suggested_workflow": f"workflow(mode='{verification_kind}')" if verification_kind in (
+            "test", "review", "audit", "deploy"
+        ) else None,
+    }

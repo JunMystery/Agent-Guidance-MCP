@@ -41,6 +41,10 @@ For EVERY user interaction — planning, implementation, testing, debugging, rev
 | Search codebase text | `project_context(operation="search", query="...")` | Ranked, bounded results. Fallback when codegraph unavailable |
 | Understand code structure | `project_context(operation="structure", relative_path="...")` | Hierarchical view of classes, methods, functions in a file |
 | Extract symbols | `project_context(operation="symbols", relative_path="...")` | Flat list of classes, functions, methods with signatures |
+| Get structured workflow | `workflow(mode="plan")` → `"code"` → `"test"` | Enriched dev workflow with auto-chaining |
+| Pre-code checklist | `precode_check(task="...")` | Coding conventions, security, testing, arch, deploy rules |
+| Post-code verification | `verify(changes="...")` | Auto-detect test/review/security/audit/deploy; suggests next workflow |
+| Skill feedback loop | `feedback(skill_id="...", rating=1-5)` | Rate skills to boost future recommendations for similar tasks |
 | Find symbol references | `project_context(operation="references", query="...")` | Locate all usages of a symbol across the codebase |
 | Get UI/design guidance | `ui_ux(operation="search", query="...")` | Style, colors, typography, charts, slides |
 | Persist/recover session | `session_continuity(operation="save"/"load"/"clear")` | State recovery / task checklist continuity |

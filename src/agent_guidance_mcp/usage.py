@@ -22,6 +22,20 @@ _MAX_QUEUE_SIZE = 5000
 _FLUSH_INTERVAL_S = 2.0
 _DEFAULT_RETENTION_DAYS = 1
 
+_global_usage: "UsageTracker | None" = None
+
+
+def get_usage() -> "UsageTracker | None":
+    """Return the process-level usage tracker, or None if not started."""
+    global _global_usage
+    return _global_usage
+
+
+def set_usage(usage: "UsageTracker | None") -> None:
+    """Set the process-level usage tracker."""
+    global _global_usage
+    _global_usage = usage
+
 
 class _WriteOp:
     __slots__ = ("method", "args")
@@ -86,6 +100,20 @@ class UsageTracker:
                 project_path TEXT,
                 run_id TEXT
             )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS skill_feedback (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                skill_id TEXT NOT NULL,
+                rating INTEGER NOT NULL,
+                task TEXT,
+                rated_at INTEGER NOT NULL,
+                run_id TEXT
+            )
+        """)
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS idx_skill_feedback_skill
+                ON skill_feedback(skill_id)
         """)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS embed_queries (
@@ -209,6 +237,50 @@ class UsageTracker:
             rid = rec.get("identifier") if isinstance(rec, dict) else None
             if rid:
                 self.record_skill_load(rid, query=query, embed_used=True, project_path=project_path)
+
+    def record_feedback(
+        self,
+        skill_id: str,
+        rating: int,
+        task: str | None = None,
+    ) -> None:
+        """Record a user rating (1-5) for a skill, optionally tied to a task."""
+        now = int(time.time())
+        self._queue.put(
+            _WriteOp("record_feedback",
+                      (skill_id, max(1, min(5, int(rating))), task, now, self._run_id))
+        )
+
+    def get_top_feedback_skills(self, task_keywords: list[str], limit: int = 5) -> dict[str, float]:
+        """Return skill_ids with avg rating >= 4 whose task field shares a keyword.
+
+        Used by catalog.recommend_context to boost well-rated skills for similar
+        tasks. Returns {skill_id: avg_rating}.
+        """
+        self._flush_now()
+        cur = self._conn.cursor()
+        cur.execute(
+            """SELECT skill_id, AVG(rating) AS avg_rating, MAX(task) AS task
+               FROM skill_feedback
+               WHERE rating >= 4
+               GROUP BY skill_id
+               HAVING COUNT(*) >= 1"""
+        )
+        rows = cur.fetchall()
+        if not rows:
+            return {}
+        kws = set(task_keywords)
+        boosted: dict[str, float] = {}
+        for r in rows:
+            sid = r["skill_id"]
+            task_field = (r["task"] or "").lower()
+            if kws & set(task_field.split()):
+                boosted[sid] = float(r["avg_rating"])
+        if not boosted and kws:
+            # Fall back to globally well-rated skills when no task overlap
+            for r in rows:
+                boosted[r["skill_id"]] = float(r["avg_rating"])
+        return dict(sorted(boosted.items(), key=lambda kv: kv[1], reverse=True)[:limit])
 
     def record_embed_query(
         self,
@@ -405,6 +477,15 @@ def _w_skill_load(conn, skill_id, query, search_term, embed_used, now, proj, run
     )
 
 
+def _w_feedback(conn, skill_id, rating, task, now, run_id):
+    conn.execute(
+        """INSERT INTO skill_feedback
+               (skill_id, rating, task, rated_at, run_id)
+           VALUES (?, ?, ?, ?, ?)""",
+        (skill_id, rating, task, now, run_id),
+    )
+
+
 def _w_embed_query(conn, qtext, ptype, model, vdim, dur, rcnt, status, now, run_id):
     conn.execute(
         """INSERT INTO embed_queries
@@ -429,4 +510,5 @@ _WRITE_DISPATCH: dict[str, object] = {
     "record_skill_load": _w_skill_load,
     "record_embed_query": _w_embed_query,
     "record_llm_query": _w_llm_query,
+    "record_feedback": _w_feedback,
 }

@@ -414,6 +414,18 @@ class StandardsCatalog:
         for identifier in llm_picks:
             add_recommendation(identifier, "LLM-recommended for this task")
 
+        # Feedback-boosted skills: well-rated (>=4) skills for similar tasks
+        try:
+            from .usage import get_usage
+            usage = get_usage()
+            if usage is not None:
+                feedback_boost = usage.get_top_feedback_skills(keywords, limit=3)
+                for fid, avg in feedback_boost.items():
+                    if add_recommendation(fid, f"High-feedback skill (avg {avg:.1f}/5)"):
+                        break
+        except Exception:
+            pass
+
         # Dynamic task anchors from file frontmatter take precedence
         # Pre-compute anchor entries for fast lookup (O(1) vs O(N) per call)
         for keyword in keywords:

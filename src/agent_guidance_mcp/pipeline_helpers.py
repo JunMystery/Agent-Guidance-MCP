@@ -43,6 +43,66 @@ LIFECYCLE_ORDER = [
     "shipping-and-launch",
 ]
 
+CODEGEN_TERMS = {
+    "add",
+    "create",
+    "implement",
+    "build",
+    "write",
+    "develop",
+    "generate",
+    "scaffold",
+    "new",
+    "feature",
+    "endpoint",
+    "api",
+    "function",
+    "class",
+    "module",
+    "service",
+    "component",
+    "handler",
+    "middleware",
+    "route",
+    "controller",
+    "auth",
+    "login",
+    "crud",
+    "fix",
+    "patch",
+    "refactor",
+}
+
+NEXT_WORKFLOW_MODE: dict[str, str] = {
+    "init": "plan",
+    "plan": "design",
+    "design": "visualize",
+    "visualize": "code",
+    "code": "test",
+    "test": "review",
+    "review": "deploy",
+    "deploy": "audit",
+    "run": "debug",
+    "debug": "refactor",
+    "refactor": "test",
+    "audit": "rollback",
+    "rollback": "recap",
+    "brainstorm": "plan",
+}
+
+def next_workflow_mode(mode: str) -> str | None:
+    return NEXT_WORKFLOW_MODE.get(mode)
+
+
+def _is_codegen_task(value: str) -> bool:
+    """Heuristic: task signals code-creation/editing intent."""
+    terms = set()
+    for t in value.split():
+        cleaned = t.strip(".,:;()[]{}").lower()
+        terms.add(cleaned)
+        terms.update(cleaned.split("-"))
+    return bool(terms & CODEGEN_TERMS)
+
 def lifecycle_sort_key(skill_id: str) -> int:
     try:
         return LIFECYCLE_ORDER.index(skill_id)
@@ -347,3 +407,112 @@ def _detect_dependency_cycles(catalog: object, start_identifier: str) -> list[st
 
     _dfs(start_identifier)
     return cycles
+
+
+VERIFICATION_KINDS = ("test", "review", "security", "audit", "deploy")
+
+VERIFICATION_KIND_EXTENSIONS: dict[str, str] = {
+    ".test.js": "test",
+    ".spec.js": "test",
+    ".test.ts": "test",
+    ".spec.ts": "test",
+    "test_": "test",
+    "_test.": "test",
+    ".py": "review",
+    ".js": "review",
+    ".ts": "review",
+    ".tsx": "review",
+    ".jsx": "review",
+    ".java": "review",
+    ".rs": "review",
+    ".go": "review",
+    ".rb": "review",
+    ".php": "review",
+    ".kt": "review",
+    ".swift": "review",
+    ".rs": "review",
+    "Dockerfile": "deploy",
+    "docker-compose": "deploy",
+    ".yaml": "audit",
+    ".yml": "audit",
+    ".json": "audit",
+    ".toml": "audit",
+}
+
+PRECODE_CATEGORY_QUERIES: dict[str, str] = {
+    "coding_conventions": "coding standards conventions patterns",
+    "security": "security checklist review",
+    "testing": "testing patterns tdd",
+    "architecture": "architecture design patterns",
+    "deployment": "deployment deployment ci cd",
+}
+
+
+def infer_verification_kind(changes: str, kind: str | None = None) -> str:
+    """Infer the verification kind from changed file paths or explicit kind."""
+    if kind and kind in VERIFICATION_KINDS:
+        return kind
+    changes_lower = changes.lower()
+    for pattern, vkind in VERIFICATION_KIND_EXTENSIONS.items():
+        if pattern.lower() in changes_lower:
+            return vkind
+    return "review"
+
+
+def infer_codegen_plan(
+    catalog: object,
+    task: str,
+    frameworks: list[str],
+    skills: list[str],
+) -> dict[str, object]:
+    """Build a lightweight implementation plan for a code-creation task.
+
+    Returns ordered phases (spec → implement → test → verify → ship) with
+    the matched skills attached to each phase. Frameworks seed suggested
+    libraries; skills seed recommended patterns.
+    """
+    ecosystem = " ".join(frameworks)
+    weighted = f"{task} {ecosystem}".strip()
+
+    plan_phases: list[dict[str, object]] = [
+        {"phase": "spec", "goal": "Clarify requirements and interface contract",
+         "skills": _pick_skills(skills, "spec")},
+        {"phase": "implement", "goal": "Write the minimal working code",
+         "skills": _pick_skills(skills, "implement")},
+        {"phase": "test", "goal": "Add tests, run the suite",
+         "skills": _pick_skills(skills, "test")},
+        {"phase": "verify", "goal": "Lint, review, security pass",
+         "skills": _pick_skills(skills, "verify")},
+        {"phase": "ship", "goal": "Document + commit + open PR",
+         "skills": _pick_skills(skills, "ship")},
+    ]
+
+    suggestions: list[str] = []
+    if frameworks:
+        suggestions.append(f"Ecosystem detected: {', '.join(frameworks)} — prefer native stdlib before adding deps")
+    if skills:
+        suggestions.append(f"Load skills via guidance(operation='get', identifier='<id>', include_content=True): {', '.join(skills[:3])}")
+    suggestions.append("Run precode_check(task=...) before editing; run verify(changes=...) after")
+
+    return {
+        "is_codegen": True,
+        "task": task,
+        "frameworks": frameworks,
+        "phases": plan_phases,
+        "suggestions": suggestions,
+        "next_tool": "precode_check",
+    }
+
+
+def _pick_skills(skills: list[str], phase: str) -> list[str]:
+    """Attach a subset of skills to a lifecycle phase by keyword match."""
+    phase_keywords = {
+        "spec": ("spec", "plan", "api-design", "intent"),
+        "implement": ("frontend", "backend", "incremental", "tdd"),
+        "test": ("tdd", "verification", "test"),
+        "verify": ("review", "quality", "browser", "audit"),
+        "ship": ("shipping", "launch"),
+    }
+    kws = phase_keywords.get(phase, ())
+    matched = [s for s in skills if any(k in s for k in kws)]
+    return matched[:3]
