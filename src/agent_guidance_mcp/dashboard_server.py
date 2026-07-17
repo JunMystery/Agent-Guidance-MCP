@@ -117,6 +117,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if not DB_PATH.exists():
             self._send_json(200, {
                 "success": False, "error": "NO_USAGE_DATA",
+                "db_status": "missing",
                 "message": f"No usage.db at {DB_PATH}",
             })
             return
@@ -130,6 +131,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             # Inject active server config
             data["project_path"] = DashboardHandler.project_path
             data["server_port"] = DashboardHandler.server_port
+            data["db_status"] = "ok"
+            data["version"] = __version__
             self._send_json(200, data)
         except Exception as e:
             self._send_json(500, {"error": str(e)})

@@ -44,11 +44,11 @@ def main():
 
     output_path = Path(__file__).resolve().parents[1] / "src" / "agent_guidance_mcp" / "skills_embeddings.json"
     print(f"Writing embeddings to {output_path}...")
-    data: dict[str, object] = {"__meta__": {"version": 1, "hashes": hashes}}
-    data.update(embeddings_map)
     tmp_path = output_path.with_suffix(".json.tmp")
     with open(tmp_path, "w", encoding="utf-8") as f:
-        json.dump(data, f)
+        f.write(json.dumps({"__meta__": {"version": 1, "hashes": hashes}}) + "\n")
+        for key, value in embeddings_map.items():
+            f.write(json.dumps({key: value}) + "\n")
     os.replace(tmp_path, output_path)
 
     print("Successfully completed!")

@@ -23,6 +23,15 @@ export function fmtDuration(sec) {
   return Math.floor(sec / 86400) + 'd ' + Math.floor((sec % 86400) / 3600) + 'h';
 }
 
+export function fmtDurationMs(ms) {
+  if (!ms) return '--';
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  return h + 'h ' + m + 'm ' + s + 's';
+}
+
 export function savingsBadge(saved, orig) {
   const pct = orig ? ((saved / orig) * 100).toFixed(1) : '0.0';
   const pctNum = parseFloat(pct);

@@ -96,6 +96,21 @@ The wheel includes:
 
 These paths are configured in `pyproject.toml`.
 
+## Version Bump
+
+Update these files when releasing a new version:
+
+| File | Line | Action |
+|---|---|---|
+| `pyproject.toml` | 7 | Set `version = "X.Y.Z"` |
+| `src/agent_guidance_mcp/__init__.py` | 3 | Set `__version__ = "X.Y.Z"` |
+| `src/agent_guidance_mcp/dashboard_src/package.json` | 3 | Set `"version": "X.Y.Z"` |
+
+Files that auto-follow via `from . import __version__` (no manual change):
+- `server.py`, `dashboard_server.py`, `__main__.py`, `updater.py`
+
+Procedure: `pyproject.toml` → `__init__.py` → `package.json`.
+
 ## Related Docs
 
 - [Installation](installation.md)

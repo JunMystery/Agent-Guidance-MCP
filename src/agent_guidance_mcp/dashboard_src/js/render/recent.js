@@ -1,5 +1,5 @@
 import { el, emptyState } from '../dom.js';
-import { fmtTokens, savingsBadge } from '../format.js';
+import { fmtTokens, savingsBadge, fmtDurationMs } from '../format.js';
 import { timeAgo } from '../format.js';
 import { makeSortable, filterRows, bindFilter } from '../interactions.js';
 import { store } from '../state.js';
@@ -24,7 +24,7 @@ function drawRecentCalls() {
     rows.forEach(r => {
       const saved = r.savings;
       const { pct, badgeClass } = savingsBadge(saved, r.tokens_original);
-      const duration = r.duration_ms ? r.duration_ms + 'ms' : '--';
+      const duration = fmtDurationMs(r.duration_ms);
       const statusClass = r.error_message ? 'badge red' : 'badge green';
       const statusText = r.error_message ? 'error' : 'ok';
       const statusTitle = r.error_message ? ' title="' + r.error_message.replace(/"/g, '&quot;') + '"' : '';

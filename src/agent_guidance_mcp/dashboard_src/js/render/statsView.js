@@ -16,6 +16,8 @@ export function renderDashboard(data) {
   if (projEl) projEl.title = data.project_path || '';
   setText('sidebar-port', 'port: ' + (data.server_port || '--'));
   setText('sys-project', data.project_path || '--');
+  setText('sys-version', data.version || '--');
+  setText('sys-db-status', data.db_status || '--');
 
   setText('out-tool-calls', t.tool_calls || 0);
   setText('out-skills-loaded', t.skills_loaded || 0);

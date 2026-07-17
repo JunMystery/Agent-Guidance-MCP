@@ -415,7 +415,7 @@ def cosine_similarity(v1: List[float], v2: List[float]) -> float:
 
 
 def load_precomputed_embeddings() -> Dict[str, List[float]]:
-    """Load pre-computed embeddings (id -> vector) from the bundled file.
+    """Load pre-computed embeddings (id -> vector) from the bundled JSONL file.
 
     The reserved ``_META_KEY`` entry (hashes) is excluded from the returned map.
     """
@@ -423,17 +423,21 @@ def load_precomputed_embeddings() -> Dict[str, List[float]]:
     try:
         if _EMBEDDINGS_FILE.is_file():
             with open(_EMBEDDINGS_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            for key, value in data.items():
-                if key == _META_KEY or not isinstance(value, list):
-                    continue
-                if EXPECTED_DIM and len(value) != EXPECTED_DIM:
-                    logger.warning(
-                        "embedding for %s has dim %d (expected %d) — ignored",
-                        key, len(value), EXPECTED_DIM,
-                    )
-                    continue
-                vectors[key] = value
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    entry = json.loads(line)
+                    for key, value in entry.items():
+                        if key == _META_KEY or not isinstance(value, list):
+                            continue
+                        if EXPECTED_DIM and len(value) != EXPECTED_DIM:
+                            logger.warning(
+                                "embedding for %s has dim %d (expected %d) — ignored",
+                                key, len(value), EXPECTED_DIM,
+                            )
+                            continue
+                        vectors[key] = value
     except Exception as e:
         logger.error(f"Failed to load pre-computed embeddings: {e}")
     return vectors
@@ -444,27 +448,31 @@ def load_embedding_hashes() -> Dict[str, str]:
     try:
         if _EMBEDDINGS_FILE.is_file():
             with open(_EMBEDDINGS_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            meta = data.get(_META_KEY)
-            if isinstance(meta, dict):
-                hashes = meta.get("hashes")
-                if isinstance(hashes, dict):
-                    return {str(k): str(v) for k, v in hashes.items()}
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    entry = json.loads(line)
+                    if _META_KEY in entry:
+                        meta = entry[_META_KEY]
+                        if isinstance(meta, dict):
+                            hashes = meta.get("hashes")
+                            if isinstance(hashes, dict):
+                                return {str(k): str(v) for k, v in hashes.items()}
     except Exception:
         pass
     return {}
 
 
 def save_embeddings(embeddings: Dict[str, List[float]], hashes: Dict[str, str] | None = None) -> bool:
-    """Atomically persist embeddings (+ optional hashes) to the bundled file (F2/F5)."""
+    """Atomically persist embeddings (+ optional hashes) as JSONL (F2/F5)."""
     try:
         tmp = _EMBEDDINGS_FILE.with_suffix(".json.tmp")
-        data: Dict[str, object] = {}
-        if hashes:
-            data[_META_KEY] = {"version": 1, "hashes": hashes}
-        data.update(embeddings)
         with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(data, f)
+            if hashes:
+                f.write(json.dumps({_META_KEY: {"version": 1, "hashes": hashes}}) + "\n")
+            for key, value in embeddings.items():
+                f.write(json.dumps({key: value}) + "\n")
         os.replace(tmp, _EMBEDDINGS_FILE)
         return True
     except Exception as e:
