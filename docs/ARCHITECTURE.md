@@ -91,7 +91,7 @@ Tool call
 | `agent-guidance-mcp_project_context` | ✅ | Gated — blocked before `agent-guidance-mcp_task_pipeline` |
 | `agent-guidance-mcp_ui_ux` | ✅ | **Ungated** — callable directly (design guidance, no gate) |
 | `agent-guidance-mcp_session_continuity` | ✅ | Gated — blocked before `agent-guidance-mcp_task_pipeline` |
-| `agent-guidance-mcp_workflow_prompt` (prompt) | ✅ | Gated — blocked before `agent-guidance-mcp_task_pipeline` |
+| `agent-guidance-mcp_guidance` (`workflow` op) | ✅ | Gated — blocked before `agent-guidance-mcp_task_pipeline` |
 | `agent-guidance-mcp_health_check`, `agent-guidance-mcp_diagnose`, `agent-guidance-mcp_token_stats` | ✅ | Whitelisted — always open |
 
 ---
@@ -199,8 +199,8 @@ removed so the dashboard's `COUNT(*)` reflects real call counts.
 - `agent-guidance-mcp_guidance` / `agent-guidance-mcp_project_context` / `agent-guidance-mcp_ui_ux` / `agent-guidance-mcp_session_continuity` → recorded
   inside their pipelines. `agent-guidance-mcp_session_continuity` records a single row whose
   original == optimized, so savings read 0 (the payload is small control JSON).
-- `agent-guidance-mcp_workflow_prompt` → recorded once via `_record_savings` (a redundant NULL row
-  was removed).
+- `agent-guidance-mcp_guidance(operation="workflow")` → recorded via `_record_savings` (the
+   standalone `workflow`/`workflow_prompt` tools were consolidated into `guidance`).
 - Resolved transitive skill dependencies (`agent-guidance-mcp_guidance(resolve_dependencies=True)`)
   are each recorded via `record_skill_load`.
 

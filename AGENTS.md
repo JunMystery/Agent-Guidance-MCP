@@ -31,10 +31,10 @@ For EVERY user interaction — planning, implementation, testing, debugging, rev
 | Search codebase text | `agent-guidance-mcp_project_context(operation="search", query="...")` | Ranked, bounded results. Fallback when codegraph unavailable |
 | Understand code structure | `agent-guidance-mcp_project_context(operation="structure", relative_path="...")` | Hierarchical view of classes, methods, functions in a file |
 | Extract symbols | `agent-guidance-mcp_project_context(operation="symbols", relative_path="...")` | Flat list of classes, functions, methods with signatures |
-| Get structured workflow | `agent-guidance-mcp_workflow(mode="plan")` → `"code"` → `"test"` | Enriched dev workflow with auto-chaining |
-| Pre-code checklist | `agent-guidance-mcp_precode_check(task="...")` | Coding conventions, security, testing, arch, deploy rules |
-| Post-code verification | `agent-guidance-mcp_verify(changes="...")` | Auto-detect test/review/security/audit/deploy; suggests next workflow |
-| Skill feedback loop | `agent-guidance-mcp_feedback(skill_id="...", rating=1-5)` | Rate skills to boost future recommendations for similar tasks |
+| Get structured workflow | `agent-guidance-mcp_guidance(operation="workflow", identifier="plan")` → `"code"` → `"test"` | Enriched dev workflow with auto-chaining |
+| Pre-code checklist | `agent-guidance-mcp_guidance(operation="precode", query="...")` | Coding conventions, security, testing, arch, deploy rules |
+| Post-code verification | `agent-guidance-mcp_guidance(operation="verify", query="...")` | Auto-detect test/review/security/audit/deploy; suggests next workflow |
+| Skill feedback loop | `agent-guidance-mcp_guidance(operation="feedback", identifier="...", rating=1-5, query="...")` | Rate skills to boost future recommendations for similar tasks |
 | Find symbol references | `agent-guidance-mcp_project_context(operation="references", query="...")` | Locate all usages of a symbol across the codebase |
 | Get UI/design guidance | `agent-guidance-mcp_ui_ux(operation="search", query="...")` | Style, colors, typography, charts, slides |
 | Persist/recover session | `agent-guidance-mcp_session_continuity(operation="save"/"load"/"clear")` | State recovery / task checklist continuity |

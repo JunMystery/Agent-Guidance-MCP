@@ -24,23 +24,20 @@ AGENT_INSTRUCTIONS = (
     "It returns recommendations, project tree, code search, and UI guidance in ONE call.\n\n"
     "Available tools:\n"
     "- task_pipeline: context prep (call first)\n"
-    "- workflow: structured dev workflow with next-step chaining\n"
-    "- precode_check: checklist of conventions/security/testing/arch rules before writing code\n"
-    "- verify: verification steps after code changes (auto-detects test/review/security/audit/deploy)\n"
-    "- guidance: standards, skills, live docs, reasoning frameworks\n"
+    "- guidance: standards, skills, live docs, reasoning, workflow, precode, verify, feedback\n"
     "- project_context: bounded file ops (read/search/tree/symbols/references/diff)\n"
     "- ui_ux: design guidance (search/design_system/slides)\n"
     "- session_continuity: persist task state (save/load/clear)\n"
-    "- feedback: rate a skill (1-5) to improve future recommendations\n"
     "- health_check / diagnose / token_stats / usage_report: operational\n\n"
     "LOADING SKILLS: guidance(operation='get', identifier='skill-name', include_content=True) "
     "loads any of 168 skills on-demand. Search first: guidance(operation='search', "
     "query='humanizer') then load with 'get'. The built-in skill tool only lists a few "
     "external skills; use guidance for all Agent-Guidance-MCP skills.\n\n"
-    "WORKFLOW MODES: workflow(mode='plan') → design → code → test → review → deploy → audit.\n"
+    "WORKFLOW MODES: guidance(operation='workflow', identifier='plan') → design → code → test → review → deploy → audit.\n"
     "Each mode returns structured instructions + the suggested next mode for task completion.\n\n"
     "CODEGEN: task_pipeline returns a `codegen_plan` (phases + matched skills) when the "
-    "task signals code intent — then call precode_check before editing and verify after.\n\n"
+    "task signals code intent — then call guidance(operation='precode') before editing "
+    "and guidance(operation='verify') after.\n\n"
     "For detailed tool usage and the 9 mandatory rules, see AGENTS.md."
 )
 
@@ -115,10 +112,9 @@ Call `task_pipeline(task="<your task>")` FIRST before any other tool on this ser
 - project_context
 - ui_ux
 - session_continuity
-- workflow
-- workflow_prompt
-- precode_check
-- verify
+
+Note: workflow, precode_check, verify, and feedback were consolidated into
+`guidance` operations (`operation="workflow"|"precode"|"verify"|"feedback"`).
 
 ## Always-available tools (no gate)
 - health_check
@@ -611,6 +607,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         limit: int = 10,
         include_content: bool = False,
         resolve_dependencies: bool = False,
+        rating: int = 0,
     ) -> dict[str, object] | list[dict[str, object]]:
         """Standards catalog and skill lookup. 168 skills available on-demand.
 
@@ -621,22 +618,35 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         Use guidance(operation='reason') for structured reasoning frameworks
         (decision, bug, architecture, security, performance).
         Use guidance(operation='docs') for live library/API documentation via Context7.
+        Use guidance(operation='workflow', identifier='plan') for dev workflow modes.
+        Use guidance(operation='precode', query='task description') for pre-code checklist.
+        Use guidance(operation='verify', query='changed files') for post-change verification.
+        Use guidance(operation='feedback', identifier='skill-id', rating=5) to rate skills.
 
         Examples:
           guidance(operation="search", query="humanizer writing")
           guidance(operation="get", identifier="humanizer", include_content=True)
           guidance(operation="docs", query="jsonwebtoken sign", identifier="node-jsonwebtoken")
+          guidance(operation="workflow", identifier="plan")
+          guidance(operation="precode", query="add JWT auth to Express API")
+          guidance(operation="verify", query="src/auth.py, src/middleware.py")
+          guidance(operation="feedback", identifier="backend-patterns", rating=5, query="auth task")
 
         Args:
-            operation: One of list, get, search, recommend, reason, docs (required).
+            operation: One of list, get, search, recommend, reason, docs,
+                workflow, precode, verify, feedback (required).
             query: Search/recommend/reason query string, or technical question for docs.
+                For precode: task description. For verify: changed files/description.
+                For feedback: optional task context.
             identifier: Skill/document identifier for "get"; library/package name for
-                "docs" (e.g. "react", "nextjs", "express").
+                "docs" (e.g. "react", "nextjs", "express"). For workflow: mode key
+                (e.g. "plan", "code", "test"). For feedback: skill_id to rate.
             category: Filter entries by category.
             kind: Filter by kind — skill, doc, principle, etc.
             limit: Maximum results (default 10).
             include_content: Set True for "get" to include full skill body (default False).
             resolve_dependencies: Set True for "get" to recursively load transitive dependencies (default False).
+            rating: Integer 1-5 for "feedback" operation (default 0, ignored for other ops).
         """
         gate = priority_gate_check(catalog.root, catalog, "guidance", {
             "query": query, "identifier": identifier, "operation": operation,
@@ -655,6 +665,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
                 limit=limit,
                 include_content=include_content,
                 resolve_dependencies=resolve_dependencies,
+                rating=rating,
                 config=get_config(),
                 tracker=get_tracker(),
             )
@@ -895,181 +906,6 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         from .diagnostics import run_diagnostics
         root_path = Path(catalog.root or ".").resolve()
         return run_diagnostics(root_path, catalog)
-
-
-    @mcp.tool()
-    def workflow(
-        mode: str = "plan",
-        subject: str = "",
-        target: str = "",
-    ) -> dict[str, object]:
-        """Load a workflow mode with enriched context and next-step suggestion.
-
-        Use this to get structured workflow instructions for each dev phase.
-        Unlike workflow_prompt (passive resource), this tool returns enriched
-        context and auto-chains to the next suggested mode.
-
-        Args:
-            mode: Workflow mode key — init/plan/design/visualize/code/run/test/
-                  deploy/debug/refactor/audit/rollback/recap/review/next/help/
-                  readme/customize/brainstorm/save_brain (default 'plan').
-            subject: Optional subject to contextualize the workflow.
-            target: Optional target description.
-        """
-        gate = priority_gate_check(catalog.root, catalog, "workflow", {
-            "mode": mode, "subject": subject, "target": target,
-        })
-        if gate:
-            return gate
-        t0 = _now_ms()
-        try:
-            result = pipelines.workflow_mode(
-                catalog=catalog,
-                mode=mode,
-                subject=subject,
-                target=target,
-                config=get_config(),
-            )
-        except Exception as exc:
-            _track_error("workflow", mode, _now_ms() - t0, error=str(exc))
-            raise
-        _record_savings("workflow", mode, result, result, duration_ms=_now_ms() - t0, project_path=None)
-        return result
-
-
-    @mcp.tool()
-    def precode_check(
-        task: str,
-        paths: str = "",
-    ) -> dict[str, object]:
-        """Return a structured checklist before writing code.
-
-        Searches coding conventions, security rules, testing patterns,
-        architecture guidelines, and deployment rules relevant to your
-        task and project framework. Load relevant skill content with
-        guidance(operation='get', identifier='<skill-id>', include_content=True).
-
-        Args:
-            task: Description of what you're about to implement.
-            paths: Optional comma-separated file paths to check against.
-        """
-        gate = priority_gate_check(catalog.root, catalog, "precode_check", {
-            "task": task, "paths": paths,
-        })
-        if gate:
-            return gate
-        t0 = _now_ms()
-        try:
-            result = pipelines.precode_check(
-                catalog=catalog,
-                task=task,
-                paths=paths,
-                config=get_config(),
-            )
-        except Exception as exc:
-            _track_error("precode_check", "run", _now_ms() - t0, error=str(exc))
-            raise
-        _record_savings("precode_check", "run", result, result, duration_ms=_now_ms() - t0, project_path=None)
-        return result
-
-
-    @mcp.tool()
-    def verify(
-        changes: str,
-        kind: str | None = None,
-    ) -> dict[str, object]:
-        """Return verification steps after code changes.
-
-        Infers verification kind from changed files (test / review / security /
-        audit / deploy) and loads relevant patterns. Auto-suggests the next
-        workflow mode. Use after implementing to close the dev loop.
-
-        Args:
-            changes: Description of what changed or file paths (comma-separated).
-            kind: Optional explicit verification kind — test, review, security,
-                  audit, or deploy. Auto-detected from changes if omitted.
-        """
-        gate = priority_gate_check(catalog.root, catalog, "verify", {
-            "changes": changes, "kind": kind,
-        })
-        if gate:
-            return gate
-        t0 = _now_ms()
-        try:
-            result = pipelines.verify(
-                catalog=catalog,
-                changes=changes,
-                kind=kind,
-                config=get_config(),
-            )
-        except Exception as exc:
-            _track_error("verify", kind or "auto", _now_ms() - t0, error=str(exc))
-            raise
-        _record_savings("verify", kind or "auto", result, result, duration_ms=_now_ms() - t0, project_path=None)
-        return result
-
-
-    @mcp.tool()
-    def feedback(skill_id: str, rating: int, task: str = "") -> dict[str, object]:
-        """Record a rating (1-5) for a skill to improve future recommendations.
-
-        Skills rated >=4 for a task get boosted in recommend_context for similar
-        future tasks. This is the feedback loop that makes the MCP learn from use.
-
-        Args:
-            skill_id: Identifier of the skill you rated (e.g. 'backend-patterns').
-            rating: Integer 1-5 (5 = very useful).
-            task: Optional description of the task the skill was used for.
-        """
-        rating = max(1, min(5, int(rating)))
-        usage = get_usage()
-        if usage is not None:
-            usage.record_feedback(skill_id, rating, task or None)
-        return {
-            "success": True,
-            "skill_id": skill_id,
-            "rating": rating,
-            "message": "Feedback recorded — future recommendations will learn from it.",
-        }
-
-    @mcp.prompt()
-    def workflow_prompt(mode: str = "plan", subject: str = "", target: str = "") -> str:
-        """Load a workflow prompt by mode. Parameters: mode (str) — workflow mode key: init/plan/design/visualize/code/run/test/deploy/debug/refactor/audit/rollback/recap/review/next/help/readme/customize/brainstorm/save_brain (default 'plan'); subject (str) — optional subject to contextualize the prompt; target (str) — optional target description."""
-        gate = priority_gate_check(catalog.root, catalog, "workflow_prompt", {
-            "mode": mode, "subject": subject, "target": target,
-        })
-        if gate:
-            return gate
-        mode_key = mode.lower().replace("-", "_")
-        if mode_key not in WORKFLOW_MODE_MAP:
-            supported = ", ".join(sorted(WORKFLOW_MODE_MAP))
-            return f"Unsupported workflow mode: {mode}. Supported modes: {supported}."
-
-        config = get_config()
-        try:
-            raw_content = catalog.read_path(WORKFLOW_MODE_MAP[mode_key])
-        except (FileNotFoundError, UnicodeDecodeError, PermissionError, IsADirectoryError, OSError) as exc:
-            return (
-                f"Workflow prompt '{mode}' could not be loaded: {exc}. "
-                "Please verify your Agent Guidance installation."
-            )
-        if config.enabled:
-            content = optimize_markdown(
-                raw_content,
-                max_tokens=config.workflow_max_tokens,
-                config=config,
-            )
-        else:
-            content = raw_content
-        _record_savings("workflow_prompt", mode_key, raw_content, content)
-        additions = []
-        if subject:
-            additions.append(f"Subject: {subject}")
-        if target:
-            additions.append(f"Target: {target}")
-        if additions:
-            return f"{content}\n\n" + "\n".join(additions)
-        return content
 
 
 def _record_savings(

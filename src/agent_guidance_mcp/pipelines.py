@@ -12,7 +12,7 @@ from .response_optimizer import estimate_tokens, optimize_response
 from .token_analytics import TokenTracker
 from .token_config import TokenOptimizationConfig, load_config_from_env
 
-GUIDANCE_OPERATIONS = ("list", "get", "search", "recommend", "reason", "docs")
+GUIDANCE_OPERATIONS = ("list", "get", "search", "recommend", "reason", "docs", "feedback", "workflow", "precode", "verify")
 PROJECT_CONTEXT_OPERATIONS = ("tree", "search", "read", "snapshot", "symbols", "references", "structure", "callers", "callees", "diff")
 UI_UX_OPERATIONS = ("search", "design_system", "slides")
 
@@ -45,6 +45,7 @@ def guidance(
     limit: int = 10,
     include_content: bool = False,
     resolve_dependencies: bool = False,
+    rating: int = 0,
     config: TokenOptimizationConfig | None = None,
     tracker: TokenTracker | None = None,
 ) -> dict[str, object] | list[dict[str, object]]:
@@ -108,10 +109,9 @@ def guidance(
                 result["dependency_cycles_detected"] = cycles
         return result
 
-    if not query:
-        return _missing_argument("query", operation_key)
-
     if operation_key == "search":
+        if not query:
+            return _missing_argument("query", operation_key)
         results = catalog.search_entries(query=query, limit=limit, kind=kind)
         if not results:
             return {
@@ -138,6 +138,8 @@ def guidance(
         return cast(list[dict[str, object]], optimized["results"])
 
     if operation_key == "reason":
+        if not query:
+            return _missing_argument("query", operation_key)
         result = catalog.recommend_reasoning_framework(task=query)
         optimized = optimize_response(result, config=config)
         _record_savings(tracker, "guidance", operation_key, result, optimized)
@@ -154,6 +156,39 @@ def guidance(
             config=config,
             tracker=tracker,
         )
+
+    if operation_key == "feedback":
+        if not identifier:
+            return _missing_argument("identifier", operation_key)
+        from .server import get_usage
+        usage = get_usage()
+        if usage is None:
+            return {"success": False, "error": "Usage tracking not started."}
+        usage.record_feedback(identifier, rating, query or None)
+        return {
+            "success": True,
+            "skill_id": identifier,
+            "rating": max(1, min(5, int(rating))),
+            "message": "Feedback recorded — future recommendations will learn from it.",
+        }
+
+    if operation_key == "workflow":
+        mode = (identifier or query or "plan")
+        return workflow_mode(catalog, mode=mode, subject=query or "", target="", config=config)
+
+    if operation_key == "precode":
+        if not query:
+            return _missing_argument("query", operation_key)
+        return precode_check(catalog, task=query, config=config)
+
+    if operation_key == "verify":
+        if not query:
+            return _missing_argument("query", operation_key)
+        return verify(catalog, changes=query, config=config)
+
+    # Fallback: "recommend" operation (the only remaining unhandled op)
+    if not query:
+        return _missing_argument("query", operation_key)
 
     return optimize_response(
         catalog.recommend_context(task=query, limit=limit), config=config

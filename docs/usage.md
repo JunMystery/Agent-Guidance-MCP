@@ -73,11 +73,11 @@ Read the current source file before editing:
 }
 ```
 
-## Example: Workflow Prompt
+## Example: Workflow
 
-Use `agent-guidance-mcp_workflow_prompt(mode, subject, target)` when the client exposes MCP prompts.
+Use `agent-guidance-mcp_guidance(operation="workflow", identifier="<mode>", query="<subject>")` to load a workflow by mode.
 
-For example, `agent-guidance-mcp_workflow_prompt(mode="plan", subject="Build billing export")` loads the planning workflow capsule and appends the subject.
+For example, `agent-guidance-mcp_guidance(operation="workflow", identifier="plan", query="Build billing export")` loads the planning workflow capsule and appends the subject.
 
 ## Token Guidance
 

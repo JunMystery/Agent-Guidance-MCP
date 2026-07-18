@@ -492,7 +492,7 @@ def infer_codegen_plan(
         suggestions.append(f"Ecosystem detected: {', '.join(frameworks)} — prefer native stdlib before adding deps")
     if skills:
         suggestions.append(f"Load skills via guidance(operation='get', identifier='<id>', include_content=True): {', '.join(skills[:3])}")
-    suggestions.append("Run precode_check(task=...) before editing; run verify(changes=...) after")
+    suggestions.append("Run guidance(operation='precode', query=task) before editing; run guidance(operation='verify', query=changes) after")
 
     return {
         "is_codegen": True,
@@ -500,7 +500,7 @@ def infer_codegen_plan(
         "frameworks": frameworks,
         "phases": plan_phases,
         "suggestions": suggestions,
-        "next_tool": "precode_check",
+        "next_tool": "guidance(operation='precode')",
     }
 
 

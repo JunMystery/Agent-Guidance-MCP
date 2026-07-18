@@ -119,11 +119,10 @@ Works with any MCP-compatible client. Auto-configured by the installer:
 | Tool | Gate | Role | Key Operations |
 |---|---|---|---|
 | `agent-guidance-mcp_task_pipeline` | **Unlocks** | **Call first** — context prep | Recommendations + tree + search + UI + execution sequence |
-| `agent-guidance-mcp_guidance` | Gated | Standards & skill catalog | `list`, `get`, `search`, `recommend`, `reason`, `docs` (Context7) |
+| `agent-guidance-mcp_guidance` | Gated | Standards & skill catalog + workflow/precode/verify/feedback | `list`, `get`, `search`, `recommend`, `reason`, `docs` (Context7), `workflow`, `precode`, `verify`, `feedback` |
 | `agent-guidance-mcp_project_context` | Gated | Project file ops + 3-tier search | `tree`, `search` (FTS5 docs config general), `read`, `symbols`, `references`, `structure`, `callers`, `callees`, `diff`, `snapshot` |
 | `agent-guidance-mcp_ui_ux` | Gated | Design guidance | `search`, `design_system`, `slides` |
 | `agent-guidance-mcp_session_continuity` | Gated | Task state persistence | `save`, `load`, `clear` |
-| `agent-guidance-mcp_workflow_prompt` | Gated | Workflow prompts | `plan`, `test`, `deploy`, `debug`, etc. |
 | `agent-guidance-mcp_usage_report` | Gated | Usage statistics | `session`, `all` |
 | `agent-guidance-mcp_health_check` / `agent-guidance-mcp_diagnose` / `agent-guidance-mcp_token_stats` | Whitelisted | Operational | Server status, self-diagnostics, token savings |
 
@@ -139,9 +138,9 @@ Gated tools return `PRIORITY_REQUIRED` if called before `agent-guidance-mcp_task
 | `standards://version` | Server version info (JSON) |
 | `agent-guidance-mcp://system/priority` | Priority gate instructions — returned by `PRIORITY_REQUIRED` errors |
 
-### Prompt
+### Workflow (consolidated into `guidance`)
 
-`agent-guidance-mcp_workflow_prompt(mode, subject, target)` — Load workflow by mode: plan, test, deploy, debug, etc.
+`agent-guidance-mcp_guidance(operation="workflow", identifier="<mode>", query="<subject>")` — Load workflow by mode: plan, test, deploy, debug, etc. The previous `workflow` / `workflow_prompt` tools were merged into `guidance`.
 
 ---
 
@@ -151,7 +150,7 @@ AI coding agents burn context fast. Every file read, every grep, every web searc
 
 | Layer | What It Does | Your Gain |
 |---|---|---|
-| **Priority Enforcement** | `agent-guidance-mcp_task_pipeline` must be called before gated tools (guidance, project_context, ui_ux, session_continuity, workflow_prompt). Session-start hook auto-passes gate. | Agent always has project context before acting. No more "forgot to call task_pipeline" |
+| **Priority Enforcement** | `agent-guidance-mcp_task_pipeline` must be called before gated tools (guidance, project_context, ui_ux, session_continuity). Session-start hook auto-passes gate. | Agent always has project context before acting. No more "forgot to call task_pipeline" |
 | **Context Budgeting** | Caps file reads at 300 lines; smart-truncates source code preserving structure | Agent stays focused on relevant code, never drowns in noise |
 | **Guidance Catalog** | 168 skills + coding standards + security rules served on-demand | Agent follows production patterns without you reminding it |
 | **Token Optimization** | Strips comments, collapses whitespace, deduplicates output before it hits the LLM | **40–80% fewer tokens** per MCP response |
@@ -234,7 +233,7 @@ Session starts
 | Tool | Gate Behavior |
 |---|---|
 | `agent-guidance-mcp_task_pipeline` | **Unlocks gate** — call first to enable all gated tools |
-| `agent-guidance-mcp_guidance`, `agent-guidance-mcp_project_context`, `agent-guidance-mcp_ui_ux`, `agent-guidance-mcp_session_continuity`, `agent-guidance-mcp_workflow_prompt` | **Gated** — return `PRIORITY_REQUIRED` error if called before `agent-guidance-mcp_task_pipeline` |
+| `agent-guidance-mcp_guidance`, `agent-guidance-mcp_project_context`, `agent-guidance-mcp_ui_ux`, `agent-guidance-mcp_session_continuity` | **Gated** — return `PRIORITY_REQUIRED` error if called before `agent-guidance-mcp_task_pipeline` |
 | `agent-guidance-mcp_health_check`, `agent-guidance-mcp_diagnose`, `agent-guidance-mcp_token_stats` | **Whitelisted** — always available, no gate check |
 
 ### Per-Phase Reset Rule

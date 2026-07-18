@@ -151,7 +151,7 @@ atexit.register(_close_usage)
 | `agent-guidance-mcp_project_context()` | `_track_usage("project_context", operation)` |
 | `agent-guidance-mcp_ui_ux()` | `_track_usage("ui_ux", operation)` |
 | `agent-guidance-mcp_session_continuity()` | `_track_usage("session_continuity", operation)` |
-| `agent-guidance-mcp_workflow_prompt` prompt | `usage.record_tool_call("workflow_prompt", mode_key)` |
+| `agent-guidance-mcp_guidance(operation="workflow")` | `usage.record_tool_call("guidance", "workflow")` |
 | `standards://skill/{name}` resource | `usage.record_skill_load(name)` |
 
 ### New MCP tool: `agent-guidance-mcp_usage_report()`

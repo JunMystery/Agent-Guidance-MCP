@@ -64,6 +64,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def _handle_dirs(self, root_path: str) -> None:
         try:
             base = Path(root_path).resolve()
+            # Security: restrict directory listing to the project root and its children.
+            project = Path(self.project_path).resolve()
+            try:
+                base.relative_to(project)
+            except ValueError:
+                # Allow navigating to parent of project (for project-picker UI)
+                # but never above the drive root or to unrelated paths.
+                try:
+                    project.relative_to(base)
+                except ValueError:
+                    self._send_json(200, {"current": str(base), "dirs": [], "error": "Path outside project scope"})
+                    return
             if not base.is_dir():
                 self._send_json(200, {"current": str(base), "dirs": [], "error": "Not a directory"})
                 return

@@ -6,7 +6,7 @@ Complete reference for every public MCP tool, resource, and prompt exposed by th
 
 ---
 
-## Tools (6 + 3 whitelisted)
+## Tools (9)
 
 All tools except `agent-guidance-mcp_health_check`, `agent-guidance-mcp_diagnose`, and `agent-guidance-mcp_token_stats` require `agent-guidance-mcp_task_pipeline` to be called first. Gated tools return `PRIORITY_REQUIRED` if called before `agent-guidance-mcp_task_pipeline`.
 
@@ -43,17 +43,18 @@ task_pipeline(task="Add JWT auth to Express API", focus="backend")
 
 ### 2. `agent-guidance-mcp_guidance` -- Standards & Skill Catalog
 
-Standards catalog and skill lookup. 250 entries available on-demand. Supports 6 operations.
+Standards catalog and skill lookup. 250 entries available on-demand. Supports 10 operations (the workflow/precode/verify/feedback tools were consolidated into `guidance` operations).
 
 ```
 guidance(
-    operation: str,                    # required — list|get|search|recommend|reason|docs
-    query: str | None = None,          # search/recommend/reason/docs query
-    identifier: str | None = None,     # skill/document ID for "get"; library name for "docs"
+    operation: str,                    # required — list|get|search|recommend|reason|docs|workflow|precode|verify|feedback
+    query: str | None = None,          # search/recommend/reason/docs/precode/verify query
+    identifier: str | None = None,     # skill/document ID for "get"; library name for "docs"; mode for "workflow"; skill_id for "feedback"
     category: str | None = None,       # filter by category
     kind: str | None = None,           # filter by kind (skill, doc, principle, etc.)
     limit: int = 10,                   # max results
     include_content: bool = False,     # include full body for "get"
+    rating: int = 0,                   # 1-5 rating for "feedback"
 ) -> dict | list[dict]
 ```
 
@@ -67,6 +68,10 @@ guidance(
 | `recommend` | `query` | Auto-recommend skills/standards for a task (keyword + TASK_ANCHORS matching) |
 | `reason` | `query` | Structured reasoning framework. Classifies task into: `decision`, `bug`, `architecture`, `security`, `performance`, `general`. Returns framework template, key questions, and skill URIs. |
 | `docs` | `query`, `identifier` | Live library/API documentation via Context7. `identifier` is the library name (e.g. `"react"`, `"nextjs"`, `"express"`). |
+| `workflow` | `identifier` (mode) | Load a workflow mode with enriched context and next-step suggestion. Replaces the deprecated `workflow`/`workflow_prompt` tools. |
+| `precode` | `query` (task) | Structured pre-code checklist (conventions, security, testing, arch, deploy). Replaces the deprecated `precode_check` tool. |
+| `verify` | `query` (changes) | Post-change verification steps; infers test/review/security/audit/deploy. Replaces the deprecated `verify` tool. |
+| `feedback` | `identifier`, `rating` | Record a 1-5 skill rating to boost future recommendations. Replaces the deprecated `feedback` tool. |
 
 **Examples:**
 ```
@@ -261,21 +266,11 @@ Comprehensive diagnostics across 7 subsystems:
 
 ---
 
-## Prompt (1 — gated)
+## Workflow access (no longer a separate tool)
 
-### `agent-guidance-mcp_workflow_prompt`
-
-**Gate**: Returns `PRIORITY_REQUIRED` if called before `agent-guidance-mcp_task_pipeline`.
-
-```
-workflow_prompt(
-    mode: str = "plan",        # workflow mode key
-    subject: str = "",         # optional subject to contextualize
-    target: str = "",          # optional target description
-) -> str
-```
-
-Loads a workflow prompt by mode. 20 supported modes:
+Workflow modes were consolidated into the `guidance` tool to reduce surface area.
+Use `agent-guidance-mcp_guidance(operation="workflow", identifier="<mode>")` instead of the
+deprecated `workflow` / `workflow_prompt` tools. Supported modes:
 
 | Mode | Description |
 |---|---|
