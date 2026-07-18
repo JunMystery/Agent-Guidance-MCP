@@ -429,7 +429,21 @@ def main() -> None:
     t = threading.Thread(target=_reaper, daemon=True)
     t.start()
 
-    uvicorn.run(app, fd=sock.fileno(), log_config=None)
+    uvicorn.run(app, fd=sock.fileno(), log_config={
+        "version": 1,
+        "formatters": {
+            "default": {
+                "format": "%(asctime)s [%(process)d] %(levelname)s %(name)s: %(message)s",
+            },
+        },
+        "handlers": {
+            "default": {
+                "formatter": "default",
+                "class": "logging.StreamHandler",
+            },
+        },
+        "root": {"level": "INFO", "handlers": ["default"]},
+    })
 
 
 if __name__ == "__main__":

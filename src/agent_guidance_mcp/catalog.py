@@ -4,6 +4,7 @@
 import json
 import logging
 import sys
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -87,6 +88,7 @@ class StandardsCatalog:
         self._embed_hashes = load_embedding_hashes()
         self._local_skills_embedded = False
         self._failed_embeddings: set[str] = set()
+        self._embed_lock = threading.Lock()
 
         # Initialize and populate task anchors dynamically
         self.task_anchors: dict[str, list[str]] = {k: list(v) for k, v in TASK_ANCHORS.items()}
@@ -212,9 +214,17 @@ class StandardsCatalog:
         Lazily: dynamically embed entries that have no vector (workspace-local
         skills), and re-embed precomputed entries whose source content changed
         (auto-heal staleness via content hash). Persists any updates.
+        Runs in a background thread so the first tool call is not blocked.
         """
         if getattr(self, "_local_skills_embedded", False):
             return
+        with self._embed_lock:
+            if getattr(self, "_local_skills_embedding_started", False):
+                return
+            self._local_skills_embedding_started = True
+        threading.Thread(target=self._embed_local_skills_worker, daemon=True).start()
+
+    def _embed_local_skills_worker(self) -> None:
         self._local_skills_embedded = True
         logger = logging.getLogger("agent-guidance-mcp")
         changed = False
@@ -223,10 +233,9 @@ class StandardsCatalog:
             if identifier in self._failed_embeddings:
                 continue
             if identifier in self.skills_embeddings:
-                # Precomputed: detect staleness via content hash.
                 stored_hash = self._embed_hashes.get(identifier)
                 if stored_hash is None:
-                    continue  # legacy file without hashes — cannot detect staleness
+                    continue
                 if self._entry_hash(entry) == stored_hash:
                     continue
                 logger.info("re-embedding stale entry '%s'", identifier)
@@ -235,7 +244,6 @@ class StandardsCatalog:
                 else:
                     self._failed_embeddings.add(identifier)
             else:
-                # No vector yet (workspace-local skill) — embed dynamically.
                 if self._embed_and_store(entry):
                     changed = True
                 else:

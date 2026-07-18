@@ -421,12 +421,14 @@ def create_server(
         db = CodeGraphDatabase(db_path)
 
         watcher_enabled = os.environ.get("AGENT_WATCHER_ENABLED", "true").strip().lower()
+        indexer_enabled = os.environ.get("AGENT_INDEXER_ENABLED", "true").strip().lower()
 
         def _run_initial_index_bg() -> None:
             logger = logging.getLogger("agent-guidance-mcp")
             try:
-                indexer = CodeGraphIndexer(project_root, db)
-                indexer.run()
+                if indexer_enabled not in ("0", "false", "no", "off"):
+                    indexer = CodeGraphIndexer(project_root, db)
+                    indexer.run()
 
                 # File watcher is CPU-aware; disable via AGENT_WATCHER_ENABLED=false
                 if watcher_enabled not in ("0", "false", "no", "off"):
