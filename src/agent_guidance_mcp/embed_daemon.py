@@ -20,7 +20,7 @@ from typing import Any
 
 logger = logging.getLogger("agent-guidance-mcp.daemon")
 
-from ._dashboard_shared import DAEMON_DIR, DAEMON_PORT_FILE, DASHBOARD_DIR
+from ._dashboard_shared import DAEMON_DIR, DAEMON_PORT_FILE, DASHBOARD_DIR, _pid_alive
 IDLE_TIMEOUT_S = 600
 GRACE_AFTER_EMPTY_S = 30
 HEALTH_CHECK_INTERVAL = 15
@@ -60,6 +60,10 @@ def _bind_loopback_fd() -> tuple[socket.socket, int] | None:
 
 
 # ── Manifest I/O ────────────────────────────────────────────────────────
+
+
+_EMBED_READY = False
+_BOUND_PORT = 0
 
 
 def _write_manifest(port: int, pid: int) -> None:
@@ -324,6 +328,8 @@ def health() -> dict:
         n = len(_clients)
     return {
         "status": "ok",
+        "pid": os.getpid(),
+        "embed_ready": _EMBED_READY,
         "model_loaded": _model is not None,
         "clients": n,
         "engine": _E5_MODEL,
@@ -331,6 +337,17 @@ def health() -> dict:
         "uptime_seconds": int(time.time() - _start_time),
         "last_embed_time": _last_embed_time,
     }
+
+
+@app.on_event("startup")
+def _on_startup() -> None:
+    # Publish the manifest only once uvicorn is actually accepting
+    # connections, so concurrent MCP clients never observe a manifest whose
+    # /embed route isn't served yet (which would cause a silent fallback to
+    # the in-process model and break the "one shared daemon" guarantee).
+    global _EMBED_READY
+    _EMBED_READY = True
+    _write_manifest(_BOUND_PORT, os.getpid())
 
 
 # ── Model loading ───────────────────────────────────────────────────────
@@ -384,9 +401,11 @@ def _reaper() -> None:
 
         empty_since = None
         for cid, pid in list(pids.items()):
-            try:
-                os.kill(pid, 0)
-            except OSError:
+            # Only drop a client we can *prove* is dead. On Windows os.kill can
+            # raise for a live process (permission mismatch), so an indeterminate
+            # result keeps the client registered instead of wrongly exiting.
+            alive = _pid_alive(pid)
+            if alive is False:
                 logger.info("client %s (pid %d) dead — removing", cid, pid)
                 with _clients_lock:
                     _clients.pop(cid, None)
@@ -419,8 +438,9 @@ def main() -> None:
         logger.error("failed to bind loopback socket")
         sys.exit(1)
     sock, port = result
+    global _BOUND_PORT
+    _BOUND_PORT = port
 
-    _write_manifest(port, os.getpid())
     logger.info("daemon starting on 127.0.0.1:%d (pid %d)", port, os.getpid())
 
     signal.signal(signal.SIGTERM, _signal_handler)

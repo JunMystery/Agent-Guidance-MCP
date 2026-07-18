@@ -126,4 +126,58 @@ def run_diagnostics(project_root: Path, catalog: StandardsCatalog) -> dict[str, 
     except Exception as e:
         diagnostics["catalog"] = {"error": str(e)}
 
+    # 7. Embedding daemon status (observability for multi-CLI daemon sharing)
+    daemon_info: dict[str, Any] = {}
+    try:
+        from .embeddings import get_embedding_backend
+
+        daemon_info["backend"] = get_embedding_backend()
+    except Exception as e:
+        daemon_info["backend_error"] = str(e)
+
+    try:
+        from ._dashboard_shared import DAEMON_PORT_FILE
+
+        if DAEMON_PORT_FILE.is_file():
+            import json
+
+            m = json.loads(DAEMON_PORT_FILE.read_text(encoding="utf-8"))
+            daemon_info["manifest_pid"] = m.get("pid")
+            daemon_info["manifest_port"] = m.get("port")
+            # Cross-check via /health so a recycled PID is surfaced as stale.
+            import httpx
+
+            port = m.get("port")
+            if isinstance(port, int):
+                try:
+                    r = httpx.get(f"http://127.0.0.1:{port}/health", timeout=0.5)
+                    if r.is_success:
+                        body = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
+                        daemon_info["live_pid"] = body.get("pid")
+                        daemon_info["live"] = True
+                    else:
+                        daemon_info["live"] = False
+                except Exception:
+                    daemon_info["live"] = False
+    except Exception as e:
+        daemon_info["manifest_error"] = str(e)
+
+    # Count actually-running daemon processes to expose duplication.
+    try:
+        import psutil
+
+        count = 0
+        for p in psutil.process_iter(["cmdline", "name"]):
+            try:
+                cmd = " ".join(p.info.get("cmdline") or []).lower()
+                if "embed_daemon" in cmd or "agent_guidance_mcp.embed_daemon" in cmd:
+                    count += 1
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        daemon_info["running_daemon_processes"] = count
+    except ImportError:
+        daemon_info["running_daemon_processes"] = "psutil unavailable"
+
+    diagnostics["embedding_daemon"] = daemon_info
+
     return diagnostics

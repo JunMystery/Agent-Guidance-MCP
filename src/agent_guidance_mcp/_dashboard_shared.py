@@ -9,6 +9,7 @@ from pathlib import Path
 
 DAEMON_DIR = Path.home() / ".agent-guidance"
 DAEMON_PORT_FILE = DAEMON_DIR / "daemon.json"
+DASHBOARD_PORT_FILE = DAEMON_DIR / "dashboard.json"
 DASHBOARD_DIR = DAEMON_DIR / "dashboard"
 
 
@@ -81,8 +82,86 @@ def _dashboard_src_dir() -> Path:
     return dev_path
 
 
+def _pid_is_our_daemon(pid: int, port: int | None = None) -> bool:
+    """Best-effort check that ``pid`` is the embedding daemon we spawned.
+
+    A manifest can hold a recycled PID after a crash, so never signal a PID
+    based solely on the manifest. We confirm identity via:
+      1. psutil process name / cmdline (if available), and/or
+      2. an HTTP /health probe on the recorded port echoing the same pid.
+
+    Returns False if we cannot prove identity — callers must then NOT kill.
+    """
+    import os
+
+    # Cheap, reliable cross-platform check: the daemon answers /health with its
+    # own pid. If it responds and the pid matches, it's ours.
+    if port is not None:
+        try:
+            import httpx
+
+            r = httpx.get(f"http://127.0.0.1:{port}/health", timeout=0.5)
+            if r.is_success:
+                body = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
+                live_pid = body.get("pid")
+                if isinstance(live_pid, int):
+                    return live_pid == pid
+        except Exception:
+            pass
+
+    try:
+        import psutil
+    except ImportError:
+        # No psutil: cannot verify identity safely, so refuse to kill.
+        return False
+    try:
+        p = psutil.Process(pid)
+        cmdline = " ".join(p.cmdline()).lower()
+        name = (p.name() or "").lower()
+        return "embed_daemon" in cmdline or "agent_guidance_mcp.embed_daemon" in cmdline or "agent-guidance-mcp" in name
+    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess, OSError):
+        return False
+
+
+def _pid_alive(pid: int) -> bool | None:
+    """Return True/False if a PID is alive, or None if indeterminate.
+
+    On Windows ``os.kill(pid, 0)`` raises OSError for permission mismatches even
+    when the process is alive, so we prefer psutil and only fall back to a strict
+    "process does not exist" interpretation.
+    """
+    try:
+        import psutil
+
+        try:
+            p = psutil.Process(pid)
+            return p.is_running() and p.status() != psutil.STATUS_ZOMBIE
+        except (psutil.NoSuchProcess, psutil.ZombieProcess, OSError):
+            return False
+    except ImportError:
+        import os
+
+        try:
+            os.kill(pid, 0)
+            return True
+        except OSError:
+            # On POSIX this means the process is gone; on Windows it may be a
+            # permission error for a live process — report indeterminate.
+            import sys
+
+            if sys.platform == "win32":
+                return None
+            return False
+
+
 def kill_existing_daemon() -> None:
-    """Read daemon.json and terminate any running daemon process to free the port."""
+    """Read daemon.json and terminate the running daemon to free the port.
+
+    Safety: a stale manifest can reference a PID that has since been reused by
+    an unrelated process. We only signal the PID after confirming via
+    :func:`_pid_is_our_daemon` that it is actually our embedding daemon; this
+    prevents killing innocent processes (e.g. a sibling MCP server) on Windows.
+    """
     import json
     import os
     import signal
@@ -94,17 +173,16 @@ def kill_existing_daemon() -> None:
     try:
         manifest = json.loads(DAEMON_PORT_FILE.read_text(encoding="utf-8"))
         pid = manifest.get("pid")
-        if pid:
+        port = manifest.get("port")
+        if pid and _pid_is_our_daemon(pid, port):
             try:
-                os.kill(pid, 0)
                 logger = logging.getLogger("agent-guidance-mcp.daemon")
                 logger.info(f"Terminating active daemon/dashboard process {pid}")
                 os.kill(pid, signal.SIGTERM)
                 for _ in range(10):
                     time.sleep(0.1)
-                    try:
-                        os.kill(pid, 0)
-                    except OSError:
+                    alive = _pid_alive(pid)
+                    if alive is False:
                         break
                 else:
                     os.kill(pid, signal.SIGKILL)
@@ -118,7 +196,51 @@ def kill_existing_daemon() -> None:
         pass
 
 
-def choose_folder_native() -> str | None:
+def kill_existing_dashboard() -> None:
+    """Terminate a running *dashboard* server (mode == "dashboard") only.
+
+    The dashboard writes its own ``dashboard.json`` manifest so it never
+    collides with the shared embedding daemon's ``daemon.json``. We only ever
+    kill a process recorded in ``dashboard.json`` *and* confirmed to be our
+    dashboard (identity via :func:`_pid_is_our_daemon`), so we never touch the
+    shared embed daemon or any unrelated process.
+    """
+    import json
+    import os
+    import signal
+    import time
+    import logging
+
+    if not DASHBOARD_PORT_FILE.is_file():
+        return
+    try:
+        manifest = json.loads(DASHBOARD_PORT_FILE.read_text(encoding="utf-8"))
+        if manifest.get("mode") != "dashboard":
+            return
+        pid = manifest.get("pid")
+        if pid and _pid_is_our_daemon(pid):
+            try:
+                logger = logging.getLogger("agent-guidance-mcp.dashboard")
+                logger.info(f"Terminating existing dashboard process {pid}")
+                os.kill(pid, signal.SIGTERM)
+                for _ in range(10):
+                    time.sleep(0.1)
+                    alive = _pid_alive(pid)
+                    if alive is False:
+                        break
+                else:
+                    os.kill(pid, signal.SIGKILL)
+            except OSError:
+                pass
+    except Exception:
+        pass
+    try:
+        DASHBOARD_PORT_FILE.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+
     """Trigger the native file explorer directory selection dialog depending on the OS."""
     import sys
     import os

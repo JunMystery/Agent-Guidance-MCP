@@ -142,37 +142,89 @@ def _client_id() -> str:
         _DAEMON_CLIENT_ID = f"mcp-{os.getpid()}"
     return _DAEMON_CLIENT_ID
 
-
 _DAEMON_LOCK_FILE = _DAEMON_DIR / "daemon.lock"
+
 
 try:
     import fcntl as _fcntl
     _HAVE_FCNTL = True
 except ImportError:
+    _fcntl = None  # type: ignore[assignment]
     _HAVE_FCNTL = False
+
+try:
+    import msvcrt as _msvcrt
+    _HAVE_MSVCRT = True
+except ImportError:
+    _msvcrt = None  # type: ignore[assignment]
+    _HAVE_MSVCRT = False
 
 
 def _acquire_daemon_lock() -> int | None:
-    """Acquire exclusive file lock on daemon.lock. Returns fd or None.
+    """Acquire an exclusive cross-platform file lock on daemon.lock.
 
-    Prevents two concurrent MCP processes from both spawning a daemon.
-    The lock is released when the fd is closed (explicitly or on process exit).
+    Returns a lock handle (int fd on POSIX, file object on Windows) that must
+    be closed to release the lock, or ``None`` if the lock is already held by
+    another process (non-blocking).
 
-    Falls back to no-op (returns None) on platforms without fcntl (Windows).
+    Prevents two concurrent MCP processes from both spawning a daemon. This is
+    **not** a no-op on Windows anymore: it uses ``msvcrt.locking`` so the
+    spawn de-duplication actually works on Windows (previously the lock was a
+    silent no-op, allowing N OpenCode CLIs to each spawn their own embedding
+    daemon).
     """
-    if not _HAVE_FCNTL:
-        return None
     _DAEMON_DIR.mkdir(parents=True, exist_ok=True)
     try:
-        fd = os.open(_DAEMON_LOCK_FILE, os.O_CREAT | os.O_RDWR, 0o644)
-        _fcntl.flock(fd, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
-        return fd
-    except (IOError, OSError):
-        try:
-            os.close(fd)
-        except (OSError, NameError):
-            pass
+        if _HAVE_FCNTL:
+            fd = os.open(_DAEMON_LOCK_FILE, os.O_CREAT | os.O_RDWR, 0o644)
+            try:
+                _fcntl.flock(fd, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
+            except OSError:
+                os.close(fd)
+                return None
+            return fd
+        if _HAVE_MSVCRT:
+            handle = open(_DAEMON_LOCK_FILE, "w+", encoding="utf-8")
+            try:
+                _msvcrt.locking(handle.fileno(), _msvcrt.LK_NBLCK, 1)
+            except OSError:
+                handle.close()
+                return None
+            _WIN_LOCK_HANDLES[id(handle)] = handle
+            return id(handle)  # sentinel; real release uses _release_daemon_lock
+    except OSError:
         return None
+    return None
+
+
+def _release_daemon_lock(lock: int | None) -> None:
+    """Release a lock previously acquired by :func:`_acquire_daemon_lock`.
+
+    On POSIX ``lock`` is the open fd; on Windows it is a sentinel and the
+    underlying file object is tracked in ``_WIN_LOCK_HANDLES``.
+    """
+    if lock is None:
+        return
+    if _HAVE_FCNTL:
+        try:
+            os.close(lock)
+        except OSError:
+            pass
+        return
+    if _HAVE_MSVCRT:
+        handle = _WIN_LOCK_HANDLES.pop(lock, None)
+        if handle is not None:
+            try:
+                _msvcrt.locking(handle.fileno(), _msvcrt.LK_UNLCK, 1)
+            except OSError:
+                pass
+            try:
+                handle.close()
+            except OSError:
+                pass
+
+
+_WIN_LOCK_HANDLES: dict[int, object] = {}
 
 
 def _read_manifest() -> dict[str, Any] | None:
@@ -185,14 +237,20 @@ def _read_manifest() -> dict[str, Any] | None:
 
 
 def _spawn_daemon() -> int | None:
-    """Start the embedding daemon subprocess and return its port."""
+    """Start the embedding daemon subprocess and return its port.
+
+    Returns ``None`` if the process could not be launched or did not become
+    healthy in time. Failure here is non-fatal: the caller falls back to the
+    in-process model instead of dropping the MCP connection.
+    """
     logger.info("spawning embedding daemon")
+    proc = None
     try:
         # F7: capture daemon logs to a file instead of discarding them, so a
         # crashed/misconfigured daemon is diagnosable.
         _DAEMON_DIR.mkdir(parents=True, exist_ok=True)
         with open(_DAEMON_LOG, "a", buffering=1) as log_fd:
-            subprocess.Popen(
+            proc = subprocess.Popen(
                 _ARGS,
                 start_new_session=True,
                 stdout=log_fd,
@@ -202,39 +260,84 @@ def _spawn_daemon() -> int | None:
         logger.error("failed to spawn daemon: %s", e)
         return None
 
-    # Wait for manifest to appear and HTTP server to respond
+    # Wait for manifest to appear and the HTTP server to answer /health.
     deadline = time.time() + _SPAWN_WAIT_S
     while time.time() < deadline:
         time.sleep(_SPAWN_POLL_S)
+        # Bail early if the child died before writing a manifest.
+        if proc.poll() is not None:
+            logger.warning("daemon subprocess exited early (code %s)", proc.returncode)
+            return None
         manifest = _read_manifest()
         if manifest is not None:
             port = manifest.get("port")
             pid = manifest.get("pid")
-            if isinstance(port, int) and isinstance(pid, int):
-                # Verify daemon process is alive
-                try:
-                    os.kill(pid, 0)
-                except OSError:
-                    logger.warning("daemon pid %d died, retrying spawn", pid)
-                    continue
-                # Confirm HTTP server is actually accepting connections
-                try:
-                    r = httpx.get(f"http://127.0.0.1:{port}/health", timeout=0.5)
-                    if r.is_success:
-                        logger.info("daemon running on port %d (pid %d)", port, pid)
-                        return port
-                except httpx.RequestError:
-                    pass  # daemon not ready yet, retry
+            if _is_daemon_alive(port, pid):
+                logger.info("daemon running on port %d (pid %d)", port, pid)
+                return port
     logger.warning("daemon did not start within %.1fs", _SPAWN_WAIT_S)
     return None
 
 
-def _ensure_daemon() -> int | None:
-    """Return daemon port, spawning daemon if needed.
+def _is_daemon_alive(port: int, pid: int) -> bool:
+    """Return True only if the recorded daemon PID is actually *our* daemon.
 
-    Tries up to 5 times before falling back to in-process model.
-    Uses a file lock (daemon.lock) to prevent concurrent spawns when
-    two MCP processes start simultaneously.
+    Uses an HTTP ``/health`` probe (the daemon writes its real PID into
+    daemon.json and answers on the recorded port) instead of ``os.kill(pid, 0)``,
+    which is unreliable on Windows — there a permission mismatch (not just a
+    dead PID) raises OSError, so a live daemon could be mis-detected as dead.
+    """
+    if not isinstance(port, int) or not isinstance(pid, int):
+        return False
+    try:
+        r = httpx.get(f"http://127.0.0.1:{port}/health", timeout=0.5)
+    except httpx.RequestError:
+        return False
+    if not r.is_success:
+        return False
+    body = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
+    # The daemon echoes its own pid in /health so we can confirm identity and
+    # avoid trusting a possibly-recycled PID recorded in the manifest.
+    live_pid = body.get("pid")
+    if isinstance(live_pid, int) and live_pid != pid:
+        logger.warning("manifest pid %d != live daemon pid %d — manifest stale", pid, live_pid)
+        return False
+    # Only reuse once the daemon is actually serving /embed. The manifest is
+    # published on the FastAPI startup event, so this also rejects any
+    # not-yet-ready or non-embed server (e.g. the dashboard) that answers
+    # /health without embed_ready.
+    if not body.get("embed_ready"):
+        return False
+    return True
+
+
+def _reuse_existing_daemon() -> int | None:
+    """Reuse a live daemon described by daemon.json, or None."""
+    manifest = _read_manifest()
+    if not manifest:
+        return None
+    port = manifest.get("port")
+    pid = manifest.get("pid")
+    if _is_daemon_alive(port, pid):
+        logger.info("reusing existing daemon on port %d (pid %d)", port, pid)
+        return port
+    logger.info("daemon pid %s dead/stale — will spawn a new one", pid)
+    return None
+
+
+def _ensure_daemon() -> int | None:
+    """Return daemon port, spawning the daemon if needed.
+
+    Guarantees at most one embedding daemon across all MCP processes:
+
+    * A cross-platform exclusive file lock (``daemon.lock``) serializes spawn
+      decisions. The lock holder either reuses a live daemon or spawns one and
+      writes ``daemon.json`` *before* releasing the lock, so any later process
+      observes the manifest under the lock (no TOCTOU double-spawn).
+    * Processes that fail to acquire the lock wait for the holder to publish
+      its manifest, then reuse it.
+
+    Falls back to the in-process model if the daemon cannot be started.
     """
     global _DAEMON_PORT, _DAEMON_FAILED, _EMBEDDING_BACKEND
 
@@ -248,44 +351,31 @@ def _ensure_daemon() -> int | None:
         _DAEMON_FAILED = True
         return None
 
-    lock_fd = _acquire_daemon_lock()
-    if lock_fd is None and _HAVE_FCNTL:
-        # Another process is spawning — wait for its daemon
+    lock = _acquire_daemon_lock()
+    if lock is None:
+        # Another process holds the lock and is (re)spawning — wait for its
+        # manifest rather than racing it.
         deadline = time.time() + _SPAWN_WAIT_S
         while time.time() < deadline:
             time.sleep(_SPAWN_POLL_S)
-            manifest = _read_manifest()
-            if manifest:
-                port = manifest.get("port")
-                pid = manifest.get("pid")
-                if isinstance(port, int) and isinstance(pid, int):
-                    try:
-                        os.kill(pid, 0)
-                        _DAEMON_PORT = port
-                        _EMBEDDING_BACKEND = "daemon"
-                        _register()
-                        return port
-                    except OSError:
-                        continue
+            port = _reuse_existing_daemon()
+            if port is not None:
+                _DAEMON_PORT = port
+                _EMBEDDING_BACKEND = "daemon"
+                _register()
+                return port
         logger.warning("another process's daemon did not start within %.1fs", _SPAWN_WAIT_S)
         _DAEMON_FAILED = True
         return None
 
     try:
-        manifest = _read_manifest()
-        if manifest:
-            port = manifest.get("port")
-            pid = manifest.get("pid")
-            if isinstance(port, int) and isinstance(pid, int):
-                try:
-                    os.kill(pid, 0)
-                    logger.info("reusing existing daemon on port %d (pid %d)", port, pid)
-                    _DAEMON_PORT = port
-                    _EMBEDDING_BACKEND = "daemon"
-                    _register()
-                    return port
-                except OSError:
-                    logger.info("daemon pid %d dead — spawning new one", pid)
+        # Lock holder: reuse a live daemon if present, else spawn once.
+        port = _reuse_existing_daemon()
+        if port is not None:
+            _DAEMON_PORT = port
+            _EMBEDDING_BACKEND = "daemon"
+            _register()
+            return port
 
         # Retry daemon spawn up to 2 times
         for attempt in range(1, 3):
@@ -302,8 +392,7 @@ def _ensure_daemon() -> int | None:
         _DAEMON_FAILED = True
         return None
     finally:
-        if lock_fd is not None:
-            os.close(lock_fd)
+        _release_daemon_lock(lock)
 
 
 def get_embedding_backend() -> str:

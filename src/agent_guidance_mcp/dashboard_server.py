@@ -395,27 +395,45 @@ def run_dashboard(project_path: str | None = None) -> None:
 
     Reads usage.db from project_path, serves dashboard at http://127.0.0.1:<port>/.
     """
-    from ._dashboard_shared import DAEMON_DIR, DAEMON_PORT_FILE, kill_existing_daemon
+    from ._dashboard_shared import (
+        DAEMON_DIR,
+        DAEMON_PORT_FILE,
+        DASHBOARD_PORT_FILE,
+        kill_existing_dashboard,
+    )
 
     daemon_alive = False
     if DAEMON_PORT_FILE.is_file():
         try:
             manifest = json.loads(DAEMON_PORT_FILE.read_text(encoding="utf-8"))
-            if manifest.get("mode") != "dashboard":
-                pid = manifest.get("pid")
-                if pid:
-                    try:
-                        os.kill(pid, 0)
+            pid = manifest.get("pid")
+            port = manifest.get("port")
+            # Prefer an HTTP /health probe (reliable on Windows, where
+            # os.kill(pid, 0) raises for permission mismatches on live PIDs).
+            if port is not None:
+                try:
+                    import httpx
+
+                    r = httpx.get(f"http://127.0.0.1:{port}/health", timeout=0.5)
+                    if r.is_success:
                         daemon_alive = True
-                    except OSError:
-                        pass
+                except Exception:
+                    pass
+            if not daemon_alive and pid:
+                try:
+                    os.kill(pid, 0)
+                    daemon_alive = True
+                except OSError:
+                    pass
         except Exception:
             pass
 
     if daemon_alive:
         logger.info("Embed daemon already running — dashboard will proxy requests to it")
     else:
-        kill_existing_daemon()
+        # Only ever kill a previous *dashboard* instance, never the shared
+        # embedding daemon (which lives in daemon.json).
+        kill_existing_dashboard()
 
     pp = project_path or os.environ.get("AGENT_PROJECT_ROOT", os.getcwd())
     pp = str(Path(pp).resolve())
@@ -432,7 +450,7 @@ def run_dashboard(project_path: str | None = None) -> None:
 
     if not daemon_alive:
         DAEMON_DIR.mkdir(parents=True, exist_ok=True)
-        DAEMON_PORT_FILE.write_text(
+        DASHBOARD_PORT_FILE.write_text(
             json.dumps({"port": port, "pid": os.getpid(), "started_at": time.time(), "mode": "dashboard"}),
             encoding="utf-8",
         )
