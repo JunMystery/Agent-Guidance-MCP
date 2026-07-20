@@ -348,6 +348,8 @@ def _on_startup() -> None:
     global _EMBED_READY
     _EMBED_READY = True
     _write_manifest(_BOUND_PORT, os.getpid())
+    # Pre-warm the model in background so first client request doesn't wait.
+    threading.Thread(target=_load_model, daemon=True).start()
 
 
 # ── Model loading ───────────────────────────────────────────────────────
@@ -449,7 +451,7 @@ def main() -> None:
     t = threading.Thread(target=_reaper, daemon=True)
     t.start()
 
-    uvicorn.run(app, fd=sock.fileno(), log_config={
+    log_config = {
         "version": 1,
         "formatters": {
             "default": {
@@ -463,7 +465,16 @@ def main() -> None:
             },
         },
         "root": {"level": "INFO", "handlers": ["default"]},
-    })
+    }
+
+    if sys.platform == "win32":
+        # On Windows, uvicorn's fd-based socket restore calls socket.fromfd()
+        # with AF_UNIX, which doesn't exist on Windows. Close the pre-bound
+        # socket and let uvicorn bind fresh to the already-reserved port.
+        sock.close()
+        uvicorn.run(app, host="127.0.0.1", port=port, log_config=log_config)
+    else:
+        uvicorn.run(app, fd=sock.fileno(), log_config=log_config)
 
 
 if __name__ == "__main__":

@@ -480,6 +480,19 @@ def create_server(
 
     atexit.register(_close_usage)
 
+    # Pre-warm LLM selector in background so guidance search doesn't block
+    try:
+        def _warm_llm_bg() -> None:
+            try:
+                from .llm_selector import LLMSelector
+                sel = LLMSelector()
+                sel._load()
+            except Exception:
+                pass
+        threading.Thread(target=_warm_llm_bg, daemon=True).start()
+    except Exception:
+        pass
+
     # Check for sentinel file from --session-start (cross-process gate persistence).
     # Sentinel is NOT cleared — it persists for the session lifetime so a future
     # server restart (e.g. after subagent spawn) can recover the gate state.

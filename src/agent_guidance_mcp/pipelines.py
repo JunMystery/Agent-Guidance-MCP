@@ -121,12 +121,23 @@ def guidance(
             }
         try:
             from .llm_selector import LLMSelector
+            import threading
             selector = LLMSelector()
             candidate_list = [
                 {"identifier": r["identifier"], "title": r.get("title", ""), "description": r.get("description", "")}
                 for r in results
             ]
-            llm_picks = set(selector.select(query, candidate_list, limit=3))
+            # Run LLM select with a 2s timeout so a cold model load doesn't block
+            llm_picks: set[str] = set()
+            def _do_select() -> None:
+                try:
+                    picks = selector.select(query, candidate_list, limit=3)
+                    llm_picks.update(picks)
+                except Exception:
+                    pass
+            t = threading.Thread(target=_do_select, daemon=True)
+            t.start()
+            t.join(timeout=2.0)
             if llm_picks:
                 llm_boosted = [r for r in results if r["identifier"] in llm_picks]
                 rest = [r for r in results if r["identifier"] not in llm_picks]

@@ -412,7 +412,7 @@ def _register() -> None:
         resp = httpx.post(
             f"http://127.0.0.1:{_DAEMON_PORT}/register",
             json={"client_id": cid, "pid": pid},
-            timeout=3.0,
+            timeout=30.0,
         )
         if resp.is_success:
             logger.debug("registered with daemon (cid=%s, pid=%d)", cid, pid)
@@ -427,7 +427,7 @@ def _push_backend() -> None:
         httpx.post(
             f"http://127.0.0.1:{_DAEMON_PORT}/api/backend",
             json={"backend": _EMBEDDING_BACKEND},
-            timeout=3.0,
+            timeout=30.0,
         )
     except httpx.RequestError:
         pass
@@ -441,7 +441,7 @@ def _unregister_daemon() -> None:
         httpx.post(
             f"http://127.0.0.1:{_DAEMON_PORT}/unregister",
             json={"client_id": cid},
-            timeout=2.0,
+            timeout=30.0,
         )
     except httpx.RequestError:
         pass
@@ -467,7 +467,7 @@ def get_embedding(text: str, prefix: str | None = None) -> Optional[List[float]]
             resp = httpx.post(
                 f"http://127.0.0.1:{port}/embed",
                 json={"text": text, "prefix": prefix},
-                timeout=3.0,
+                timeout=30.0,
             )
             if resp.is_success:
                 return resp.json()["vector"]
