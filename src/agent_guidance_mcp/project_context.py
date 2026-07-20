@@ -19,6 +19,7 @@ from .content_compressor import is_binary_file, is_likely_binary
 from .database import CodeGraphDatabase
 from .project_scan import (
     DEFAULT_MAX_DEPTH,
+    DEFAULT_DETAIL_DEPTH,
     DEFAULT_MAX_FILE_BYTES,
     DEFAULT_MAX_READ_LINES,
     DEFAULT_MAX_TOTAL_BYTES,
@@ -65,7 +66,7 @@ def export_project_snapshot(
     max_file_bytes = max(1, max_file_bytes)
     max_total_bytes = max(1, max_total_bytes)
 
-    tree = build_project_tree(root, DEFAULT_MAX_DEPTH, excluded_paths={output_relative})
+    tree = build_project_tree(root, DEFAULT_MAX_DEPTH, excluded_paths={output_relative}, use_cache=False)
     file_paths = list(iter_project_files(root, excluded_paths={output_relative}))
 
     def _read_file(path):
@@ -133,7 +134,9 @@ def export_project_snapshot(
 
 
 def get_project_tree(
-    project_path: str = ".", max_depth: int = DEFAULT_MAX_DEPTH
+    project_path: str = ".",
+    max_depth: int = DEFAULT_MAX_DEPTH,
+    detail_depth: int = DEFAULT_DETAIL_DEPTH,
 ) -> dict[str, object]:
     """Return a bounded source tree for a project."""
     try:
@@ -145,7 +148,11 @@ def get_project_tree(
             "message": str(e),
             "details": {"project_path": project_path}
         }
-    return build_project_tree(root, max(1, max_depth), excluded_paths={DEFAULT_SNAPSHOT_PATH})
+    return build_project_tree(
+        root, max(1, max_depth),
+        excluded_paths={DEFAULT_SNAPSHOT_PATH},
+        detail_depth=detail_depth,
+    )
 
 
 def read_project_file(

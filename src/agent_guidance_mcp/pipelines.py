@@ -531,6 +531,14 @@ def task_pipeline(
     if not active_code_query:
         active_code_query = extract_code_terms(task)
 
+    # ── Doc-first probe: instant architecture doc detection ──────────
+    from .project_scan import probe_architecture_docs, resolve_project_root as _resolve_root
+    try:
+        probe_root = _resolve_root(project_path)
+        arch_docs = probe_architecture_docs(probe_root)
+    except Exception:
+        arch_docs = []
+
     from .parallel import parallel_run
 
     concurrent_tasks: dict[str, object] = {
@@ -542,6 +550,7 @@ def task_pipeline(
         concurrent_tasks["project_tree"] = lambda: project_context_helpers.get_project_tree(
             project_path=project_path,
             max_depth=project_context_helpers.DEFAULT_MAX_DEPTH,
+            detail_depth=project_context_helpers.DEFAULT_DETAIL_DEPTH,
         )
     if active_code_query:
         concurrent_tasks["code_search"] = lambda: project_context_helpers.search_project_code(
@@ -562,6 +571,8 @@ def task_pipeline(
         "focus": focus,
         "recommendations": recommendations,
     }
+    if arch_docs:
+        result["architecture_docs"] = arch_docs
     if timed_out:
         result["warning"] = f"timeout on: {', '.join(timed_out)}"
     if "project_tree" in concurrent_results:

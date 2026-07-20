@@ -14,7 +14,7 @@ from typing import Dict, Set
 
 from .database import CodeGraphDatabase
 from .indexer import CodeGraphIndexer
-from .project_scan import iter_project_files
+from .project_scan import iter_project_files, invalidate_tree_cache
 
 logger = logging.getLogger("agent-guidance-mcp.watcher")
 
@@ -199,6 +199,7 @@ class CodeGraphWatcher:
 
         # Track change timestamp for debounce
         if changes_detected:
+            invalidate_tree_cache(self.root)
             self._last_change_time = time.time()
             logger.debug(
                 "CodeGraph watcher: %d updates, %d deletions — "
