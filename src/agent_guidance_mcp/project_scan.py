@@ -51,6 +51,12 @@ def invalidate_tree_cache(root: Path | None = None) -> None:
             keys_to_remove = [k for k in _tree_cache if k[0] == root_str]
             for k in keys_to_remove:
                 del _tree_cache[k]
+    if root is not None:
+        try:
+            from .tree_cache import delete_tree_cache
+            delete_tree_cache(root)
+        except Exception:
+            pass
 
 BINARY_SUFFIXES = set(
     """
@@ -120,6 +126,25 @@ def build_project_tree(
                     and _root_mtime(root) == rmtime
                     and _git_index_mtime(root) == gmtime):
                 return cached_result
+
+    # ── Persistent cache check (SQLite) ──────────────────────────────
+    if use_cache:
+        try:
+            from .tree_cache import _cache_key as _pkey, load_tree_cache, save_tree_cache
+            pkey = _pkey(root, max_depth)
+            db_entries = load_tree_cache(root)
+            if pkey in db_entries:
+                db_rmtime, db_gmtime, db_data = db_entries[pkey]
+                if (_root_mtime(root) == db_rmtime
+                        and _git_index_mtime(root) == db_gmtime):
+                    # Warm in-memory cache
+                    with _tree_cache_lock:
+                        _tree_cache[cache_key] = (
+                            time.monotonic(), db_rmtime, db_gmtime, db_data,
+                        )
+                    return db_data
+        except Exception:
+            pass
 
     excluded = normalize_excluded_paths(excluded_paths)
     entries: list[dict[str, object]] = []
@@ -222,6 +247,12 @@ def build_project_tree(
                 _git_index_mtime(root),
                 result,
             )
+        # Persist to SQLite (best-effort)
+        try:
+            from .tree_cache import _cache_key as _pkey, save_tree_cache
+            save_tree_cache(root, _pkey(root, max_depth), _root_mtime(root), _git_index_mtime(root), result)
+        except Exception:
+            pass
     return result
 
 
