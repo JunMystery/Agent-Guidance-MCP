@@ -15,16 +15,15 @@ src/agent_guidance_mcp/
 ├── __init__.py         # Package version, public API exports
 ├── __main__.py         # CLI entry: --setup, --update, --session-start, server
 ├── server.py           # FastMCP registration, priority gate, sentinel, run_session_start
-├── catalog.py          # StandardsCatalog: indexing, search, recommendations
+├── catalog.py          # StandardsCatalog: indexing, search, recommendations, hybrid search (keyword + vector cosine similarity)
 ├── pipelines.py        # Tool dispatchers: task_pipeline, guidance, project_context, ui_ux
 ├── pipeline_helpers.py # Shared helpers: framework detection, lifecycle sort, response wrapping
 │
-├── project_context.py  # Tool handlers: tree, search, read, snapshot, symbols, diff
-├── project_scan.py     # os.walk traversal, file filtering, ignore lists
+├── project_context.py  # Tool handlers: tree, search, read, snapshot, symbols, diff, architecture
+├── project_scan.py     # os.walk traversal, file filtering, ignore lists, doc probes
 ├── project_codegraph.py# CodeGraph semantic indexing integration
 │
 ├── embeddings.py       # SentenceTransformer model (intfloat/multilingual-e5-small) lazy load
-├── semantic_search.py  # Hybrid search: keyword + vector cosine similarity
 ├── reasoning.py        # 6 framework templates (decision, bug, architecture, security, perf)
 │
 ├── setup.py            # Post-install: IDE registration, rule/skill deployment, uninstall
@@ -45,6 +44,7 @@ src/agent_guidance_mcp/
 ├── database.py         # SQLite FTS5 index for CodeGraph
 ├── indexer.py          # Incremental workspace indexer
 ├── watcher.py          # Background file watcher daemon
+├── tree_cache.py       # Persistent project tree cache in SQLite
 ├── diagnostics.py      # Self-diagnostics: system, tree-sitter, DB, Context7
 ├── session.py          # Session continuity persistence
 ├── dashboard_server.py  # Standalone stdlib HTTP dashboard server (/api/stats, /health)
@@ -91,7 +91,7 @@ Tool call
 | `agent-guidance-mcp_project_context` | ✅ | Gated — blocked before `agent-guidance-mcp_task_pipeline` |
 | `agent-guidance-mcp_ui_ux` | ✅ | **Ungated** — callable directly (design guidance, no gate) |
 | `agent-guidance-mcp_session_continuity` | ✅ | Gated — blocked before `agent-guidance-mcp_task_pipeline` |
-| `agent-guidance-mcp_guidance` (`workflow` op) | ✅ | Gated — blocked before `agent-guidance-mcp_task_pipeline` |
+| `agent-guidance-mcp_usage_report` | ✅ | Gated — blocked before `agent-guidance-mcp_task_pipeline` |
 | `agent-guidance-mcp_health_check`, `agent-guidance-mcp_diagnose`, `agent-guidance-mcp_token_stats` | ✅ | Whitelisted — always open |
 
 ---

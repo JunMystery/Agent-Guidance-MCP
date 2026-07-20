@@ -410,4 +410,216 @@ def get_project_diff(
     }
 
 
+def get_project_architecture(
+    project_path: str = ".",
+    config: TokenOptimizationConfig | None = None,
+    tracker: TokenTracker | None = None,
+) -> dict[str, object]:
+    """Retrieve detailed project architecture mapping including tech stack, modules, and core hubs."""
+    import time
+    import logging
+    from .project_scan import probe_architecture_docs, iter_project_files, relative_path
+    from .pipeline_helpers import _detect_frameworks
+    from .database import CodeGraphDatabase
+    from .indexer import CodeGraphIndexer
+
+    logger = logging.getLogger("agent-guidance-mcp.project-context")
+
+    root = resolve_project_root(project_path)
+    config = config or load_config_from_env()
+
+    # 1. Tech Stack Frameworks
+    try:
+        frameworks = _detect_frameworks(str(root))
+    except Exception:
+        frameworks = []
+
+    # Detect languages based on files in project
+    all_files = list(iter_project_files(root, excluded_paths={DEFAULT_SNAPSHOT_PATH}))
+    langs = set()
+    for f in all_files:
+        suffix = f.suffix.lower().lstrip(".")
+        if suffix in ("py", "pyw"): langs.add("python")
+        elif suffix in ("js", "mjs", "cjs"): langs.add("javascript")
+        elif suffix in ("ts", "tsx"): langs.add("typescript")
+        elif suffix == "go": langs.add("go")
+        elif suffix == "rs": langs.add("rust")
+        elif suffix in ("java", "class"): langs.add("java")
+        elif suffix in ("kt", "kts"): langs.add("kotlin")
+        elif suffix in ("cs", "csx"): langs.add("csharp")
+        elif suffix == "rb": langs.add("ruby")
+        elif suffix == "php": langs.add("php")
+        elif suffix in ("cpp", "cc", "cxx", "h", "hpp"): langs.add("cpp")
+        elif suffix == "c": langs.add("c")
+        elif suffix == "swift": langs.add("swift")
+        elif suffix == "dart": langs.add("dart")
+    
+    tech_stack = {
+        "frameworks": frameworks,
+        "languages": sorted(list(langs)),
+    }
+
+    # 2. Documentation
+    try:
+        arch_docs = probe_architecture_docs(root)
+    except Exception:
+        arch_docs = []
+
+    # 3. Modules directory tree mapping (depth <= 3)
+    modules = []
+    dir_info = {}
+    for f in all_files:
+        rel = relative_path(root, f).replace("\\", "/")
+        parts = rel.split("/")
+        if len(parts) > 1:
+            for d_idx in range(1, min(len(parts), 4)):
+                parent_dir = "/".join(parts[:d_idx])
+                if parent_dir not in dir_info:
+                    dir_info[parent_dir] = {"file_count": 0, "total_bytes": 0, "langs": set()}
+                info = dir_info[parent_dir]
+                info["file_count"] += 1
+                try:
+                    info["total_bytes"] += f.stat().st_size
+                except OSError:
+                    pass
+                suffix = f.suffix.lower().lstrip(".")
+                if suffix:
+                    info["langs"].add(suffix)
+
+    for d, info in sorted(dir_info.items()):
+        modules.append({
+            "dir": d,
+            "file_count": info["file_count"],
+            "total_bytes": info["total_bytes"],
+            "languages": sorted(list(info["langs"]))[:5]
+        })
+
+    # 4. SQLite CodeGraph Database querying (synced if not indexed)
+    db_path = root / ".agent-context" / "codegraph.db"
+    db = None
+    db_indexed = False
+    
+    try:
+        db = CodeGraphDatabase(db_path)
+        db_files_count = db.conn.execute("SELECT COUNT(*) FROM files;").fetchone()[0]
+        db_indexed = db_files_count > 0
+        
+        if not db_indexed:
+            # Run sync indexer
+            indexer = CodeGraphIndexer(root, db)
+            indexer.run()
+            db_indexed = True
+    except Exception as e:
+        logger.warning("Database initialization or indexing failed: %s", e)
+
+    entry_points = []
+    core_hubs = {"most_called": [], "most_calling": []}
+    structural_summary = {
+        "total_files": len(all_files),
+        "total_symbols": 0,
+        "total_edges": 0,
+        "database_indexed": db_indexed,
+    }
+
+    if db_indexed and db is not None:
+        try:
+            # 4.1 Entrypoints scanning
+            cur = db.conn.cursor()
+            cur.execute("""
+                SELECT id, name, file_path FROM symbols 
+                WHERE name IN ('main', 'run', 'start', 'serve', 'app', 'init') 
+                  AND kind IN ('function', 'method') 
+                LIMIT 10;
+            """)
+            eps = cur.fetchall()
+            ep_dict = {}
+            for row in eps:
+                fpath = row["file_path"]
+                if fpath not in ep_dict:
+                    ep_dict[fpath] = []
+                ep_dict[fpath].append(row["name"])
+            
+            # Add files matching main.* conventions
+            for f in all_files:
+                rel = relative_path(root, f).replace("\\", "/")
+                fname = f.name.lower()
+                if fname in ("main.py", "main.go", "app.js", "app.ts", "server.js", "server.ts", "index.js", "index.ts"):
+                    if rel not in ep_dict:
+                        ep_dict[rel] = []
+            
+            entry_points = [{"path": k, "entry_functions": v} for k, v in ep_dict.items()]
+
+            # 4.2 Core Hubs - Incoming
+            cur.execute("""
+                SELECT target AS symbol_id, COUNT(*) AS incoming_calls
+                FROM call_edges
+                GROUP BY target
+                ORDER BY incoming_calls DESC
+                LIMIT 5;
+            """)
+            called = cur.fetchall()
+            for row in called:
+                sid = row["symbol_id"]
+                sym_row = db.conn.execute("SELECT name, file_path FROM symbols WHERE id = ? LIMIT 1;", (sid,)).fetchone()
+                core_hubs["most_called"].append({
+                    "symbol_id": sid,
+                    "name": sym_row["name"] if sym_row else sid.split("::")[-2] if "::" in sid else sid,
+                    "file": sym_row["file_path"] if sym_row else sid.split("::")[0] if "::" in sid else "",
+                    "incoming_calls": row["incoming_calls"]
+                })
+
+            # 4.3 Core Hubs - Outgoing
+            cur.execute("""
+                SELECT source AS symbol_id, COUNT(*) AS outgoing_calls
+                FROM call_edges
+                GROUP BY source
+                ORDER BY outgoing_calls DESC
+                LIMIT 5;
+            """)
+            calling = cur.fetchall()
+            for row in calling:
+                sid = row["symbol_id"]
+                sym_row = db.conn.execute("SELECT name, file_path FROM symbols WHERE id = ? LIMIT 1;", (sid,)).fetchone()
+                core_hubs["most_calling"].append({
+                    "symbol_id": sid,
+                    "name": sym_row["name"] if sym_row else sid.split("::")[-2] if "::" in sid else sid,
+                    "file": sym_row["file_path"] if sym_row else sid.split("::")[0] if "::" in sid else "",
+                    "outgoing_calls": row["outgoing_calls"]
+                })
+
+            # 4.4 Structural Summary Details
+            total_syms = db.conn.execute("SELECT COUNT(*) FROM symbols;").fetchone()[0]
+            total_edges = db.conn.execute("SELECT COUNT(*) FROM call_edges;").fetchone()[0]
+            structural_summary["total_symbols"] = total_syms
+            structural_summary["total_edges"] = total_edges
+
+        except Exception as e:
+            logger.warning("Failed querying codegraph database for architecture: %s", e)
+        finally:
+            try:
+                db.close()
+            except Exception:
+                pass
+    else:
+        if db is not None:
+            try:
+                db.close()
+            except Exception:
+                pass
+
+    result = {
+        "project_root": str(root),
+        "status": "success",
+        "tech_stack": tech_stack,
+        "modules": modules[:50],
+        "entry_points": entry_points,
+        "core_hubs": core_hubs,
+        "structural_summary": structural_summary,
+    }
+
+    _record_savings(tracker, "project_context", "architecture", result, result, project_path=project_path)
+    return result
+
+
+
 

@@ -732,6 +732,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         - callers: Get all callers of a symbol from the CodeGraph database.
         - callees: Get all callees of a symbol from the CodeGraph database.
         - diff: View the git diff of workspace changes.
+        - architecture: Detailed project architecture mapping (tech stack, modules, core hubs).
 
         Examples:
           project_context(operation="read", relative_path="src/auth.js")
@@ -739,7 +740,7 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
 
         Args:
             operation: One of tree, search, read, snapshot, symbols, references,
-                structure, callers, callees, diff (required).
+                structure, callers, callees, diff, architecture (required).
             project_path: Root of the project (default ".").
             query: Search query for grep, symbol name for references, or symbol ID
                 for callers/callees.

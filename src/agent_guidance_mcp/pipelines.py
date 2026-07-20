@@ -13,7 +13,7 @@ from .token_analytics import TokenTracker
 from .token_config import TokenOptimizationConfig, load_config_from_env
 
 GUIDANCE_OPERATIONS = ("list", "get", "search", "recommend", "reason", "docs", "feedback", "workflow", "precode", "verify")
-PROJECT_CONTEXT_OPERATIONS = ("tree", "search", "read", "snapshot", "symbols", "references", "structure", "callers", "callees", "diff")
+PROJECT_CONTEXT_OPERATIONS = ("tree", "search", "read", "snapshot", "symbols", "references", "structure", "callers", "callees", "diff", "architecture")
 UI_UX_OPERATIONS = ("search", "design_system", "slides")
 
 from .pipeline_helpers import (
@@ -336,6 +336,16 @@ def project_context(
         except (ValueError, FileNotFoundError, NotADirectoryError) as exc:
             return _project_error(exc, {"symbol_id": query})
 
+    if operation_key == "architecture":
+        try:
+            return project_context_helpers.get_project_architecture(
+                project_path=project_path,
+                config=config,
+                tracker=tracker,
+            )
+        except (ValueError, FileNotFoundError, NotADirectoryError) as exc:
+            return _project_error(exc, {"project_path": project_path})
+
     if operation_key == "diff":
         try:
             return project_context_helpers.get_project_diff(
@@ -556,6 +566,9 @@ def task_pipeline(
         "recommendations": lambda: catalog.recommend_context(
             task=weighted_task, limit=limit, include_content=True, config=config
         ),
+        "architecture_map": lambda: project_context_helpers.get_project_architecture(
+            project_path=project_path, config=config, tracker=tracker
+        ),
     }
     if include_tree:
         concurrent_tasks["project_tree"] = lambda: project_context_helpers.get_project_tree(
@@ -584,6 +597,14 @@ def task_pipeline(
     }
     if arch_docs:
         result["architecture_docs"] = arch_docs
+    if "architecture_map" in concurrent_results:
+        arch_res = concurrent_results["architecture_map"]
+        if isinstance(arch_res, TimeoutError):
+            result["architecture_map"] = {"error": f"Architecture analysis timed out after {timeout}s"}
+        elif isinstance(arch_res, Exception):
+            result["architecture_map"] = {"error": f"Failed to analyze project architecture: {arch_res}"}
+        else:
+            result["architecture_map"] = arch_res
     if timed_out:
         result["warning"] = f"timeout on: {', '.join(timed_out)}"
     if "project_tree" in concurrent_results:

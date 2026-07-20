@@ -119,6 +119,7 @@ project_context(
 | `callers` | `query` | Get all callers of a symbol (from SQLite CodeGraph DB). `query` is the fully-qualified symbol ID. |
 | `callees` | `query` | Get all callees of a symbol (from SQLite CodeGraph DB). |
 | `diff` | -- | Git diff of workspace changes (staged + unstaged). Token-optimized. |
+| `architecture` | -- | Detailed project architecture mapping (tech stack, modules, core hubs). |
 
 **Examples:**
 ```
