@@ -21,7 +21,9 @@ from .usage import UsageTracker
 AGENT_INSTRUCTIONS = (
     "## Agent Guidance MCP — Quick Reference\n\n"
     "Call task_pipeline(task=\"...\") FIRST for any task or phase. "
-    "It returns recommendations, project tree, code search, and UI guidance in ONE call.\n\n"
+    "Note: your host may prefix tool names with `agent-guidance-mcp_` "
+    "(e.g. `agent-guidance-mcp_task_pipeline`). Use the exact names "
+    "shown in your tool list.\n\n"
     "Available tools:\n"
     "- task_pipeline: context prep (call first)\n"
     "- guidance: standards, skills, live docs, reasoning, workflow, precode, verify, feedback\n"
@@ -38,7 +40,12 @@ AGENT_INSTRUCTIONS = (
     "CODEGEN: task_pipeline returns a `codegen_plan` (phases + matched skills) when the "
     "task signals code intent — then call guidance(operation='precode') before editing "
     "and guidance(operation='verify') after.\n\n"
-    "For detailed tool usage and the 9 mandatory rules, see AGENTS.md."
+    "For detailed tool usage and the 9 mandatory rules, see AGENTS.md.\n\n"
+    "IMPORTANT — Tool naming: Some hosts add a server-name prefix to tool names "
+    "(e.g. `agent-guidance-mcp_task_pipeline` instead of `task_pipeline`). "
+    "Always use the exact tool names as they appear in your available tools list. "
+    "Do NOT guess or drop the prefix — if the list shows `agent-guidance-mcp_task_pipeline`, "
+    "you must call `agent-guidance-mcp_task_pipeline`, not `task_pipeline`."
 )
 
 WORKFLOW_MODE_MAP: dict[str, str] = {

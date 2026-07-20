@@ -1,4 +1,4 @@
-﻿# Self-contained PowerShell Installer/Uninstaller for Agent Guidance MCP on Windows
+# Self-contained PowerShell Installer/Uninstaller for Agent Guidance MCP on Windows
 # Usage: irm https://.../install.ps1 | iex
 
 $ErrorActionPreference = "Stop"

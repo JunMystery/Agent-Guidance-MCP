@@ -16,6 +16,8 @@ agent-guidance-mcp saves tokens through 4 automatic mechanisms:
 - Call `agent-guidance-mcp_token_stats` at end of each phase to verify compression ratio.
 - If token usage is still high, set `AGENT_GUIDANCE_TOKEN_OPT=0` to disable (not recommended).
 
+**Tool naming note:** Some MCP hosts prefix tool names with `agent-guidance-mcp_` (e.g. `agent-guidance-mcp_task_pipeline`), while others expose bare names (`task_pipeline`). The examples below use prefixed names. When calling, **always use the exact tool name shown in your available-tools list** — never add or drop a prefix.
+
 ## CRITICAL — Tool Rules (READ FIRST)
 
 For EVERY user interaction — planning, implementation, testing, debugging, reviewing, refactoring, or any other action:

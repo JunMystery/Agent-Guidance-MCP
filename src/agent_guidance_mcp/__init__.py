@@ -1,6 +1,6 @@
 """MCP server package for Agent Guidance MCP."""
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 
 from .catalog import CatalogEntry, StandardsCatalog, build_catalog, find_standards_root
 from .content_compressor import Language
