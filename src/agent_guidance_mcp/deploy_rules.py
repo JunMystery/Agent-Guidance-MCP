@@ -18,26 +18,33 @@ from .project_scan import resolve_project_root
 
 logger = logging.getLogger("agent-guidance-mcp.deploy-rules")
 
+# ── Marker constants for wrapped section detection ──────────────────────────
+
+MARKER_START = "<!-- agent-guidance:start -->"
+MARKER_END = "<!-- agent-guidance:end -->"
+MARKER = "Agent Guidance MCP — Tool Selection Priority"  # legacy fallback
+
 # ── Content to deploy ────────────────────────────────────────────────────────
 
-MARKER = "Agent Guidance MCP — Tool Selection Priority"
-
 AGENT_RULES_BLOCK = (
-    "\n"
     "## Agent Guidance MCP — Tool Selection Priority\n\n"
     "| You need to... | Use THIS tool first | Why |\n"
     "|---|---|---|\n"
-    "| Start any coding task | `agent-guidance-mcp_task_pipeline(task=\"...\")` | Recommendations + tree + code search + UI in ONE call |\n"
+    "| Start any task or phase | `agent-guidance-mcp_task_pipeline(task=\"...\")` | Recommendations + tree + code search + UI in ONE call |\n"
     "| Check coding standards / skills | `agent-guidance-mcp_guidance(operation=\"search\", query=\"...\")` | No other tool provides standards or skill lookup |\n"
     "| Read a file | `agent-guidance-mcp_project_context(operation=\"read\", relative_path=\"...\")` | Token-capped at 300 lines — prevents context blowout |\n"
     "| Search codebase text | `agent-guidance-mcp_project_context(operation=\"search\", query=\"...\")` | Ranked, bounded results. Fallback when codegraph unavailable |\n"
     "| Understand code structure | `agent-guidance-mcp_project_context(operation=\"structure\", relative_path=\"...\")` | Hierarchical view of classes, methods, functions in a file |\n"
     "| Extract symbols | `agent-guidance-mcp_project_context(operation=\"symbols\", relative_path=\"...\")` | Flat list of classes, functions, methods with signatures |\n"
+    "| Get structured workflow | `agent-guidance-mcp_guidance(operation=\"workflow\", identifier=\"plan\")` → `\"code\"` → `\"test\"` | Enriched dev workflow with auto-chaining |\n"
+    "| Pre-code checklist | `agent-guidance-mcp_guidance(operation=\"precode\", query=\"...\")` | Coding conventions, security, testing, arch, deploy rules |\n"
+    "| Post-code verification | `agent-guidance-mcp_guidance(operation=\"verify\", query=\"...\")` | Auto-detect test/review/security/audit/deploy; suggests next workflow |\n"
+    "| Skill feedback loop | `agent-guidance-mcp_guidance(operation=\"feedback\", identifier=\"...\", rating=1-5, query=\"...\")` | Rate skills to boost future recommendations for similar tasks |\n"
     "| Find symbol references | `agent-guidance-mcp_project_context(operation=\"references\", query=\"...\")` | Locate all usages of a symbol across the codebase |\n"
     "| Get UI/design guidance | `agent-guidance-mcp_ui_ux(operation=\"search\", query=\"...\")` | Style, colors, typography, charts, slides |\n"
     "| Persist/recover session | `agent-guidance-mcp_session_continuity(operation=\"save\"/\"load\"/\"clear\")` | State recovery / task checklist continuity |\n"
     "| Browse project tree | `agent-guidance-mcp_project_context(operation=\"tree\")` | Optimized directory tree view |\n\n"
-    "### Eight Mandatory Rules\n\n"
+    "### Nine Mandatory Rules\n\n"
     "1. **Context First**: Call `agent-guidance-mcp_task_pipeline` or `agent-guidance-mcp_project_context` BEFORE any file read or code change.\n"
     "2. **Standards Check**: Use `agent-guidance-mcp_guidance(operation=\"search\")` BEFORE implementing or answering any prompt.\n"
     "3. **Token Budget**: Prefer MCP tools over raw file reads — built-in limits prevent context blowout.\n"
@@ -45,8 +52,9 @@ AGENT_RULES_BLOCK = (
     "5. **Ground & Plan**: Verify files/functions/symbols via search BEFORE proposing changes. Never guess.\n"
     "6. **300 LOC Cap**: Split files exceeding 300 lines of code. No monolithic files.\n"
     "7. **Intent Gate**: Classify request type (trivial/explicit/exploratory/open-ended/ambiguous) before acting. If ambiguous, clarify first.\n"
-    "8. **Delegation Before Action**: Decompose multi-step tasks and delegate to specialized subagents. Never implement directly when delegation is possible.\n\n"
-    "**CRITICAL: All 8 rules apply to EVERY coding action, direct query, text translation, or general query without exception.**\n"
+    "8. **Delegation Before Action**: Decompose multi-step tasks and delegate to specialized subagents. Never implement directly when delegation is possible.\n"
+    "9. **Per-Phase Reset**: For EACH new work phase (plan → implement → test → debug → review → refactor), re-call `agent-guidance-mcp_task_pipeline` with that phase's goal. Do NOT carry old context across phases. A new phase is a new task.\n\n"
+    "**CRITICAL: All 9 rules apply to EVERY action without exception — planning, implementation, testing, debugging, reviewing, refactoring, or any other work. There is no action type exempt from these rules.**\n"
 )
 
 ENFORCER_SKILL_CONTENT = (
@@ -63,6 +71,10 @@ ENFORCER_SKILL_CONTENT = (
     "2. Call `agent-guidance-mcp_guidance(operation=\"search\", query=\"...\")` before implementing coding standards.\n"
     "3. Call `agent-guidance-mcp_project_context(operation=\"read\", relative_path=\"...\")` instead of standard file reads (capped at 300 lines).\n"
     "4. Call `agent-guidance-mcp_project_context(operation=\"search\", query=\"...\")` instead of standard file search.\n"
+    "5. Use `agent-guidance-mcp_guidance(operation=\"workflow\", identifier=\"<mode>\")` for dev workflow modes (plan/test/deploy).\n"
+    "6. Use `agent-guidance-mcp_guidance(operation=\"precode\", query=\"<task>\")` for pre-code checklists.\n"
+    "7. Use `agent-guidance-mcp_guidance(operation=\"verify\", query=\"<changes>\")` for post-change verification.\n"
+    "8. Use `agent-guidance-mcp_guidance(operation=\"feedback\", identifier=\"<id>\", rating=1-5)` to rate skills and improve recommendations.\n"
 )
 
 # ── Rule file names (relative to project root) ──────────────────────────────
@@ -107,57 +119,94 @@ def _has_project_markers(root: Path) -> bool:
     return any((root / m).exists() for m in PROJECT_MARKERS)
 
 
+def _wrapped_block(content: str) -> str:
+    """Wrap *content* in agent-guidance comment markers."""
+    return f"{MARKER_START}\n{content}\n{MARKER_END}\n"
+
+
 def _has_marker(content: str) -> bool:
-    """Return True if *content* already contains the Agent Guidance block."""
-    return MARKER in content
+    """Return True if *content* already has an agent-guidance block (legacy or current)."""
+    return MARKER_START in content or MARKER in content
 
 
-def _atomic_append(path: Path, text: str) -> bool:
-    """Atomically append *text* to a file, respecting the never-overwrite rule.
-
-    Returns True when content was written (file was created or appended to).
-    Returns False when the marker already existed (no change made).
-    """
-    content = ""
-    if path.exists():
-        content = path.read_text(encoding="utf-8")
-    if _has_marker(content):
-        return False
-
-    new_content = content
-    if new_content and not new_content.endswith("\n"):
-        new_content += "\n"
-    new_content += text
-
+def _atomic_write(path: Path, content: str) -> None:
+    """Atomically write *content* to *path* via tempfile + os.replace."""
     tmp = tempfile.NamedTemporaryFile(
         mode="w", encoding="utf-8", suffix=".tmp",
         dir=str(path.parent), delete=False,
     )
     try:
-        tmp.write(new_content)
+        tmp.write(content)
         tmp.flush()
         os.fsync(tmp.fileno())
     finally:
         tmp.close()
     os.replace(tmp.name, str(path))
-    return True
+
+
+def _upsert_block(path: Path, new_block_content: str) -> str:
+    """Insert or update the agent-guidance block in a file, preserving user content.
+
+    Marker-based detection:
+      1. If ``MARKER_START`` and ``MARKER_END`` exist → replace content between them.
+      2. If legacy block (MARKER text only) → replace entire legacy block with new wrapped block.
+      3. If no block at all → append wrapped block at end.
+
+    Returns one of ``"created"``, ``"updated"``, ``"skipped (already current)"``.
+    """
+    new_full_block = _wrapped_block(new_block_content)
+
+    content = path.read_text(encoding="utf-8") if path.exists() else ""
+
+    # Case 1: modern markers present
+    start_idx = content.find(MARKER_START)
+    end_idx = content.find(MARKER_END)
+    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+        old_block = content[start_idx:end_idx + len(MARKER_END)]
+        if old_block.rstrip() == new_full_block.rstrip():
+            return "skipped (already current)"
+        new_content = content[:start_idx] + new_full_block + content[end_idx + len(MARKER_END):]
+        _atomic_write(path, new_content)
+        return "updated"
+
+    # Case 2: legacy block (MARKER text found but no HTML comment markers)
+    if MARKER in content:
+        # Find the line containing the legacy marker and replace from there
+        legacy_idx = content.find(MARKER)
+        # Find the next heading level or end of area -- use the marker start + known block size estimate
+        # The legacy block spans from MARKER to the next blank-line-separated section or EOF.
+        # We replace from legacy_idx to the first `\n##` or `\n<!--` after it, or EOF.
+        rest = content[legacy_idx:]
+        next_section = len(rest)
+        for pat in ("\n## ", "\n<!-- "):
+            pos = rest.find(pat, 1)
+            if pos != -1 and pos < next_section:
+                next_section = pos
+        old_legacy = rest[:next_section]
+        new_content = content[:legacy_idx] + new_full_block + content[legacy_idx + len(old_legacy):]
+        _atomic_write(path, new_content)
+        return "updated"
+
+    # Case 3: no agent-guidance block at all → append
+    new_content = content
+    if new_content and not new_content.endswith("\n"):
+        new_content += "\n"
+    new_content += "\n" + new_full_block
+    _atomic_write(path, new_content)
+    return "created"
 
 
 # ── Deployment functions ────────────────────────────────────────────────────
 
 def _deploy_rules(root: Path) -> dict[str, str]:
-    """Deploy agent rule files. Returns {filename: status}."""
+    """Deploy or update agent rule files. Returns {filename: status}."""
     results: dict[str, str] = {}
     for name in RULE_FILE_NAMES:
         path = root / name
-        existed = path.exists()
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
-            written = _atomic_append(path, AGENT_RULES_BLOCK)
-            if written:
-                results[name] = "appended" if existed else "created"
-            else:
-                results[name] = "skipped (already present)"
+            status = _upsert_block(path, AGENT_RULES_BLOCK)
+            results[name] = status
         except Exception as exc:
             logger.warning("Failed to deploy rules to %s: %s", name, exc)
             results[name] = "error"
@@ -165,17 +214,14 @@ def _deploy_rules(root: Path) -> dict[str, str]:
 
 
 def _deploy_skills(root: Path) -> dict[str, str]:
-    """Deploy enforcer skill files. Returns {rel_path: status}."""
+    """Deploy or update enforcer skill files. Returns {rel_path: status}."""
     results: dict[str, str] = {}
     for rel_path in SKILL_TARGETS:
         path = root / rel_path
         try:
-            if path.exists():
-                results[rel_path] = "skipped (already exists)"
-            else:
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(ENFORCER_SKILL_CONTENT, encoding="utf-8")
-                results[rel_path] = "created"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            status = _upsert_block(path, ENFORCER_SKILL_CONTENT)
+            results[rel_path] = status
         except Exception as exc:
             logger.warning("Failed to deploy skill to %s: %s", rel_path, exc)
             results[rel_path] = "error"
