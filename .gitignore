@@ -52,3 +52,5 @@ skills/system-design-primer/
 skills/ui-ux-pro-max/data/
 
 -run-media-jun-*
+/.serena
+src/agent_guidance_mcp/skills_embeddings.json

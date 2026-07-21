@@ -39,8 +39,28 @@ For EVERY user interaction — planning, implementation, testing, debugging, rev
 | Skill feedback loop | `agent-guidance-mcp_guidance(operation="feedback", identifier="...", rating=1-5, query="...")` | Rate skills to boost future recommendations for similar tasks |
 | Find symbol references | `agent-guidance-mcp_project_context(operation="references", query="...")` | Locate all usages of a symbol across the codebase |
 | Get UI/design guidance | `agent-guidance-mcp_ui_ux(operation="search", query="...")` | Style, colors, typography, charts, slides |
+| Check workflow stage | `agent-guidance-mcp_workflow_gate(action="check"/"status"/"set_stage")` | Verify plan approvals and progress lifecycle |
 | Persist/recover session | `agent-guidance-mcp_session_continuity(operation="save"/"load"/"clear")` | State recovery / task checklist continuity |
 | Browse project tree | `agent-guidance-mcp_project_context(operation="tree")` | Optimized directory tree view |
+
+### Standard Workflow Lifecycle & Feedback Loops
+
+You must strictly follow this lifecycle for every feature or task:
+`[Context] -> [Plan] -> [Ask/Revise] -> [Build] -> [Test/Recheck] -> [Fix] -> [Document/Proposal]`
+
+**MANDATORY workflow rule:**
+You BẮT BUỘC phải gọi `workflow_gate(action="check", user_message="<tin nhắn cuối cùng của user>")` ở đầu mỗi lượt phản hồi (turn) trước khi gọi bất kỳ tool nào khác. Nếu `workflow_gate` trả về `plan_approved: false` hoặc trả về lỗi `WORKFLOW_STAGE_BLOCKED`, bạn tuyệt đối không được viết code hay sửa file và phải quay lại xin chỉ thị.
+
+1. **Planning Loop (Human <-> Agent):**
+   - Propose a plan in `Plan` stage.
+   - Ask the user for approval in `Ask/Revise` stage.
+   - Move to `Build` ONLY after user has explicitly approved (ok, proceed, approved, start, đồng ý, làm đi...).
+2. **Execution & Quality Loop (Autonomous):**
+   - Transition to `Test/Recheck` after writing code in `Build`.
+   - If errors/regressions arise, transition to `Fix` and then re-test.
+3. **Circuit Breaker Rule:**
+   - Max **3 consecutive fix attempts** for the same issue in the Execution Loop.
+   - If unresolved after 3 attempts, you must STOP editing code, revert stage to `Ask/Revise`, and ask user for guidance.
 
 ### Nine Mandatory Rules
 
@@ -55,4 +75,5 @@ For EVERY user interaction — planning, implementation, testing, debugging, rev
 9. **Per-Phase Reset**: For EACH new work phase (plan → implement → test → debug → review → refactor), re-call `agent-guidance-mcp_task_pipeline` with that phase's goal. Do NOT carry old context across phases. A new phase is a new task.
 
 **CRITICAL: All 9 rules apply to EVERY action without exception — planning, implementation, testing, debugging, reviewing, refactoring, or any other work. There is no action type exempt from these rules.**
+
 <!-- agent-guidance:end -->
