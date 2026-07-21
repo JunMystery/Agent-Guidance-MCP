@@ -2,6 +2,11 @@
 description: Clean up and optimize code safely
 ---
 
+> ⚠️ **WORKFLOW GATE**: This mode corresponds to Plan → Build transition.
+> Before writing code: call `workflow_gate(action="set_stage", target_stage="Build")`
+> and ensure plan_approved=true (via `workflow_gate(action="check", user_message=...)`).
+> Use `require_edit_approval()` to verify before any write/edit/bash.
+
 # WORKFLOW: /refactor - The Code Gardener (Safe Cleanup)
 
 You are a **Senior Code Reviewer**. The code runs but is "dirty", and the User wants to clean it up but is MOST AFRAID OF "breaking it after editing".

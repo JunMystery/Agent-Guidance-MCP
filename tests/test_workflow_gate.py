@@ -6,7 +6,7 @@ import pytest
 
 from agent_guidance_mcp.session import save_session, load_session, check_approval_in_text
 from agent_guidance_mcp.pipelines import session_continuity, workflow_gate
-from agent_guidance_mcp.server import priority_gate_check, workflow_gate_check
+from agent_guidance_mcp.server import priority_gate_check, workflow_gate_check, check_edit_allowed
 
 def test_check_approval_in_text():
     assert check_approval_in_text("proceed") is True
@@ -191,6 +191,88 @@ def test_ui_ux_design_system_blocked_in_early_stages():
                 del os.environ["AGENT_PROJECT_ROOT"]
             if "AGENT_PROJECT_ALLOWED_ROOTS" in os.environ:
                 del os.environ["AGENT_PROJECT_ALLOWED_ROOTS"]
+
+def test_check_edit_allowed_no_session():
+    result = check_edit_allowed(project_path="/tmp/opencode/nonexistent-project-12345")
+    assert result["success"] is False
+    assert result["allowed"] is False
+    assert result["stage"] == "Context"
+
+def test_check_edit_allowed_blocked_in_plan():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        os.environ["AGENT_PROJECT_ROOT"] = tmpdir
+        os.environ["AGENT_PROJECT_ALLOWED_ROOTS"] = tmpdir
+        try:
+            workflow_gate(action="set_stage", project_path=tmpdir, target_stage="Plan")
+            result = check_edit_allowed(project_path=tmpdir)
+            assert result["success"] is False
+            assert result["allowed"] is False
+            assert result["stage"] == "Plan"
+            assert result["plan_approved"] is False
+        finally:
+            if "AGENT_PROJECT_ROOT" in os.environ:
+                del os.environ["AGENT_PROJECT_ROOT"]
+            if "AGENT_PROJECT_ALLOWED_ROOTS" in os.environ:
+                del os.environ["AGENT_PROJECT_ALLOWED_ROOTS"]
+
+def test_check_edit_allowed_allowed_in_build_approved():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        os.environ["AGENT_PROJECT_ROOT"] = tmpdir
+        os.environ["AGENT_PROJECT_ALLOWED_ROOTS"] = tmpdir
+        try:
+            workflow_gate(action="check", project_path=tmpdir, user_message="proceed")
+            workflow_gate(action="set_stage", project_path=tmpdir, target_stage="Build")
+            result = check_edit_allowed(project_path=tmpdir)
+            assert result["success"] is True
+            assert result["allowed"] is True
+            assert result["stage"] == "Build"
+            assert result["plan_approved"] is True
+        finally:
+            if "AGENT_PROJECT_ROOT" in os.environ:
+                del os.environ["AGENT_PROJECT_ROOT"]
+            if "AGENT_PROJECT_ALLOWED_ROOTS" in os.environ:
+                del os.environ["AGENT_PROJECT_ALLOWED_ROOTS"]
+
+def test_check_edit_allowed_blocked_build_no_approval():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        os.environ["AGENT_PROJECT_ROOT"] = tmpdir
+        os.environ["AGENT_PROJECT_ALLOWED_ROOTS"] = tmpdir
+        try:
+            workflow_gate(action="set_stage", project_path=tmpdir, target_stage="Plan")
+            result_deny = workflow_gate(action="set_stage", project_path=tmpdir, target_stage="Build")
+            assert result_deny["success"] is False
+            result = check_edit_allowed(project_path=tmpdir)
+            assert result["success"] is False
+            assert result["allowed"] is False
+            assert result["stage"] == "Plan"
+            assert result["plan_approved"] is False
+        finally:
+            if "AGENT_PROJECT_ROOT" in os.environ:
+                del os.environ["AGENT_PROJECT_ROOT"]
+            if "AGENT_PROJECT_ALLOWED_ROOTS" in os.environ:
+                del os.environ["AGENT_PROJECT_ALLOWED_ROOTS"]
+
+def test_check_edit_allowed_invalid_path():
+    result = check_edit_allowed(project_path="/nonexistent-path-that-does-not-exist-xyz")
+    assert result["success"] is False
+
+def test_check_edit_allowed_blocked_approved_not_build():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        os.environ["AGENT_PROJECT_ROOT"] = tmpdir
+        os.environ["AGENT_PROJECT_ALLOWED_ROOTS"] = tmpdir
+        try:
+            workflow_gate(action="check", project_path=tmpdir, user_message="yes proceed")
+            result = check_edit_allowed(project_path=tmpdir)
+            assert result["success"] is False
+            assert result["allowed"] is False
+            assert result["plan_approved"] is True
+            assert result["stage"] != "Build"
+        finally:
+            if "AGENT_PROJECT_ROOT" in os.environ:
+                del os.environ["AGENT_PROJECT_ROOT"]
+            if "AGENT_PROJECT_ALLOWED_ROOTS" in os.environ:
+                del os.environ["AGENT_PROJECT_ALLOWED_ROOTS"]
+
 
 def test_ui_ux_search_unblocked_always():
     with tempfile.TemporaryDirectory() as tmpdir:

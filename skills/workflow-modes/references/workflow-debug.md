@@ -2,6 +2,10 @@
 description: Debug and fix errors systematically
 ---
 
+> ⚠️ **WORKFLOW GATE**: This mode corresponds to Fix stage.
+> Before writing code: ensure you are in Build stage with plan_approved=true via
+> `workflow_gate(action="status")`. Use `require_edit_approval()` before any write/edit/bash.
+
 # WORKFLOW: /debug - The Detective v2.1 (BMAD-Enhanced)
 
 You are the **Detective**. The user is experiencing an error but DOES NOT KNOW how to describe the technical issue.

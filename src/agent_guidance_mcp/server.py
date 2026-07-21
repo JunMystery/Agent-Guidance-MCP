@@ -40,6 +40,12 @@ AGENT_INSTRUCTIONS = (
     "task signals code intent — then call guidance(operation='precode') before editing "
     "and guidance(operation='verify') after.\n\n"
     "For detailed tool usage and the 9 mandatory rules, see AGENTS.md.\n\n"
+    "CRITICAL WORKFLOW RULE: Before using write/edit/bash/create-file tools, you MUST call "
+    "workflow_gate(action=\"status\") to verify the stage. If the stage is not \"Build\" "
+    "with plan_approved=true, STOP. Do NOT edit any files. First call "
+    "workflow_gate(action=\"check\", user_message=\"{your plan}\") to get approval, "
+    "then workflow_gate(action=\"set_stage\", target_stage=\"Build\") after approval. "
+    "Use require_edit_approval() immediately before any file edit for final verification.\n\n"
     "IMPORTANT — Tool naming: Some hosts add a server-name prefix to tool names "
     "(e.g. `agent-guidance-mcp_task_pipeline` instead of `task_pipeline`). "
     "Always use the exact tool names as they appear in your available tools list. "
@@ -705,6 +711,22 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             "sentinel_present": GATE_SENTINEL_PATH.exists(),
         })
 
+    @mcp.resource("agent-guidance-mcp://system/edit-allowed", mime_type="application/json")
+    def edit_allowed() -> str:
+        """Return whether the agent is allowed to edit files based on current workflow stage."""
+        import json
+        result = check_edit_allowed()
+        allowed = result.get("allowed", False)
+        stage = result.get("stage", "Context")
+        approved = result.get("plan_approved", False)
+        return json.dumps({
+            "allowed": allowed,
+            "stage": stage,
+            "plan_approved": approved,
+            "reason": "OK" if allowed else f"Stage is '{stage}', plan_approved={approved}. Transition to Build with approval first.",
+            "required": {"stage": "Build", "plan_approved": True},
+        })
+
     @mcp.tool()
     def task_pipeline(
         task: str,
@@ -1078,6 +1100,18 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         return result
 
     @mcp.tool()
+    def require_edit_approval(
+        project_path: str = ".",
+    ) -> dict[str, object]:
+        """Call BEFORE any write/edit/bash operation. Returns success only if
+        the workflow stage is 'Build' with plan_approved=true. Otherwise
+        returns an error instructing the agent to transition stages first.
+
+        This is the gatekeeper for file modifications.
+        """
+        return check_edit_allowed(project_path=project_path)
+
+    @mcp.tool()
     def token_stats() -> dict[str, object]:
         """Return token optimization statistics for this session. No parameters."""
         return get_tracker().summary()
@@ -1123,6 +1157,45 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         from .diagnostics import run_diagnostics
         root_path = Path(catalog.root or ".").resolve()
         return run_diagnostics(root_path, catalog)
+
+
+def check_edit_allowed(project_path: str = ".") -> dict[str, object]:
+    """Return whether edits are allowed based on workflow stage.
+
+    Standalone function callable by both MCP tools and tests.
+    Returns a dict with success, allowed, stage, plan_approved keys.
+    """
+    from .session import load_session
+    from .project_scan import resolve_project_root
+    resolved = project_path
+    try:
+        resolved = str(resolve_project_root(project_path))
+    except Exception:
+        pass
+    session = load_session(project_path=resolved)
+    if not session or not isinstance(session, dict):
+        return {
+            "success": False,
+            "allowed": False,
+            "stage": "Context",
+            "plan_approved": False,
+            "message": "No active session. Call task_pipeline first, then set stage to 'Build' with approval.",
+        }
+    meta = session.get("metadata", {})
+    stage = meta.get("current_stage", "Context")
+    approved = meta.get("plan_approved", False)
+    if stage == "Build" and approved is True:
+        return {"success": True, "allowed": True, "stage": stage, "plan_approved": approved}
+    return {
+        "success": False,
+        "allowed": False,
+        "stage": stage,
+        "plan_approved": approved,
+        "message": f"Edit not allowed: stage='{stage}', plan_approved={approved}. "
+                   f"Transition to 'Build' with user approval first.",
+        "resolution": "workflow_gate(action='check', user_message='...') to get approval, "
+                      "then workflow_gate(action='set_stage', target_stage='Build')",
+    }
 
 
 def _record_savings(

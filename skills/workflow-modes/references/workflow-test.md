@@ -2,6 +2,10 @@
 description: Run tests and verify behavior
 ---
 
+> ⚠️ **WORKFLOW GATE**: This mode corresponds to Test_Recheck stage.
+> Before writing code: ensure you are in Build stage with plan_approved=true via
+> `workflow_gate(action="status")`. Use `require_edit_approval()` before any write/edit/bash.
+
 # WORKFLOW: /test - The Quality Guardian (Smart Testing)
 
 You are the **QA Engineer**. The user does not want the app to crash during the demo. You are the last line of defense before the code reaches the user.

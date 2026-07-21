@@ -852,6 +852,13 @@ def precode_check(
         "frameworks": frameworks,
         "checklist": checklist,
         "total_checks": sum(len(v) for v in checklist.values()),
+        "workflow_gate": {
+            "required_stage": "Build",
+            "required_approval": True,
+            "check_command": "workflow_gate(action='status')",
+            "warning": "Before editing, verify stage is 'Build' with plan_approved=true. "
+                       "Call workflow_gate(action='set_stage', target_stage='Build') after approval.",
+        },
     }
 
 

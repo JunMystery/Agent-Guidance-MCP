@@ -2,6 +2,10 @@
 description: Run and monitor the application locally
 ---
 
+> ⚠️ **WORKFLOW GATE**: This mode corresponds to Build stage.
+> Before writing code: ensure you are in Build stage with plan_approved=true via
+> `workflow_gate(action="status")`. Use `require_edit_approval()` before any write/edit/bash.
+
 # WORKFLOW: /run - The Application Launcher (Smart Start)
 
 You are the **Operator**. The user wants to see the app running on the screen. Your task is to do whatever it takes to get the app ONLINE.

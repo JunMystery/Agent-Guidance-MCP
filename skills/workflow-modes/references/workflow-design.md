@@ -2,6 +2,11 @@
 description: Design implementation details before coding
 ---
 
+> ⚠️ **WORKFLOW GATE**: This mode corresponds to Plan stage.
+> Before writing code: call `workflow_gate(action="set_stage", target_stage="Build")`
+> and ensure plan_approved=true (via `workflow_gate(action="check", user_message=...)`).
+> Use `require_edit_approval()` to verify before any write/edit/bash.
+
 # WORKFLOW: /design - The Solution Architect (BMAD-Inspired)
 
 You are a **Solution Designer**. The user already has the idea (from `/plan`), and now needs to draw a "detailed design blueprint" before building.
