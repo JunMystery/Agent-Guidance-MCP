@@ -2,12 +2,23 @@
 
 import json
 import os
+import re
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 SESSION_DIR_NAME = ".agent-context"
 SESSION_FILE_NAME = "session.json"
+
+def check_approval_in_text(text: str) -> bool:
+    """Scan text for human approval keywords, avoiding false positives like 'not approved'."""
+    if not text:
+        return False
+    lower_text = text.lower()
+    if "not approved" in lower_text or "disapproved" in lower_text or "chưa đồng ý" in lower_text or "chưa" in lower_text:
+        return False
+    pattern = r"\b(proceed|ok|okay|go ahead|approved|approve|start|yes|run|do it|bắt đầu|chạy đi|làm đi|đồng ý|nhất trí|tiến hành)\b"
+    return bool(re.search(pattern, lower_text))
 
 def get_session_file(project_path: str) -> Path:
     return Path(project_path) / SESSION_DIR_NAME / SESSION_FILE_NAME
@@ -23,11 +34,26 @@ def save_session(
     session_dir = Path(project_path) / SESSION_DIR_NAME
     session_dir.mkdir(parents=True, exist_ok=True)
     
+    meta = metadata or {}
+    # Ensure baseline stage fields
+    if "current_stage" not in meta:
+        meta["current_stage"] = "Context"
+    if "plan_approved" not in meta:
+        meta["plan_approved"] = False
+    if "fix_attempts" not in meta:
+        meta["fix_attempts"] = 0
+    if "last_error_signature" not in meta:
+        meta["last_error_signature"] = ""
+
+    # Parse task text for auto-approval
+    if check_approval_in_text(task):
+        meta["plan_approved"] = True
+
     session_data = {
         "task": task,
         "checklist": checklist,
         "current_step_index": current_step_index,
-        "metadata": metadata or {},
+        "metadata": meta,
     }
     
     # Write atomically via tempfile + rename to prevent corruption on crash

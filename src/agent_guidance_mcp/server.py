@@ -157,14 +157,32 @@ def priority_gate_check(
 ) -> dict[str, object] | None:
     """Return an error dict if the priority gate has not been passed, else None.
 
-    Falls back to the sentinel file so a prior --session-start call (different
-    process) is recognised as having already passed the gate.
-
-    When *catalog*, *tool_name*, and *tool_params* are provided and gate
-    hasn't been passed, auto-runs lightweight context enrichment as a side
-    effect and passes the gate (no hijack — tool still executes normally).
+    Also performs soft workflow stage warnings for active tasks.
     """
     global _priority_gate_passed
+    resolved_root = str(Path(project_path or ".").resolve())
+    
+    # Process stage checks & soft warning insertions
+    warning_message = None
+    try:
+        from .session import load_session
+        session_data = load_session(project_path=resolved_root)
+        if session_data and isinstance(session_data, dict):
+            meta = session_data.get("metadata", {})
+            current_stage = meta.get("current_stage", "Context")
+            plan_approved = meta.get("plan_approved", False)
+            
+            # Context-specific logic: Warn if modifying context before Plan stage
+            # We can detect if agent is doing file reads/searches or codegen tasks outside Build/Fix
+            if current_stage in ("Context", "Plan", "Ask_Revise") and tool_name == "project_context" and tool_params:
+                op = tool_params.get("operation", "")
+                if op in ("read", "search"):
+                    warning_message = f"⚠️ Workflow Stage Mismatch: Current stage is '{current_stage}'. You are reading/searching project files before plan approval. Proceed with caution."
+            elif current_stage == "Ask_Revise" and not plan_approved:
+                warning_message = "⚠️ Workflow Stage Warning: Current stage is 'Ask_Revise'. You must wait for User approval (e.g. 'proceed', 'ok') before starting code modification."
+    except Exception:
+        pass
+
     with _priority_gate_lock:
         if not _priority_gate_passed:
             if _gate_sentinel_check(project_path):
@@ -182,9 +200,20 @@ def priority_gate_check(
                 except Exception:
                     pass
                 _priority_gate_passed = True
+                # Return auto_context WITH warning if any
+                if warning_message:
+                    # Let auto_context proceed but note we can return warning
+                    pass
                 return None
             else:
                 return dict(PRIORITY_ERROR)
+    
+    if warning_message:
+        # Note: MCP tools return dicts/lists. If a warning is present, we can print it to stderr
+        # or log it. Since print to stderr is visible to the developer/IDE, we do that:
+        sys.stderr.write(f"\n{warning_message}\n")
+        sys.stderr.flush()
+        
     return None
 
 

@@ -457,7 +457,7 @@ def session_continuity(
     metadata: dict | None = None,
     tracker: TokenTracker | None = None,
 ) -> dict[str, object]:
-    """Persist or recover task session state for continuity."""
+    """Persist or recover task session state for continuity with workflow loop logic."""
     if operation is None:
         return _missing_argument("operation", "session_continuity")
     operation_key = operation.lower()
@@ -486,12 +486,78 @@ def session_continuity(
                 "message": "task is required for save operation",
                 "details": {"argument": "task"}
             }
+
+        # Check existing session context for current_stage, plan_approved, fix_attempts
+        existing = load_session(project_path=validated_root) or {}
+        existing_meta = existing.get("metadata", {}) if isinstance(existing, dict) else {}
+
+        meta = metadata or {}
+        # Preserve or initialize workflow stage keys
+        current_stage = meta.get("current_stage") or existing_meta.get("current_stage") or "Context"
+        plan_approved = meta.get("plan_approved")
+        if plan_approved is None:
+            plan_approved = existing_meta.get("plan_approved", False)
+        fix_attempts = meta.get("fix_attempts")
+        if fix_attempts is None:
+            fix_attempts = existing_meta.get("fix_attempts", 0)
+
+        # Scanning task text for approval in this save action
+        from .session import check_approval_in_text
+        if check_approval_in_text(task):
+            plan_approved = True
+
+        # Planning Loop validation
+        if current_stage == "Build" and not plan_approved:
+            return {
+                "success": False,
+                "error": "PLAN_NOT_APPROVED",
+                "message": "⚠️ Workflow Stage Violation: Plan is not approved yet. Ask the user for approval before transitioning to 'Build'.",
+                "details": {"current_stage": current_stage, "plan_approved": plan_approved}
+            }
+
+        # Handle fix loops (execution loop)
+        if current_stage == "Fix":
+            # If transitioning into Fix stage or continuing Fix stage
+            # We track retry attempts
+            old_stage = existing_meta.get("current_stage", "Context")
+            if old_stage != "Fix":
+                fix_attempts = 1
+            else:
+                fix_attempts += 1
+            
+            # Check Circuit Breaker
+            if fix_attempts >= 3:
+                # Force reset and fallback to Ask/Revise
+                meta["current_stage"] = "Ask_Revise"
+                meta["plan_approved"] = False
+                meta["fix_attempts"] = 0
+                save_session(
+                    project_path=validated_root,
+                    task=task,
+                    checklist=checklist or [],
+                    current_step_index=current_step_index,
+                    metadata=meta,
+                )
+                return {
+                    "success": False,
+                    "error": "CIRCUIT_BREAKER_TRIGGERED",
+                    "message": "🚨 Circuit Breaker Triggered: 3 consecutive failed fix attempts. STOP editing code. Explain failure to user and request strategy revision.",
+                    "details": {"current_stage": "Ask_Revise", "plan_approved": False, "fix_attempts": 0}
+                }
+        else:
+            # Transitioning out of Fix stage reset attempts
+            fix_attempts = 0
+
+        meta["current_stage"] = current_stage
+        meta["plan_approved"] = plan_approved
+        meta["fix_attempts"] = fix_attempts
+
         data = save_session(
             project_path=validated_root,
             task=task,
             checklist=checklist or [],
             current_step_index=current_step_index,
-            metadata=metadata,
+            metadata=meta,
         )
         if isinstance(data, dict) and data.get("success") is False:
             result = data
