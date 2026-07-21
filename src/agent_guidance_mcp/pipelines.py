@@ -908,3 +908,153 @@ def verify(
             "test", "review", "audit", "deploy"
         ) else None,
     }
+
+def workflow_gate(
+    action: str,
+    project_path: str = ".",
+    user_message: str | None = None,
+    target_stage: str | None = None,
+    tracker: TokenTracker | None = None,
+) -> dict[str, object]:
+    """Manage and validate the active workflow stage.
+
+    Allows AI agent to check approval in user_message and progress lifecycle.
+    """
+    from .session import save_session, load_session
+    from .project_scan import resolve_project_root
+    from .session import check_approval_in_text
+
+    try:
+        validated_root = str(resolve_project_root(project_path))
+    except Exception as e:
+        return {
+            "success": False,
+            "error": "INVALID_PATH",
+            "message": f"Invalid project_path: {e}"
+        }
+
+    action_key = action.lower()
+    existing = load_session(project_path=validated_root) or {}
+    meta = existing.get("metadata", {}) if isinstance(existing, dict) else {}
+    task = existing.get("task", "Initialize project context") if isinstance(existing, dict) else "Initialize project context"
+    checklist = existing.get("checklist", []) if isinstance(existing, dict) else []
+    current_step_index = existing.get("current_step_index", 0) if isinstance(existing, dict) else 0
+
+    current_stage = meta.get("current_stage", "Context")
+    plan_approved = meta.get("plan_approved", False)
+    fix_attempts = meta.get("fix_attempts", 0)
+
+    if action_key == "status":
+        return {
+            "success": True,
+            "current_stage": current_stage,
+            "plan_approved": plan_approved,
+            "fix_attempts": fix_attempts
+        }
+
+    elif action_key == "check":
+        if not user_message:
+            return {
+                "success": False,
+                "error": "MISSING_ARGUMENT",
+                "message": "user_message is required for 'check' action"
+            }
+        
+        # Analyze user message for approval
+        approved = check_approval_in_text(user_message)
+        if approved:
+            plan_approved = True
+            meta["plan_approved"] = True
+            save_session(
+                project_path=validated_root,
+                task=task,
+                checklist=checklist,
+                current_step_index=current_step_index,
+                metadata=meta
+            )
+        
+        return {
+            "success": True,
+            "current_stage": current_stage,
+            "plan_approved": plan_approved,
+            "user_approved_detected": approved,
+            "message": "Approval processed successfully."
+        }
+
+    elif action_key == "set_stage":
+        if not target_stage:
+            return {
+                "success": False,
+                "error": "MISSING_ARGUMENT",
+                "message": "target_stage is required for 'set_stage' action"
+            }
+        
+        valid_stages = {"Context", "Plan", "Ask_Revise", "Build", "Test_Recheck", "Fix", "Proposal"}
+        if target_stage not in valid_stages:
+            return {
+                "success": False,
+                "error": "INVALID_STAGE",
+                "message": f"target_stage must be one of: {', '.join(valid_stages)}"
+            }
+
+        # Validate stage transitions
+        if target_stage == "Build" and not plan_approved:
+            return {
+                "success": False,
+                "error": "PLAN_NOT_APPROVED",
+                "message": "⚠️ Workflow Stage Violation: Plan is not approved yet. Call workflow_gate(action='check') to process approval or ask the user."
+            }
+
+        # Handling Fix loop circuit breaker
+        if target_stage == "Fix":
+            if current_stage != "Fix":
+                fix_attempts = 1
+            else:
+                fix_attempts += 1
+            
+            if fix_attempts >= 3:
+                meta["current_stage"] = "Ask_Revise"
+                meta["plan_approved"] = False
+                meta["fix_attempts"] = 0
+                save_session(
+                    project_path=validated_root,
+                    task=task,
+                    checklist=checklist,
+                    current_step_index=current_step_index,
+                    metadata=meta
+                )
+                return {
+                    "success": False,
+                    "error": "CIRCUIT_BREAKER_TRIGGERED",
+                    "message": "🚨 Circuit Breaker Triggered: 3 consecutive failed fix attempts. STOP editing code. Transitioning back to 'Ask_Revise'."
+                }
+        else:
+            if current_stage == "Fix":
+                fix_attempts = 0 # reset attempts on successful exit
+
+        meta["current_stage"] = target_stage
+        meta["plan_approved"] = plan_approved
+        meta["fix_attempts"] = fix_attempts
+        
+        save_session(
+            project_path=validated_root,
+            task=task,
+            checklist=checklist,
+            current_step_index=current_step_index,
+            metadata=meta
+        )
+        
+        return {
+            "success": True,
+            "previous_stage": current_stage,
+            "current_stage": target_stage,
+            "plan_approved": plan_approved,
+            "fix_attempts": fix_attempts,
+            "message": f"Stage transitioned to '{target_stage}'."
+        }
+
+    return {
+        "success": False,
+        "error": "UNSUPPORTED_ACTION",
+        "message": f"Unsupported action: {action}"
+    }

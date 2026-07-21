@@ -171,15 +171,14 @@ def priority_gate_check(
             meta = session_data.get("metadata", {})
             current_stage = meta.get("current_stage", "Context")
             plan_approved = meta.get("plan_approved", False)
-            
-            # Context-specific logic: Warn if modifying context before Plan stage
-            # We can detect if agent is doing file reads/searches or codegen tasks outside Build/Fix
-            if current_stage in ("Context", "Plan", "Ask_Revise") and tool_name == "project_context" and tool_params:
+
+            # Warn if agent tries to do things without checking workflow_gate
+            if current_stage == "Ask_Revise" and not plan_approved:
+                warning_message = "⚠️ Workflow Stage Warning: Current stage is 'Ask_Revise'. You must wait for User approval (e.g. 'proceed', 'ok') before starting code modification. Call workflow_gate(action='check', user_message='...') first."
+            elif current_stage in ("Context", "Plan", "Ask_Revise") and tool_name == "project_context" and tool_params:
                 op = tool_params.get("operation", "")
                 if op in ("read", "search"):
                     warning_message = f"⚠️ Workflow Stage Mismatch: Current stage is '{current_stage}'. You are reading/searching project files before plan approval. Proceed with caution."
-            elif current_stage == "Ask_Revise" and not plan_approved:
-                warning_message = "⚠️ Workflow Stage Warning: Current stage is 'Ask_Revise'. You must wait for User approval (e.g. 'proceed', 'ok') before starting code modification."
     except Exception:
         pass
 
@@ -908,6 +907,45 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             _track_error("session_continuity", operation, _now_ms() - t0, error=str(exc))
             raise
         _record_savings("session_continuity", operation, result, result, duration_ms=_now_ms() - t0, project_path=project_path)
+        return result
+
+    @mcp.tool()
+    def workflow_gate(
+        action: str,
+        project_path: str = ".",
+        user_message: str | None = None,
+        target_stage: str | None = None,
+    ) -> dict[str, object]:
+        """Manage and validate the active workflow stage.
+
+        Use action='status' to view current stage.
+        Use action='check' with user_message to parse user approval and check transitions.
+        Use action='set_stage' with target_stage to transition.
+
+        Args:
+            action: One of status, check, set_stage (required).
+            project_path: Project root path (default ".").
+            user_message: Last message from the user to analyze approval (required for check).
+            target_stage: Stage to transition to (required for set_stage).
+        """
+        gate = priority_gate_check(catalog.root, catalog, "workflow_gate", {
+            "action": action, "user_message": user_message, "target_stage": target_stage,
+        })
+        if gate:
+            return gate
+        t0 = _now_ms()
+        try:
+            result = pipelines.workflow_gate(
+                action=action,
+                project_path=project_path,
+                user_message=user_message,
+                target_stage=target_stage,
+                tracker=get_tracker(),
+            )
+        except Exception as exc:
+            _track_error("workflow_gate", action, _now_ms() - t0, error=str(exc))
+            raise
+        _record_savings("workflow_gate", action, result, result, duration_ms=_now_ms() - t0, project_path=project_path)
         return result
 
     @mcp.tool()
