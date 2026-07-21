@@ -49,7 +49,7 @@ AGENT_RULES_BLOCK = (
     "You must strictly follow this lifecycle for every feature or task:\n"
     "`[Context] -> [Plan] -> [Ask/Revise] -> [Build] -> [Test/Recheck] -> [Fix] -> [Document/Proposal]`\n\n"
     "**MANDATORY workflow rule:**\n"
-    "You BẮT BUỘC phải gọi `workflow_gate(action=\"check\", user_message=\"<tin nhắn cuối cùng của user>\")` ở đầu mỗi lượt phản hồi (turn) trước khi gọi bất kỳ tool nào khác. Nếu `workflow_gate` trả về `plan_approved: false`, bạn tuyệt đối không được viết code hay sửa file.\n\n"
+    "You BẮT BUỘC phải gọi `workflow_gate(action=\"check\", user_message=\"<tin nhắn cuối cùng của user>\")` ở đầu mỗi lượt phản hồi (turn) trước khi gọi bất kỳ tool nào khác. Nếu `workflow_gate` trả về `plan_approved: false` hoặc trả về lỗi `WORKFLOW_STAGE_BLOCKED`, bạn tuyệt đối không được viết code hay sửa file và phải quay lại xin chỉ thị.\n\n"
     "1. **Planning Loop (Human <-> Agent):**\n"
     "   - Propose a plan in `Plan` stage.\n"
     "   - Ask the user for approval in `Ask/Revise` stage.\n"

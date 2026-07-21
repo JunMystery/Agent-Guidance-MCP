@@ -1,6 +1,5 @@
 """MCP registration for Agent Guidance MCP."""
 
-
 import logging
 import os
 import sys
@@ -199,22 +198,119 @@ def priority_gate_check(
                 except Exception:
                     pass
                 _priority_gate_passed = True
-                # Return auto_context WITH warning if any
-                if warning_message:
-                    # Let auto_context proceed but note we can return warning
-                    pass
                 return None
             else:
                 return dict(PRIORITY_ERROR)
     
     if warning_message:
-        # Note: MCP tools return dicts/lists. If a warning is present, we can print it to stderr
-        # or log it. Since print to stderr is visible to the developer/IDE, we do that:
         sys.stderr.write(f"\n{warning_message}\n")
         sys.stderr.flush()
         
     return None
 
+def workflow_gate_check(
+    project_path: Path | str | None = None,
+    tool_name: str = "",
+    tool_params: dict[str, Any] | None = None,
+) -> dict[str, object] | None:
+    """Enforces the Workflow Stage Access Matrix. Returns error if blocked."""
+    resolved_root = str(Path(project_path or ".").resolve())
+    try:
+        from .session import load_session
+        session_data = load_session(project_path=resolved_root)
+        if not session_data or not isinstance(session_data, dict):
+            current_stage = "Context"
+            plan_approved = False
+        else:
+            meta = session_data.get("metadata", {})
+            current_stage = meta.get("current_stage", "Context")
+            plan_approved = meta.get("plan_approved", False)
+    except Exception:
+        current_stage = "Context"
+        plan_approved = False
+
+    if tool_name in ("workflow_gate", "session_continuity", "task_pipeline"):
+        return None
+
+    if current_stage == "Context":
+        return {
+            "success": False,
+            "error": "WORKFLOW_STAGE_BLOCKED",
+            "message": f"🚨 WORKFLOW GATE BLOCKED: Stage is 'Context'. You cannot call '{tool_name}'. You must call task_pipeline first, then transition stage using workflow_gate."
+        }
+
+    elif current_stage == "Plan":
+        if tool_name == "ui_ux":
+            return {
+                "success": False,
+                "error": "WORKFLOW_STAGE_BLOCKED",
+                "message": f"🚨 WORKFLOW GATE BLOCKED: Stage is 'Plan'. You cannot call '{tool_name}'. Transition stage to 'Build' first."
+            }
+        if tool_name == "project_context" and tool_params:
+            op = tool_params.get("operation", "")
+            if op in ("diff", "architecture"):
+                return {
+                    "success": False,
+                    "error": "WORKFLOW_STAGE_BLOCKED",
+                    "message": f"🚨 WORKFLOW GATE BLOCKED: Stage is 'Plan'. Operation '{op}' is not permitted."
+                }
+        return None
+
+    elif current_stage == "Ask_Revise":
+        if tool_name in ("project_context", "guidance", "ui_ux"):
+            if tool_name == "project_context" and tool_params:
+                op = tool_params.get("operation", "")
+                if op in ("read", "search", "symbols", "references", "structure", "callers", "callees", "diff"):
+                    return {
+                        "success": False,
+                        "error": "WORKFLOW_STAGE_BLOCKED",
+                        "message": f"🚨 WORKFLOW GATE BLOCKED: Stage is 'Ask_Revise' (plan_approved={plan_approved}). Context code reads are blocked. You must ask user for approval, then call workflow_gate(action='check', user_message='...') to proceed."
+                    }
+            if tool_name == "guidance" and tool_params:
+                op = tool_params.get("operation", "")
+                if op in ("precode", "verify"):
+                    return {
+                        "success": False,
+                        "error": "WORKFLOW_STAGE_BLOCKED",
+                        "message": f"🚨 WORKFLOW GATE BLOCKED: Stage is 'Ask_Revise'. Operation '{op}' is blocked. Transition to 'Build' first."
+                    }
+        return None
+
+    elif current_stage == "Build":
+        if not plan_approved:
+            return {
+                "success": False,
+                "error": "WORKFLOW_STAGE_BLOCKED",
+                "message": "🚨 WORKFLOW GATE BLOCKED: Stage is 'Build' but plan is NOT approved. You must seek user approval first."
+            }
+        return None
+
+    elif current_stage == "Test_Recheck":
+        if tool_name == "guidance" and tool_params:
+            op = tool_params.get("operation", "")
+            if op in ("precode",):
+                return {
+                    "success": False,
+                    "error": "WORKFLOW_STAGE_BLOCKED",
+                    "message": "🚨 WORKFLOW GATE BLOCKED: Stage is 'Test_Recheck'. You cannot generate new code checklists. Focus on verifying existing changes."
+                }
+        return None
+
+    elif current_stage == "Fix":
+        return None
+
+    elif current_stage == "Proposal":
+        if tool_name == "project_context" and tool_params:
+            op = tool_params.get("operation", "")
+            if op in ("diff", "structure", "symbols"):
+                return {
+                    "success": False,
+                    "error": "WORKFLOW_STAGE_BLOCKED",
+                    "message": "🚨 WORKFLOW GATE BLOCKED: Stage is 'Proposal'. Code modification operations are blocked."
+                }
+        return None
+
+    return None
 
 def priority_gate_pass(project_path: str = ".") -> None:
     """Mark the priority gate as passed (called by task_pipeline).
@@ -701,6 +797,11 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         })
         if gate:
             return gate
+        w_gate = workflow_gate_check(catalog.root, "guidance", {
+            "query": query, "identifier": identifier, "operation": operation,
+        })
+        if w_gate:
+            return w_gate
         t0 = _now_ms()
         try:
             result = pipelines.guidance(
@@ -786,6 +887,11 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         })
         if gate:
             return gate
+        w_gate = workflow_gate_check(catalog.root, "project_context", {
+            "query": query, "relative_path": relative_path, "operation": operation,
+        })
+        if w_gate:
+            return w_gate
         t0 = _now_ms()
         try:
             result = pipelines.project_context(
@@ -843,6 +949,11 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
         })
         if gate:
             return gate
+        w_gate = workflow_gate_check(catalog.root, "ui_ux", {
+            "query": query, "operation": operation,
+        })
+        if w_gate:
+            return w_gate
         t0 = _now_ms()
         try:
             result = pipelines.ui_ux(
@@ -1027,4 +1138,3 @@ def _track_error(tool_name: str, operation: str | None, duration_ms: int, error:
     if usage is None:
         return
     usage.record_tool_call(tool_name, operation, duration_ms=duration_ms, error_message=error)
-
