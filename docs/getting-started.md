@@ -1,146 +1,61 @@
-# Getting Started with agent-skills
+# Getting Started with Agent Guidance MCP
 
-agent-skills works with any AI coding agent that accepts Markdown instructions. This guide covers the universal approach. For tool-specific setup, see the dedicated guides.
+Agent Guidance MCP is a Python MCP server that gives AI coding agents standards guidance, skill references, workflow prompts, bounded project code context, and token optimization — all over Stdio transport.
 
-## How Skills Work
+## Quick Start
 
-Each skill is a Markdown file (`SKILL.md`) that describes a specific engineering workflow. When loaded into an agent's context, the agent follows the workflow — including verification steps, anti-patterns to avoid, and exit criteria.
-
-**Skills are not reference docs.** They're step-by-step processes the agent follows.
-
-## Quick Start (Any Agent)
-
-### 1. Clone the repository
+### 1. Install
 
 ```bash
-git clone https://github.com/addyosmani/agent-skills.git
+curl -fsSL https://raw.githubusercontent.com/JunMystery/Agent-Guidance-MCP/main/scripts/install.sh | bash
 ```
 
-### 2. Choose a skill
+See [Installation](installation.md) for manual setup.
 
-Browse the `skills/` directory. Each subdirectory contains a `SKILL.md` with:
-- **When to use** — triggers that indicate this skill applies
-- **Process** — step-by-step workflow
-- **Verification** — how to confirm the work is done
-- **Common rationalizations** — excuses the agent might use to skip steps
-- **Red flags** — signs the skill is being violated
+### 2. Verify
 
-### 3. Load the skill into your agent
+Test the server with MCP Inspector:
 
-Copy the relevant `SKILL.md` content into your agent's system prompt, rules file, or conversation. The most common approaches:
-
-**System prompt:** Paste the skill content at the start of the session.
-
-**Rules file:** Add skill content to your project's rules file (CLAUDE.md, .cursorrules, etc.).
-
-**Conversation:** Reference the skill when giving instructions: "Follow the test-driven-development process for this change."
-
-### 4. Use the meta-skill for discovery
-
-Start with the `using-agent-skills` skill loaded. It contains a flowchart that maps task types to the appropriate skill.
-
-## Recommended Setup
-
-### Minimal (Start here)
-
-Load three essential skills into your rules file:
-
-1. **spec-driven-development** — For defining what to build
-2. **test-driven-development** — For proving it works
-3. **code-review-and-quality** — For verifying quality before merge
-
-These three cover the most critical quality gaps in AI-assisted development.
-
-### Full Lifecycle
-
-For comprehensive coverage, load skills by phase:
-
-```
-Starting a project:  spec-driven-development → planning-and-task-breakdown
-During development:  incremental-implementation + test-driven-development
-Before merge:        code-review-and-quality + security-and-hardening
-Before deploy:       shipping-and-launch
+```bash
+DANGEROUSLY_OMIT_AUTH=true npx @modelcontextprotocol/inspector .venv/bin/python -m agent_guidance_mcp
 ```
 
-### Context-Aware Loading
+### 3. Use in your workflow
 
-Don't load all skills at once — it wastes context. Load skills relevant to the current task:
-
-- Working on UI? Load `frontend-ui-engineering`
-- Debugging? Load `debugging-and-error-recovery`
-- Setting up CI? Load `ci-cd-and-automation`
-
-## Skill Anatomy
-
-Every skill follows the same structure:
+Every session starts with a single call:
 
 ```
-YAML frontmatter (name, description)
-├── Overview — What this skill does
-├── When to Use — Triggers and conditions
-├── Core Process — Step-by-step workflow
-├── Examples — Code samples and patterns
-├── Common Rationalizations — Excuses and rebuttals
-├── Red Flags — Signs the skill is being violated
-└── Verification — Exit criteria checklist
+agent-guidance-mcp_task_pipeline(task="Describe what you're building", focus="backend"|"frontend"|"general")
 ```
 
-See [skills/skill-anatomy.md](skills/skill-anatomy.md) for the full specification.
+This returns skill recommendations, project tree, and code search — all in one optimized call.
 
-## Using Agents
+Then use the other tools as needed:
 
-The `agents/` directory contains pre-configured agent personas:
+| Tool | When to call |
+|---|---|
+| `agent-guidance-mcp_guidance(operation="search", query=...)` | Find relevant skills and standards |
+| `agent-guidance-mcp_project_context(operation="read", ...)` | Read a file before editing |
+| `agent-guidance-mcp_workflow_gate(action="set_stage", ...)` | Manage workflow stage lifecycle |
+| `agent-guidance-mcp_require_edit_approval(...)` | Verify stage permits edits before writing code |
 
-| Agent | Purpose |
-|-------|---------|
-| `code-reviewer.md` | Five-axis code review |
-| `test-engineer.md` | Test strategy and writing |
-| `security-auditor.md` | Vulnerability detection |
-| `web-performance-auditor.md` | Core Web Vitals & performance audit (via `/webperf`) |
+## Key Concepts
 
-Load an agent definition when you need specialized review. For example, ask your coding agent to "review this change using the code-reviewer agent persona" and provide the agent definition.
+### Priority Gate
+`agent-guidance-mcp_task_pipeline` must be called before most tools. This ensures the agent always has project context before acting.
 
-## Using Commands
+### Workflow Stages
+The server enforces a 7-stage lifecycle: `Context → Plan → Ask_Revise → Build → Test_Recheck → Fix → Proposal`. Use `agent-guidance-mcp_workflow_gate` to manage transitions. Edits are only allowed in `Build` stage with `plan_approved=true`.
 
-The `.claude/commands/` directory contains slash commands for Claude Code:
+### Token Optimization
+Every MCP response is filtered through an 8-stage pipeline that strips comments, collapses whitespace, and deduplicates output — saving 40-80% of tokens per call.
 
-| Command | Skill Invoked |
-|---------|---------------|
-| `/spec` | spec-driven-development |
-| `/plan` | planning-and-task-breakdown |
-| `/build` | incremental-implementation + test-driven-development |
-| `/build auto` | planning-and-task-breakdown → incremental-implementation + test-driven-development (whole plan, one approval) |
-| `/test` | test-driven-development |
-| `/review` | code-review-and-quality |
-| `/code-simplify` | code-simplification |
-| `/ship` | shipping-and-launch |
-| `/webperf` | web-performance-auditor (specialist agent, web apps only) |
+### Skill Catalog
+185 on-demand skills covering backend, frontend, testing, security, DevOps, data, research, and 12+ language ecosystems. Loaded via `agent-guidance-mcp_guidance(operation="get", identifier="<name>")` — no context wasted on unused skills.
 
-## Using References
+## Next Steps
 
-The `references/` directory contains supplementary checklists:
-
-| Reference | Use With |
-|-----------|----------|
-| `testing-patterns.md` | test-driven-development |
-| `performance-checklist.md` | performance-optimization |
-| `security-checklist.md` | security-and-hardening |
-| `accessibility-checklist.md` | frontend-ui-engineering |
-
-Load a reference when you need detailed patterns beyond what the skill covers.
-
-## Spec and task artifacts
-
-The `/spec` and `/plan` commands create working artifacts (`SPEC.md`, `tasks/plan.md`, `tasks/todo.md`). Treat them as **living documents** while the work is in progress:
-
-- Keep them in version control during development so the human and the agent have a shared source of truth.
-- Update them when scope or decisions change.
-- If your repo doesn’t want these files long‑term, delete them before merge or add the folder to `.gitignore` — the workflow doesn’t require them to be permanent.
-
-## Tips
-
-1. **Start with spec-driven-development** for any non-trivial work
-2. **Always load test-driven-development** when writing code
-3. **Don't skip verification steps** — they're the whole point
-4. **Load skills selectively** — more context isn't always better
-5. **Use the agents for review** — different perspectives catch different issues
+- [Usage Guide](usage.md) — detailed workflow examples
+- [MCP Surface](reference/mcp-surface.md) — all tools, resources, and prompts
+- [Installation](installation.md) — manual setup and configuration
+- [Architecture](ARCHITECTURE.md) — how the server works internally

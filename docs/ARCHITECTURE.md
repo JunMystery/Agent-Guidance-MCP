@@ -24,6 +24,7 @@ src/agent_guidance_mcp/
 ├── project_codegraph.py# CodeGraph semantic indexing integration
 │
 ├── embeddings.py       # SentenceTransformer model (intfloat/multilingual-e5-small) lazy load
+├── embed_daemon.py     # Cross-process embedding inference daemon (HTTP, file lock, health probes)
 ├── reasoning.py        # 6 framework templates (decision, bug, architecture, security, perf)
 │
 ├── setup.py            # Post-install: IDE registration, rule/skill deployment, uninstall
@@ -89,9 +90,11 @@ Tool call
 | `agent-guidance-mcp_task_pipeline` | ✅ | **Unlocks** gate via `priority_gate_pass()` |
 | `agent-guidance-mcp_guidance` | ✅ | Gated — blocked before `agent-guidance-mcp_task_pipeline` |
 | `agent-guidance-mcp_project_context` | ✅ | Gated — blocked before `agent-guidance-mcp_task_pipeline` |
-| `agent-guidance-mcp_ui_ux` | ✅ | **Ungated** — callable directly (design guidance, no gate) |
+| `agent-guidance-mcp_ui_ux` | ✅ | Gated — blocked before `agent-guidance-mcp_task_pipeline` |
 | `agent-guidance-mcp_session_continuity` | ✅ | Gated — blocked before `agent-guidance-mcp_task_pipeline` |
-| `agent-guidance-mcp_usage_report` | ✅ | Gated — blocked before `agent-guidance-mcp_task_pipeline` |
+| `agent-guidance-mcp_workflow_gate` | ✅ | Gated — blocked before `agent-guidance-mcp_task_pipeline` |
+| `agent-guidance-mcp_require_edit_approval` | ✅ | Not gated — callable anytime (delegates to workflow stage check) |
+| `agent-guidance-mcp_usage_report` | ✅ | Not gated — callable anytime |
 | `agent-guidance-mcp_health_check`, `agent-guidance-mcp_diagnose`, `agent-guidance-mcp_token_stats` | ✅ | Whitelisted — always open |
 
 ---
@@ -371,8 +374,12 @@ All rule/skill sections use HTML-comment tags (`<!-- agent-guidance:start -->` /
 | `AGENT_GUIDANCE_ROOT` | Custom standards corpus path |
 | `AGENT_PROJECT_ROOT` | Override project root for context tools |
 | `AGENT_PROJECT_ALLOWED_ROOTS` | Whitelist directories for security |
+| `AGENT_EMBEDDING_DAEMON` | Disable embed daemon (forces in-process model, default `1`) |
 | `AGENT_WATCHER_ENABLED` | Enable/disable CodeGraph file watcher |
 | `AGENT_WATCHER_INTERVAL` | Watcher poll interval (seconds) |
+| `AGENT_WATCHER_DEBOUNCE_MULTIPLIER` | Debounce multiplier after changes |
+| `AGENT_WATCHER_REF_THRESHOLD` | Batch size before full reference resolve |
+| `AGENT_CLIENT_NAME` | Client/IDE name for usage tracking |
 
 ### CLI Flags
 
@@ -380,10 +387,14 @@ All rule/skill sections use HTML-comment tags (`<!-- agent-guidance:start -->` /
 |---|---|
 | `--setup` | Register MCP server in all IDE clients |
 | `--update` | Download skills + LLM model(s) (skip load if already cached) |
-| `--auto-update` | Check schedule and update if needed (exits cleanly) |
+| `--auto-update [weekly\|monthly]` | Enable scheduled automatic skill updates |
 | `--session-start` | Auto-pass gate, inject project context (used by hook) |
 | `--uninstall` | Remove all registrations, rules, and skill folders |
-| `--project-path` | Project root for `--session-start` |
+| `--project-path` | Project root for `--session-start` and `--re-gate` |
+| `--re-gate` | Re-pass priority gate and refresh sentinel (for subagent recovery) |
+| `--embed-daemon` | Start embedding inference daemon as foreground process |
+| `--dashboard` | Start usage dashboard server |
+| `--no-optimize` | Disable token optimization and savings tracking |
 
 ---
 
@@ -419,8 +430,8 @@ To develop against the **live source** in this repo without reinstalling:
   redirects the import to this repo's `src/`, so edits are live. The `.pth`
   path is **machine-specific** and must be recreated per checkout — it is not
   part of the install and should not be copied between machines.
-- `agent-guidance-mcp_ui_ux` is **ungated** (callable directly, no `agent-guidance-mcp_task_pipeline` first) so design
-  passes can run during development.
+- `agent-guidance-mcp_require_edit_approval` is **not gated** (callable directly, no `agent-guidance-mcp_task_pipeline` first) so edit
+  checks can run during development.
 
 Launch opencode from inside this repo so the project-local config takes
 precedence over the global one.

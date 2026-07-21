@@ -6,9 +6,9 @@ Complete reference for every public MCP tool, resource, and prompt exposed by th
 
 ---
 
-## Tools (9)
+## Tools (10)
 
-All tools except `agent-guidance-mcp_health_check`, `agent-guidance-mcp_diagnose`, and `agent-guidance-mcp_token_stats` require `agent-guidance-mcp_task_pipeline` to be called first. Gated tools return `PRIORITY_REQUIRED` if called before `agent-guidance-mcp_task_pipeline`.
+All tools except `agent-guidance-mcp_health_check`, `agent-guidance-mcp_diagnose`, `agent-guidance-mcp_token_stats`, `agent-guidance-mcp_usage_report`, and `agent-guidance-mcp_require_edit_approval` require `agent-guidance-mcp_task_pipeline` to be called first. Gated tools return `PRIORITY_REQUIRED` if called before `agent-guidance-mcp_task_pipeline`.
 
 ### 1. `agent-guidance-mcp_task_pipeline` -- Call First (unlocks gate)
 
@@ -43,7 +43,7 @@ task_pipeline(task="Add JWT auth to Express API", focus="backend")
 
 ### 2. `agent-guidance-mcp_guidance` -- Standards & Skill Catalog
 
-Standards catalog and skill lookup. 250 entries available on-demand. Supports 10 operations (the workflow/precode/verify/feedback tools were consolidated into `guidance` operations).
+Standards catalog and skill lookup. 185 entries available on-demand. Supports 10 operations (the workflow/precode/verify/feedback tools were consolidated into `guidance` operations).
 
 ```
 guidance(
@@ -81,7 +81,7 @@ guidance(operation="reason", query="should I use microservices vs monolith")
 guidance(operation="docs", query="jsonwebtoken sign options", identifier="node-jsonwebtoken")
 ```
 
-**Loading skills on-demand:** The built-in `skill` tool only lists a few external skills. Use `agent-guidance-mcp_guidance(operation="get", identifier="skill-name", include_content=True)` to load any of the 250 Agent Guidance skills.
+**Loading skills on-demand:** The built-in `skill` tool only lists a few external skills. Use `agent-guidance-mcp_guidance(operation="get", identifier="skill-name", include_content=True)` to load any of the 185 Agent Guidance skills.
 
 ---
 
@@ -190,7 +190,45 @@ session_continuity(
 
 ---
 
-### 6. `agent-guidance-mcp_usage_report` -- Usage Statistics
+### 6. `agent-guidance-mcp_workflow_gate` -- Stage Enforcement
+
+Manage and validate the active workflow stage. Supports 3 actions.
+
+```
+workflow_gate(
+    action: str,                       # required — status|check|set_stage
+    project_path: str = ".",
+    user_message: str | None = None,   # required for check — user's approval text
+    target_stage: str | None = None,   # required for set_stage — valid target
+) -> dict
+```
+
+| Action | Description |
+|---|---|
+| `status` | View current stage, plan approval status, fix attempts |
+| `check` | Parse user message for approval keywords ("proceed", "ok", "do it", etc.) |
+| `set_stage` | Transition to a new stage (validates rules + circuit breaker) |
+
+**Stage lifecycle:** `Context → Plan → Ask_Revise → Build → Test_Recheck → Fix → Proposal`
+Transition to `Build` requires `plan_approved=true`. The circuit breaker resets to `Ask_Revise` after 3 failed fix attempts.
+
+---
+
+### 7. `agent-guidance-mcp_require_edit_approval` -- Edit Permission Gate
+
+Final gate check before any write/edit/bash operation. Returns error unless workflow stage is `Build` with `plan_approved=true`.
+
+```
+require_edit_approval(
+    project_path: str = ".",
+) -> dict
+```
+
+**Returns:** `{success, allowed, stage, plan_approved}` — blocked calls include a `resolution` field with steps to unblock.
+
+---
+
+### 8. `agent-guidance-mcp_usage_report` -- Usage Statistics
 
 ```
 usage_report(scope: str = "session") -> dict
@@ -216,7 +254,7 @@ View the dashboard in a browser: `agent-guidance-mcp --dashboard`
 
 ---
 
-### 7. `agent-guidance-mcp_token_stats` -- Session Statistics
+### 9. `agent-guidance-mcp_token_stats` -- Session Statistics
 
 ```
 token_stats() -> dict
@@ -226,7 +264,7 @@ Returns token optimization statistics: `total_calls`, `total_original_tokens`, `
 
 ---
 
-### 7. `agent-guidance-mcp_health_check` -- Server Status
+### 10. `agent-guidance-mcp_health_check` -- Server Status
 
 ```
 health_check() -> dict
@@ -236,7 +274,7 @@ Returns `status`, `server`, `version`, `entries` (catalog entry count).
 
 ---
 
-### 8. `agent-guidance-mcp_diagnose` -- Self-Diagnostics
+### 11. `agent-guidance-mcp_diagnose` -- Self-Diagnostics
 
 ```
 diagnose() -> dict
@@ -255,23 +293,25 @@ Comprehensive diagnostics across 7 subsystems:
 
 ---
 
-## Resources (5)
+## Resources (7)
 
 | URI | MIME | Description |
 |---|---|---|
 | `standards://manifest` | `application/json` | Full manifest: entry_count, kinds, categories, all entries with identifiers/paths/URIs |
-| `standards://version` | `application/json` | `{"server": "agent-guidance-mcp", "version": "1.0.0", "mcp_protocol": "2024-11-05"}` |
+| `standards://version` | `application/json` | `{"server": "agent-guidance-mcp", "version": "1.0.6", "mcp_protocol": "2024-11-05"}` |
 | `standards://document/{identifier}` | `text/markdown` | Standards document content by slug (token-optimized) |
 | `standards://skill/{name}` | `text/markdown` | On-demand skill capsule by name (token-optimized) |
 | `agent-guidance-mcp://system/priority` | `text/markdown` | Priority gate instructions — returned by `PRIORITY_REQUIRED` errors |
+| `agent-guidance-mcp://system/gate` | `application/json` | Priority gate status: passed + sentinel present |
+| `agent-guidance-mcp://system/edit-allowed` | `application/json` | Edit permission check based on workflow stage |
 
 ---
 
-## Workflow access (no longer a separate tool)
+## Workflow access
 
-Workflow modes were consolidated into the `guidance` tool to reduce surface area.
-Use `agent-guidance-mcp_guidance(operation="workflow", identifier="<mode>")` instead of the
-deprecated `workflow` / `workflow_prompt` tools. Supported modes:
+Workflow modes are accessed through two separate tools:
+
+**Content mode** — `agent-guidance-mcp_guidance(operation="workflow", identifier="<mode>")` loads workflow instructions for a given phase. The previous standalone `workflow` / `workflow_prompt` tools were consolidated into `guidance`. Supported modes:
 
 | Mode | Description |
 |---|---|
@@ -295,6 +335,8 @@ deprecated `workflow` / `workflow_prompt` tools. Supported modes:
 | `customize` | Customization |
 | `brainstorm` | Brainstorming |
 | `save_brain` | Save brainstorm output |
+
+**Stage management** — `agent-guidance-mcp_workflow_gate(action="status"|"check"|"set_stage")` manages the 7-stage workflow lifecycle (`Context → Plan → Ask_Revise → Build → Test_Recheck → Fix → Proposal`). See section 6 for full documentation.
 
 ---
 

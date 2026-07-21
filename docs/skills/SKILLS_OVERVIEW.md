@@ -1,6 +1,6 @@
 # Skills Overview
 
-A compact index of the **168** local skills sourced from ECC and community contributions. Use `agent-guidance-mcp_guidance(operation="list", kind="skill")` via the MCP server for full details.
+A compact index of the **185** local skills sourced from ECC and community contributions. Use `agent-guidance-mcp_guidance(operation="list", kind="skill")` via the MCP server for full details.
 
 | Skill | Description |
 | :--- | :--- |

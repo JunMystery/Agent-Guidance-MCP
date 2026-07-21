@@ -20,9 +20,14 @@ At the start of a coding session:
 
 1. Call `agent-guidance-mcp_task_pipeline(task, project_path)` to load relevant standards, skill recommendations, and an initial project tree.
 2. For large refactors, upgrades, audits, or unfamiliar code, also use `agent-guidance-mcp_project_context(operation="search", project_path=..., query=...)` and `agent-guidance-mcp_project_context(operation="snapshot", project_path=...)` when a reusable overview is useful.
-3. Before editing any file, inspect the current target file with `agent-guidance-mcp_project_context(operation="read", project_path=..., relative_path=...)` or an equivalent file-read tool.
-4. Use `agent-guidance-mcp_ui_ux(operation=...)` for frontend, design-system, branding, landing page, dashboard, or slide guidance.
-5. Run the smallest relevant verification command after changes.
+3. Use `agent-guidance-mcp_guidance(operation="precode", query=task)` to get a structured pre-code checklist before editing.
+4. Before editing any file, verify the workflow stage allows edits: `agent-guidance-mcp_workflow_gate(action="status")` → if not `Build` with `plan_approved=true`, call `agent-guidance-mcp_workflow_gate(action="check", user_message=...)` then `agent-guidance-mcp_workflow_gate(action="set_stage", target_stage="Build")`.
+5. Call `agent-guidance-mcp_require_edit_approval(project_path=...)` immediately before any write/edit/bash to confirm the gate is open.
+6. Inspect the current target file with `agent-guidance-mcp_project_context(operation="read", project_path=..., relative_path=...)` or an equivalent file-read tool.
+7. Use `agent-guidance-mcp_ui_ux(operation=...)` for frontend, design-system, branding, landing page, dashboard, or slide guidance.
+8. Run the smallest relevant verification command after changes.
+9. Use `agent-guidance-mcp_session_continuity(operation="save", ...)` to persist task state across interruptions.
+10. Use `agent-guidance-mcp_guidance(operation="verify", query=changes)` for post-change verification steps.
 
 Avoid repeated broad scans during the same session unless the project changed significantly.
 
@@ -78,6 +83,63 @@ Read the current source file before editing:
 Use `agent-guidance-mcp_guidance(operation="workflow", identifier="<mode>", query="<subject>")` to load a workflow by mode.
 
 For example, `agent-guidance-mcp_guidance(operation="workflow", identifier="plan", query="Build billing export")` loads the planning workflow capsule and appends the subject.
+
+## Example: Stage Management
+
+Check the current workflow stage:
+
+```json
+{
+  "action": "status",
+  "project_path": "/absolute/path/to/project"
+}
+```
+
+Parse user approval and transition to Build:
+
+```json
+{
+  "action": "check",
+  "project_path": "/absolute/path/to/project",
+  "user_message": "Proceed with the implementation"
+}
+```
+
+Then:
+
+```json
+{
+  "action": "set_stage",
+  "project_path": "/absolute/path/to/project",
+  "target_stage": "Build"
+}
+```
+
+## Example: Edit Gate Check
+
+Verify edits are allowed before writing code:
+
+```json
+{
+  "project_path": "/absolute/path/to/project"
+}
+```
+
+## Example: Session Continuity
+
+Save task progress:
+
+```json
+{
+  "operation": "save",
+  "project_path": "/absolute/path/to/project",
+  "task": "Implement billing export",
+  "checklist": [
+    {"title": "Design schema", "status": "done"},
+    {"title": "Write migration", "status": "in_progress"}
+  ]
+}
+```
 
 ## Token Guidance
 

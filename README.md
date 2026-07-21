@@ -10,7 +10,7 @@
 
 <img src="docs/images/hero-banner.png" alt="Agent Guidance MCP">
 
-MCP server serving AI agent guidance through a **168-skill catalog**, bundled guidance corpus, workflow prompts, bounded project-code context tools, and a **token optimization engine** — all over **Stdio** transport.
+MCP server serving AI agent guidance through a **185-skill catalog**, bundled guidance corpus, workflow prompts, bounded project-code context tools, and a **token optimization engine** — all over **Stdio** transport.
 
 Skills are sourced from [Everything Claude Code (ECC) v2.0.0](https://github.com/affaan-m/ECC) and community contributions, covering backend, frontend, testing, security, DevOps, data, research, and 12+ language ecosystems.
 
@@ -123,7 +123,9 @@ Works with any MCP-compatible client. Auto-configured by the installer:
 | `agent-guidance-mcp_project_context` | Gated | Project file ops + 3-tier search | `tree`, `search` (FTS5 docs config general), `read`, `symbols`, `references`, `structure`, `callers`, `callees`, `diff`, `snapshot` |
 | `agent-guidance-mcp_ui_ux` | Gated | Design guidance | `search`, `design_system`, `slides` |
 | `agent-guidance-mcp_session_continuity` | Gated | Task state persistence | `save`, `load`, `clear` |
-| `agent-guidance-mcp_usage_report` | Gated | Usage statistics | `session`, `all` |
+| `agent-guidance-mcp_workflow_gate` | Gated | Stage enforcement | `status`, `check`, `set_stage` |
+| `agent-guidance-mcp_require_edit_approval` | Not gated | Edit permission gate | `project_path` |
+| `agent-guidance-mcp_usage_report` | Not gated | Usage statistics | `session`, `all` |
 | `agent-guidance-mcp_health_check` / `agent-guidance-mcp_diagnose` / `agent-guidance-mcp_token_stats` | Whitelisted | Operational | Server status, self-diagnostics, token savings |
 
 Gated tools return `PRIORITY_REQUIRED` if called before `agent-guidance-mcp_task_pipeline`. Whitelisted tools bypass the gate.
@@ -137,10 +139,14 @@ Gated tools return `PRIORITY_REQUIRED` if called before `agent-guidance-mcp_task
 | `standards://document/{identifier}` | Standards document by slug (Markdown) |
 | `standards://version` | Server version info (JSON) |
 | `agent-guidance-mcp://system/priority` | Priority gate instructions — returned by `PRIORITY_REQUIRED` errors |
+| `agent-guidance-mcp://system/gate` | Priority gate status: passed + sentinel present (JSON) |
+| `agent-guidance-mcp://system/edit-allowed` | Edit permission check based on workflow stage (JSON) |
 
 ### Workflow (consolidated into `guidance`)
 
 `agent-guidance-mcp_guidance(operation="workflow", identifier="<mode>", query="<subject>")` — Load workflow by mode: plan, test, deploy, debug, etc. The previous `workflow` / `workflow_prompt` tools were merged into `guidance`.
+
+For stage lifecycle management (`workflow_gate`), see the [Workflow Stage Enforcement](#workflow-stage-enforcement) section.
 
 ---
 
@@ -150,9 +156,9 @@ AI coding agents burn context fast. Every file read, every grep, every web searc
 
 | Layer | What It Does | Your Gain |
 |---|---|---|
-| **Priority Enforcement** | `agent-guidance-mcp_task_pipeline` must be called before gated tools (guidance, project_context, ui_ux, session_continuity). Session-start hook auto-passes gate. | Agent always has project context before acting. No more "forgot to call task_pipeline" |
+| **Priority Enforcement** | `agent-guidance-mcp_task_pipeline` must be called before gated tools (guidance, project_context, ui_ux, session_continuity, workflow_gate). Session-start hook auto-passes gate. | Agent always has project context before acting. No more "forgot to call task_pipeline" |
 | **Context Budgeting** | Caps file reads at 300 lines; smart-truncates source code preserving structure | Agent stays focused on relevant code, never drowns in noise |
-| **Guidance Catalog** | 168 skills + coding standards + security rules served on-demand | Agent follows production patterns without you reminding it |
+| **Guidance Catalog** | 185 skills + coding standards + security rules served on-demand | Agent follows production patterns without you reminding it |
 | **Token Optimization** | Strips comments, collapses whitespace, deduplicates output before it hits the LLM | **40–80% fewer tokens** per MCP response |
 
 ### What You Save
@@ -198,7 +204,7 @@ Optimized Response (40–80% smaller)
 
 Agent Guidance MCP features a hybrid semantic search engine designed to dynamically load relevant skills based on intent and task context.
 
-- **Pre-computed Embeddings**: The 168 global catalog skills have pre-computed embeddings mapped using the lightweight `intfloat/multilingual-e5-small` model. This ensures instant retrieval on startup.
+- **Pre-computed Embeddings**: The 185 global catalog skills have pre-computed embeddings mapped using the lightweight `intfloat/multilingual-e5-small` model. This ensures instant retrieval on startup.
 - **Workspace-Local Skills**: The server automatically scans your project workspace for custom local skills defined in `.agents/skills/`, `.opencode/skills/`, or `.claude/skills/` directories, dynamically embeds them on startup, and merges them into the search index.
 - **Hybrid Similarity Ranking**: `agent-guidance-mcp_guidance(operation="search")` blends traditional keyword matching with vector cosine similarity calculations to rank skills accurately, even when the task query contains no exact keyword overlaps (e.g., matching "reducing context size" to the `context-budget` skill).
 - **Zero-Configuration Download**: The query embedding model is automatically downloaded on-demand when the server first runs, requiring zero manual setup or configuration.
@@ -233,7 +239,8 @@ Session starts
 | Tool | Gate Behavior |
 |---|---|
 | `agent-guidance-mcp_task_pipeline` | **Unlocks gate** — call first to enable all gated tools |
-| `agent-guidance-mcp_guidance`, `agent-guidance-mcp_project_context`, `agent-guidance-mcp_ui_ux`, `agent-guidance-mcp_session_continuity` | **Gated** — return `PRIORITY_REQUIRED` error if called before `agent-guidance-mcp_task_pipeline` |
+| `agent-guidance-mcp_guidance`, `agent-guidance-mcp_project_context`, `agent-guidance-mcp_ui_ux`, `agent-guidance-mcp_session_continuity`, `agent-guidance-mcp_workflow_gate` | **Gated** — return `PRIORITY_REQUIRED` error if called before `agent-guidance-mcp_task_pipeline` |
+| `agent-guidance-mcp_require_edit_approval`, `agent-guidance-mcp_usage_report` | **Not gated** — always callable, no priority check |
 | `agent-guidance-mcp_health_check`, `agent-guidance-mcp_diagnose`, `agent-guidance-mcp_token_stats` | **Whitelisted** — always available, no gate check |
 
 ### Per-Phase Reset Rule
@@ -254,6 +261,35 @@ The hook tries: installed binary → `python -m agent_guidance_mcp` → legacy m
 ### Tagged Section Deployment
 
 Rule blocks and skill content are wrapped in HTML-comment tags (`<!-- agent-guidance:start -->` / `<!-- agent-guidance:end -->`). The `--setup` command uses these tags to find and replace sections across all IDE/CLI config files — no stale copies, no manual cleanup.
+
+### Workflow Stage Enforcement
+
+Beyond the priority gate, Agent Guidance MCP enforces a **7-stage workflow lifecycle** that gates file edits:
+`Context → Plan → Ask_Revise → Build → Test_Recheck → Fix → Proposal`
+
+| Stage | Edit allowed? | What gates block |
+|---|---|---|
+| `Context` | No | All tools except `task_pipeline`, `workflow_gate`, `session_continuity` |
+| `Plan` | No | `diff` and `architecture` operations on `project_context` |
+| `Ask_Revise` | No | Code reads (`read`, `search`, `symbols`, `references`, `structure`, `callers`, `callees`, `diff`) and `precode`/`verify` |
+| `Build` | ✅ Yes (if approved) | All tools blocked if `plan_approved=false` |
+| `Test_Recheck` | No | `precode` operation |
+| `Fix` | ✅ Yes | Circuit breaker resets to `Ask_Revise` after 3 failed attempts |
+| `Proposal` | No | `diff`, `structure`, `symbols` operations |
+
+**Tools for stage management:**
+
+| Tool/Resource | Purpose |
+|---|---|
+| `agent-guidance-mcp_workflow_gate(action="status")` | View current stage, plan approval, fix attempts |
+| `agent-guidance-mcp_workflow_gate(action="check", user_message=...)` | Parse user approval from natural language ("proceed", "ok", "do it") |
+| `agent-guidance-mcp_workflow_gate(action="set_stage", target_stage=...)` | Transition to a new stage (validates rules + circuit breaker) |
+| `agent-guidance-mcp_require_edit_approval(project_path=...)` | Final gate check — returns error unless stage is `Build` + `plan_approved=true` |
+| `agent-guidance-mcp://system/edit-allowed` | Read-only resource for low-friction permission check (JSON) |
+
+**Circuit breaker**: If the agent fails to fix an issue 3 times (3 transitions to `Fix`), the stage automatically resets to `Ask_Revise` with `plan_approved=false`, forcing re-approval before any further edits.
+
+The `require_edit_approval` tool and `agent-guidance-mcp://system/edit-allowed` resource together form the **edit gate** — callable by agents before any write/edit/bash to confirm the workflow stage permits edits.
 
 ---
 
@@ -352,6 +388,7 @@ Data is persisted to `.agent-context/usage.db` in the project directory and surv
 | `AGENT_GUIDANCE_ROOT` | Custom standards corpus path | Bundled corpus |
 | `AGENT_PROJECT_ROOT` | Override project root for context tools | `.` (cwd) |
 | `AGENT_PROJECT_ALLOWED_ROOTS` | Whitelist directories for security | Project root only (set to expand) |
+| `AGENT_EMBEDDING_DAEMON` | Disable embed daemon (forces in-process model) | `1` (enabled) |
 | `AGENT_WATCHER_ENABLED` | Enable/disable CodeGraph file watcher | `true` |
 | `AGENT_WATCHER_INTERVAL` | Watcher poll interval (seconds) | `30` |
 | `AGENT_WATCHER_DEBOUNCE_MULTIPLIER` | Debounce multiplier after changes | `2.0` |
@@ -359,6 +396,10 @@ Data is persisted to `.agent-context/usage.db` in the project directory and surv
 | `AGENT_AUTO_UPDATE_INTERVAL` | Auto-update schedule via env var | `weekly` |
 | `--auto-update` / `--update` | CLI flags for manual update + model download | — |
 | `--session-start` | CLI flag for session-start hook auto-activation | — |
+| `--embed-daemon` | Start embedding daemon as foreground process | — |
+| `--dashboard` | Start usage dashboard server | — |
+| `--re-gate` | Re-pass priority gate for subagent recovery | — |
+| `--no-optimize` | Disable token optimization and savings tracking | — |
 
 For full tool documentation, response formats, and examples, see [MCP Surface](docs/reference/mcp-surface.md).
 
@@ -382,34 +423,51 @@ For full tool documentation, response formats, and examples, see [MCP Surface](d
 
 ## Multi-IDE Usage
 
-Each IDE/CLI spawns its own MCP server subprocess. With multiple IDEs open simultaneously, this creates multiple server instances — each loading its own copy of the embedding model (466 MB) into RAM.
-
-### Current (stdio) behavior
+Each IDE/CLI spawns its own MCP server subprocess, but the **embedding model is shared** via a local HTTP daemon — one per user, one model load.
 
 ```
-VS Code       → agent-guidance-mcp (PID A) → model instance (466 MB)
-Cursor        → agent-guidance-mcp (PID B) → model instance (466 MB)
-Claude Desktop → agent-guidance-mcp (PID C) → model instance (466 MB)
+VS Code         → MCP process A ──┐
+Cursor          → MCP process B ──┼──► embed_daemon (127.0.0.1)
+Claude Desktop  → MCP process C ──┘     │
+                                    [SentenceTransformer]
+                                    intfloat/multilingual-e5-small
 ```
 
-Total RAM for 3 IDEs: ~1.4 GB. The model is loaded once per process and shared within that process. Opening multiple terminal windows in the same IDE reuses the same process — no extra cost.
+**Total RAM**: ~466 MB for the daemon, regardless of how many IDEs you open.
+
+### How it works
+
+| Layer | Mechanism |
+|---|---|
+| **Daemon spawn** | First MCP process needing embeddings acquires `~/.agent-guidance/daemon.lock` (fcntl flock on POSIX, msvcrt on Windows) and spawns the daemon subprocess |
+| **Service discovery** | Daemon writes `~/.agent-guidance/daemon.json` with its port and PID on startup |
+| **Client connection** | All MCP processes POST to `http://127.0.0.1:<port>/embed` for inference |
+| **Health checks** | Daemon exposes `GET /health` echoing its PID + `embed_ready` flag; clients probe before reusing a manifest |
+| **Client registration** | Each MCP process calls `POST /register` with its PID; daemon background-reaps dead clients |
+| **Auto-shutdown** | Daemon exits after 600s idle or when all clients disconnect (30s grace) |
 
 ### Which tools trigger model load
 
-| Tool | Loads model? |
+The daemon is spawned lazily on the first call to any tool that needs embeddings, not only `guidance(search)`:
+
+| Tool | Triggers daemon? |
 |---|---|
 | `agent-guidance-mcp_task_pipeline` | ❌ — uses precomputed `skills_embeddings.json` |
-| `agent-guidance-mcp_guidance(operation="search")` | ✅ — loads model on first call, cached in memory after |
+| `agent-guidance-mcp_guidance(operation="search")` | ✅ — first call spawns daemon, subsequent calls reuse |
 | `agent-guidance-mcp_guidance(operation="list\|get\|recommend")` | ❌ — catalog only |
 | `agent-guidance-mcp_project_context` | ❌ — file ops only |
 | `agent-guidance-mcp_session_continuity` | ❌ — state only |
 | `agent-guidance-mcp_health_check / diagnose / token_stats` | ❌ — server info |
 
-On first `agent-guidance-mcp_guidance(search)` call, the model loads in ~1 second (cached). Subsequent calls are instant. If you never use `agent-guidance-mcp_guidance(search)`, the model never loads.
+On first call, the daemon loads the model in ~1 second. Subsequent calls are instant HTTP requests to the already-running daemon.
+
+### Fallback (daemon unavailable)
+
+If the daemon cannot start (lock contention, `AGENT_EMBEDDING_DAEMON=0`, or under pytest), each MCP process falls back to a **process-local singleton** — each loads its own 466 MB model. This is transparent to the caller.
 
 ### SSE mode (future)
 
-Adding SSE transport (`--transport sse`) would allow all IDEs to share a single MCP daemon process — one model instance for all clients. See [Multi-IDE Guide](docs/integrations/multi-ide.md) for details and current limitations.
+Even with the shared embedding daemon, each MCP process still runs its own stdio server. Adding SSE transport (`--transport sse`) would allow all IDEs to share a single MCP daemon process. See [Multi-IDE Guide](docs/integrations/multi-ide.md) for details and current limitations.
 
 ---
 
@@ -419,4 +477,4 @@ Adding SSE transport (`--transport sse`) would allow all IDEs to share a single 
 python -m pytest
 ```
 
-The test suite verifies catalog discovery, MCP handler registration, standards search, recommendation behavior, project-context tooling, and **priority gate enforcement** (14 gate tests covering block/pass/reset/thread-safety/sentinel persistence/cross-process fallback). See [Development Guide](docs/development.md) for more detail.
+The test suite verifies catalog discovery, MCP handler registration, standards search, recommendation behavior, project-context tooling (18 tests), and priority + workflow gate enforcement (13 tests covering block/pass/reset/thread-safety/sentinel persistence/edit-approval). See [Development Guide](docs/development.md) for more detail.
