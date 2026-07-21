@@ -121,7 +121,25 @@ def export_project_snapshot(
     }
 
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(snapshot, indent=2, sort_keys=True), encoding="utf-8")
+    import tempfile, os as _os
+    try:
+        tmp = tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", suffix=".tmp",
+            dir=str(output.parent), delete=False,
+        )
+        try:
+            tmp.write(json.dumps(snapshot, indent=2, sort_keys=True))
+            tmp.flush()
+            _os.fsync(tmp.fileno())
+        finally:
+            tmp.close()
+        _os.replace(tmp.name, str(output))
+    except OSError as e:
+        return {
+            "success": False, "error": "WRITE_FAILED",
+            "message": f"Failed to write snapshot: {e}",
+            "details": {"output_path": output_relative}
+        }
 
     return {
         "project_root": str(root),
@@ -234,7 +252,7 @@ def _record_savings(
     from .utils import record_savings
     record_savings(tracker, tool_name, operation, original, optimized)
 
-    from .server import get_usage
+    from .usage import get_usage
     usage = get_usage()
     if usage is not None:
         from .response_optimizer import estimate_tokens
@@ -281,7 +299,10 @@ def search_project_code(
     except Exception:
         pass
     finally:
-        db.close()
+        try:
+            db.close()
+        except Exception:
+            pass
 
     # ── 3-tier fallback: docs → structural → general code ─────────────────
     terms = tokenize(query)
@@ -359,17 +380,30 @@ def get_project_diff(
     config = config or load_config_from_env()
 
     try:
-        # Get diff of both staged and unstaged changes
-        res = subprocess.run(
-            ["git", "--no-pager", "diff", "HEAD"],
-            cwd=str(root),
-            capture_output=True,
-            text=True,
-            timeout=5,
+        # Check if HEAD exists (repo has at least one commit)
+        head_exists = True
+        rev_res = subprocess.run(
+            ["git", "rev-parse", "--verify", "HEAD"],
+            cwd=str(root), capture_output=True, text=True, timeout=3,
         )
-        diff_text = res.stdout or ""
+        if rev_res.returncode != 0:
+            head_exists = False
+
+        if head_exists:
+            res = subprocess.run(
+                ["git", "--no-pager", "diff", "HEAD"],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            diff_text = res.stdout or ""
+            if res.returncode != 0:
+                diff_text = ""
+        else:
+            diff_text = ""
+
         if not diff_text:
-            # Fallback to unstaged diff
             res2 = subprocess.run(
                 ["git", "--no-pager", "diff"],
                 cwd=str(root),
@@ -378,6 +412,13 @@ def get_project_diff(
                 timeout=5,
             )
             diff_text = res2.stdout or ""
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False,
+            "error": "TIMEOUT",
+            "message": "git diff timed out",
+            "details": {"project_root": str(root)}
+        }
     except Exception as e:
         return {
             "success": False,

@@ -150,7 +150,7 @@ def _record_savings(
     from .utils import record_savings
     record_savings(tracker, tool_name, operation, original, optimized)
 
-    from .server import get_usage
+    from .usage import get_usage
     usage = get_usage()
     if usage is not None:
         from .response_optimizer import estimate_tokens

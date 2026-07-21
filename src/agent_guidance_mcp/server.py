@@ -805,12 +805,13 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             resolve_dependencies: Set True for "get" to recursively load transitive dependencies (default False).
             rating: Integer 1-5 for "feedback" operation (default 0, ignored for other ops).
         """
-        gate = priority_gate_check(catalog.root, catalog, "guidance", {
+        _resolved_pp = os.environ.get("AGENT_PROJECT_ROOT", str(Path(".").resolve()))
+        gate = priority_gate_check(_resolved_pp, catalog, "guidance", {
             "query": query, "identifier": identifier, "operation": operation,
         })
         if gate:
             return gate
-        w_gate = workflow_gate_check(catalog.root, "guidance", {
+        w_gate = workflow_gate_check(_resolved_pp, "guidance", {
             "query": query, "identifier": identifier, "operation": operation,
         })
         if w_gate:
@@ -895,12 +896,13 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             max_total_bytes: Total cap for snapshot (default 2000000).
             limit: Maximum search or reference results (default 20).
         """
-        gate = priority_gate_check(catalog.root, catalog, "project_context", {
+        _resolved_pp = str(Path(project_path).resolve())
+        gate = priority_gate_check(_resolved_pp, catalog, "project_context", {
             "query": query, "relative_path": relative_path, "operation": operation,
         })
         if gate:
             return gate
-        w_gate = workflow_gate_check(catalog.root, "project_context", {
+        w_gate = workflow_gate_check(_resolved_pp, "project_context", {
             "query": query, "relative_path": relative_path, "operation": operation,
         })
         if w_gate:
@@ -957,12 +959,13 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             output_format: "markdown" or "ascii" (default "markdown").
             limit: Maximum results (default 3).
         """
-        gate = priority_gate_check(catalog.root, catalog, "ui_ux", {
+        _resolved_pp = os.environ.get("AGENT_PROJECT_ROOT", str(Path(".").resolve()))
+        gate = priority_gate_check(_resolved_pp, catalog, "ui_ux", {
             "query": query, "operation": operation,
         })
         if gate:
             return gate
-        w_gate = workflow_gate_check(catalog.root, "ui_ux", {
+        w_gate = workflow_gate_check(_resolved_pp, "ui_ux", {
             "query": query, "operation": operation,
         })
         if w_gate:
@@ -1011,7 +1014,8 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             current_step_index: Index of current checklist step (default 0).
             metadata: Optional context variables as a dict.
         """
-        gate = priority_gate_check(catalog.root, catalog, "session_continuity", {
+        _resolved_pp = str(Path(project_path).resolve())
+        gate = priority_gate_check(_resolved_pp, catalog, "session_continuity", {
             "task": task, "operation": operation,
         })
         if gate:
@@ -1052,7 +1056,8 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             user_message: Last message from the user to analyze approval (required for check).
             target_stage: Stage to transition to (required for set_stage).
         """
-        gate = priority_gate_check(catalog.root, catalog, "workflow_gate", {
+        _resolved_pp = str(Path(project_path).resolve())
+        gate = priority_gate_check(_resolved_pp, catalog, "workflow_gate", {
             "action": action, "user_message": user_message, "target_stage": target_stage,
         })
         if gate:

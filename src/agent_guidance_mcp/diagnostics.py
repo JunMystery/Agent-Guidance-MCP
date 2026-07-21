@@ -180,4 +180,37 @@ def run_diagnostics(project_root: Path, catalog: StandardsCatalog) -> dict[str, 
 
     diagnostics["embedding_daemon"] = daemon_info
 
+    # 8. Gate & Session State
+    gate_info: dict[str, Any] = {}
+    try:
+        from .server import _priority_gate_passed, GATE_SENTINEL_PATH
+        gate_info["priority_gate_passed"] = _priority_gate_passed
+        gate_info["sentinel_present"] = GATE_SENTINEL_PATH.is_file()
+        if GATE_SENTINEL_PATH.is_file():
+            import json
+            try:
+                sentinel_data = json.loads(GATE_SENTINEL_PATH.read_text(encoding="utf-8"))
+                gate_info["sentinel"] = sentinel_data
+            except Exception:
+                pass
+    except Exception as e:
+        gate_info["error"] = str(e)
+
+    try:
+        from .session import load_session
+        session_data = load_session(project_path=str(project_root))
+        if session_data and isinstance(session_data, dict):
+            meta = session_data.get("metadata", {})
+            gate_info["session_exists"] = True
+            gate_info["session_stage"] = meta.get("current_stage")
+            gate_info["session_plan_approved"] = meta.get("plan_approved")
+            gate_info["session_fix_attempts"] = meta.get("fix_attempts")
+            gate_info["session_task"] = session_data.get("task", "")[:100]
+        else:
+            gate_info["session_exists"] = False
+    except Exception as e:
+        gate_info["session_error"] = str(e)
+
+    diagnostics["gate"] = gate_info
+
     return diagnostics
