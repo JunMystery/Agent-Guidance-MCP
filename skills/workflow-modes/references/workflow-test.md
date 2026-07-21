@@ -2,9 +2,7 @@
 description: Run tests and verify behavior
 ---
 
-> ⚠️ **WORKFLOW GATE**: This mode corresponds to Test_Recheck stage.
-> Before writing code: ensure you are in Build stage with plan_approved=true via
-> `workflow_gate(action="status")`. Use `require_edit_approval()` before any write/edit/bash.
+> ⚠️ **WORKFLOW GATE**: Before editing test code, verify stage via `workflow_gate(action="status")`.
 
 # WORKFLOW: /test - The Quality Guardian (Smart Testing)
 

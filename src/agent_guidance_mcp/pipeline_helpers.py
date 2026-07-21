@@ -494,8 +494,7 @@ def infer_codegen_plan(
         suggestions.append(f"Load skills via guidance(operation='get', identifier='<id>', include_content=True): {', '.join(skills[:3])}")
     suggestions.append("Run guidance(operation='precode', query=task) before editing; run guidance(operation='verify', query=changes) after")
     suggestions.append("Before any file edits: call workflow_gate(action='status') "
-                       "to verify stage is 'Build' with plan_approved=true. "
-                       "Then call require_edit_approval() immediately before writing.")
+                       "to verify stage is 'Build' with plan_approved=true.")
 
     return {
         "is_codegen": True,

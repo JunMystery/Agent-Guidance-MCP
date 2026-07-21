@@ -2,9 +2,7 @@
 description: Deploy applications to production safely
 ---
 
-> ⚠️ **WORKFLOW GATE**: This mode corresponds to Proposal stage.
-> Before writing code: ensure you are in Build stage with plan_approved=true via
-> `workflow_gate(action="status")`. Use `require_edit_approval()` before any write/edit/bash.
+> ⚠️ **WORKFLOW GATE**: Before modifying deployment configs, verify stage via `workflow_gate(action="status")`.
 
 # WORKFLOW: /deploy - The Release Manager (Complete Production Guide)
 

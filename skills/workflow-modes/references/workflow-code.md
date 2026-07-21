@@ -5,7 +5,6 @@ description: Implement code from a specification
 > ⚠️ **WORKFLOW GATE**: You MUST be in Build stage with plan_approved=true to write code.
 > If not yet approved: call `workflow_gate(action="check", user_message="{your plan}")`,
 > then `workflow_gate(action="set_stage", target_stage="Build")`.
-> Use `require_edit_approval()` immediately before any write/edit/bash.
 
 # WORKFLOW: /code - The Universal Coder v2.1 (BMAD-Enhanced)
 

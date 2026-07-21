@@ -56,5 +56,3 @@ For EVERY user interaction — planning, implementation, testing, debugging, rev
 
 **CRITICAL: All 9 rules apply to EVERY action without exception — planning, implementation, testing, debugging, reviewing, refactoring, or any other work. There is no action type exempt from these rules.**
 <!-- agent-guidance:end -->
-
-10. NEVER call Subagents. They never works.

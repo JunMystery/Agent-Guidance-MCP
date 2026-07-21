@@ -44,8 +44,7 @@ AGENT_INSTRUCTIONS = (
     "workflow_gate(action=\"status\") to verify the stage. If the stage is not \"Build\" "
     "with plan_approved=true, STOP. Do NOT edit any files. First call "
     "workflow_gate(action=\"check\", user_message=\"{your plan}\") to get approval, "
-    "then workflow_gate(action=\"set_stage\", target_stage=\"Build\") after approval. "
-    "Use require_edit_approval() immediately before any file edit for final verification.\n\n"
+    "then workflow_gate(action=\"set_stage\", target_stage=\"Build\") after approval.\n\n"
     "IMPORTANT — Tool naming: Some hosts add a server-name prefix to tool names "
     "(e.g. `agent-guidance-mcp_task_pipeline` instead of `task_pipeline`). "
     "Always use the exact tool names as they appear in your available tools list. "
@@ -1098,18 +1097,6 @@ def register_handlers(mcp: Any, catalog: StandardsCatalog) -> None:
             raise
         _record_savings("workflow_gate", action, result, result, duration_ms=_now_ms() - t0, project_path=project_path)
         return result
-
-    @mcp.tool()
-    def require_edit_approval(
-        project_path: str = ".",
-    ) -> dict[str, object]:
-        """Call BEFORE any write/edit/bash operation. Returns success only if
-        the workflow stage is 'Build' with plan_approved=true. Otherwise
-        returns an error instructing the agent to transition stages first.
-
-        This is the gatekeeper for file modifications.
-        """
-        return check_edit_allowed(project_path=project_path)
 
     @mcp.tool()
     def token_stats() -> dict[str, object]:
