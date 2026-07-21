@@ -157,7 +157,12 @@ def priority_gate_check(
     """Return an error dict if the priority gate has not been passed, else None.
 
     Also performs soft workflow stage warnings for active tasks.
+    Ui/Ux tool (read-only operations) bypasses the gate entirely.
     """
+    # ui_ux bypasses priority gate (read-only design guidance)
+    if tool_name == "ui_ux":
+        return None
+
     global _priority_gate_passed
     resolved_root = str(Path(project_path or ".").resolve())
     
@@ -232,6 +237,20 @@ def workflow_gate_check(
     if tool_name in ("workflow_gate", "session_continuity", "task_pipeline"):
         return None
 
+    # ui_ux: search/slides always allowed (read-only). design_system blocked in early stages.
+    if tool_name == "ui_ux" and tool_params:
+        op = tool_params.get("operation", "")
+        if op in ("search", "slides"):
+            return None
+        # design_system requires approved plan
+        if current_stage in ("Context", "Plan", "Ask_Revise"):
+            return {
+                "success": False,
+                "error": "WORKFLOW_STAGE_BLOCKED",
+                "message": f"🚨 WORKFLOW GATE BLOCKED: Cannot call ui_ux(operation='design_system') in stage '{current_stage}'. Transition to 'Build' with an approved plan first."
+            }
+        return None  # allowed in Build/Fix/Test_Recheck/Proposal
+
     if current_stage == "Context":
         return {
             "success": False,
@@ -240,12 +259,6 @@ def workflow_gate_check(
         }
 
     elif current_stage == "Plan":
-        if tool_name == "ui_ux":
-            return {
-                "success": False,
-                "error": "WORKFLOW_STAGE_BLOCKED",
-                "message": f"🚨 WORKFLOW GATE BLOCKED: Stage is 'Plan'. You cannot call '{tool_name}'. Transition stage to 'Build' first."
-            }
         if tool_name == "project_context" and tool_params:
             op = tool_params.get("operation", "")
             if op in ("diff", "architecture"):

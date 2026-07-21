@@ -112,36 +112,103 @@ def test_workflow_gate_matrix_enforcement():
         os.environ["AGENT_PROJECT_ROOT"] = tmpdir
         os.environ["AGENT_PROJECT_ALLOWED_ROOTS"] = tmpdir
         try:
-            # 1. Mặc định chưa có session -> Mặc định là stage Context
-            # Kiểm tra xem có chặn project_context(read) không
             res = workflow_gate_check(project_path=tmpdir, tool_name="project_context", tool_params={"operation": "read"})
             assert res is not None
             assert res["error"] == "WORKFLOW_STAGE_BLOCKED"
 
-            # 2. Khởi tạo Plan stage
             workflow_gate(action="set_stage", project_path=tmpdir, target_stage="Plan")
-            # Plan stage cho phép project_context(read)
             res_plan = workflow_gate_check(project_path=tmpdir, tool_name="project_context", tool_params={"operation": "read"})
             assert res_plan is None
 
-            # 3. Chuyển sang Ask_Revise (chưa duyệt)
             workflow_gate(action="set_stage", project_path=tmpdir, target_stage="Ask_Revise")
-            # Chặn project_context(read)
             res_ask = workflow_gate_check(project_path=tmpdir, tool_name="project_context", tool_params={"operation": "read"})
             assert res_ask is not None
             assert res_ask["error"] == "WORKFLOW_STAGE_BLOCKED"
 
-            # 4. Phê duyệt kế hoạch
             workflow_gate(action="check", project_path=tmpdir, user_message="ok proceed")
-            # Vẫn là stage Ask_Revise nhưng plan_approved=True -> Vẫn chặn read cho đến khi Agent set_stage sang Build
             res_approved_ask = workflow_gate_check(project_path=tmpdir, tool_name="project_context", tool_params={"operation": "read"})
             assert res_approved_ask is not None
 
-            # Chuyển stage sang Build
             workflow_gate(action="set_stage", project_path=tmpdir, target_stage="Build")
-            # Build stage mở khóa hoàn toàn
             res_build = workflow_gate_check(project_path=tmpdir, tool_name="project_context", tool_params={"operation": "read"})
             assert res_build is None
+        finally:
+            if "AGENT_PROJECT_ROOT" in os.environ:
+                del os.environ["AGENT_PROJECT_ROOT"]
+            if "AGENT_PROJECT_ALLOWED_ROOTS" in os.environ:
+                del os.environ["AGENT_PROJECT_ALLOWED_ROOTS"]
+
+def test_ui_ux_search_bypasses_gate():
+    gate = priority_gate_check(
+        project_path=Path("/nonexistent"),
+        tool_name="ui_ux",
+        tool_params={"operation": "search", "query": "dashboard color"}
+    )
+    assert gate is None
+
+    gate2 = priority_gate_check(
+        project_path=Path("/nonexistent"),
+        tool_name="ui_ux",
+        tool_params={"operation": "slides"}
+    )
+    assert gate2 is None
+
+def test_ui_ux_design_system_blocked_in_early_stages():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        os.environ["AGENT_PROJECT_ROOT"] = tmpdir
+        os.environ["AGENT_PROJECT_ALLOWED_ROOTS"] = tmpdir
+        try:
+            res = workflow_gate_check(
+                project_path=tmpdir, tool_name="ui_ux",
+                tool_params={"operation": "design_system"}
+            )
+            assert res is not None
+            assert res["error"] == "WORKFLOW_STAGE_BLOCKED"
+
+            workflow_gate(action="set_stage", project_path=tmpdir, target_stage="Plan")
+            res_plan = workflow_gate_check(
+                project_path=tmpdir, tool_name="ui_ux",
+                tool_params={"operation": "design_system"}
+            )
+            assert res_plan is not None
+
+            workflow_gate(action="set_stage", project_path=tmpdir, target_stage="Ask_Revise")
+            res_ask = workflow_gate_check(
+                project_path=tmpdir, tool_name="ui_ux",
+                tool_params={"operation": "design_system"}
+            )
+            assert res_ask is not None
+
+            workflow_gate(action="check", project_path=tmpdir, user_message="proceed")
+            workflow_gate(action="set_stage", project_path=tmpdir, target_stage="Build")
+            res_build = workflow_gate_check(
+                project_path=tmpdir, tool_name="ui_ux",
+                tool_params={"operation": "design_system"}
+            )
+            assert res_build is None
+        finally:
+            if "AGENT_PROJECT_ROOT" in os.environ:
+                del os.environ["AGENT_PROJECT_ROOT"]
+            if "AGENT_PROJECT_ALLOWED_ROOTS" in os.environ:
+                del os.environ["AGENT_PROJECT_ALLOWED_ROOTS"]
+
+def test_ui_ux_search_unblocked_always():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        os.environ["AGENT_PROJECT_ROOT"] = tmpdir
+        os.environ["AGENT_PROJECT_ALLOWED_ROOTS"] = tmpdir
+        try:
+            res = workflow_gate_check(
+                project_path=tmpdir, tool_name="ui_ux",
+                tool_params={"operation": "search"}
+            )
+            assert res is None
+
+            workflow_gate(action="set_stage", project_path=tmpdir, target_stage="Plan")
+            res_plan = workflow_gate_check(
+                project_path=tmpdir, tool_name="ui_ux",
+                tool_params={"operation": "search"}
+            )
+            assert res_plan is None
         finally:
             if "AGENT_PROJECT_ROOT" in os.environ:
                 del os.environ["AGENT_PROJECT_ROOT"]
