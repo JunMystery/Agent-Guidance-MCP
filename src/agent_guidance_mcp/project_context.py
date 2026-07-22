@@ -281,9 +281,9 @@ def search_project_code(
             "suggestions": ["Provide a non-empty search term", "Use operation='tree' to browse the project"]
         }
 
-    # Try SQLite FTS5 first
-    db = _get_db(root)
+    # Try SQLite FTS5 first with timeout protection
     try:
+        db = _get_db(root)
         results = db.search_symbols(query, limit=limit)
         if results:
             matches = []
@@ -304,16 +304,37 @@ def search_project_code(
         except Exception:
             pass
 
-    # ── 3-tier fallback: docs → structural → general code ─────────────────
+    # ── 3-tier fallback: docs → structural → general code (MAX 2 FOLDER LEVELS) ──
     terms = tokenize(query)
     if not terms:
         return {"project_root": str(root), "query": query, "matches": []}
 
-    all_files = list(iter_project_files(root, excluded_paths={DEFAULT_SNAPSHOT_PATH}))
+    # Restrict direct scan to max 2 folder levels to prevent deep traversal hangs
+    all_files = list(iter_project_files(root, max_depth=2, excluded_paths={DEFAULT_SNAPSHOT_PATH}))
+
+    # Level 3+ On-Demand Resolution: scan level 3+ files ONLY if explicitly referenced in level 1-2 code
+    referenced_deeper_files: set[Path] = set()
+    for f in all_files:
+        try:
+            content, _ = read_bounded_text(f, 32000)
+            if content:
+                for term in terms:
+                    if term.lower() in content.lower():
+                        # Extract possible relative path references
+                        for token in content.split():
+                            if "/" in token and ("." in token or token.endswith("/")):
+                                clean_token = token.strip("\"'()[]{}<>,;")
+                                target = (root / clean_token).resolve()
+                                if target.exists() and target.is_file() and target not in all_files:
+                                    referenced_deeper_files.add(target)
+        except Exception:
+            pass
+
+    scan_candidates = all_files + list(referenced_deeper_files)
 
     def _tier_files(patterns):
         matched = []
-        for f in all_files:
+        for f in scan_candidates:
             rel = relative_path(root, f).replace("\\", "/")
             if any(rel.startswith(p) or rel == p or f"/{p}" in rel for p in patterns):
                 matched.append(f)
@@ -335,8 +356,8 @@ def search_project_code(
         "tests/", "test/", "__tests__/",
     })
     config_tier = [f for f in config_tier if f not in doc_tier]
-    # Tier 3: everything else, capped
-    general_tier = [f for f in all_files if f not in doc_tier and f not in config_tier][:300]
+    # Tier 3: general tier, capped at 200 files
+    general_tier = [f for f in scan_candidates if f not in doc_tier and f not in config_tier][:200]
 
     def _scan_file(path):
         content, _ = read_bounded_text(path, DEFAULT_MAX_FILE_BYTES)
