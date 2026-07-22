@@ -30,32 +30,40 @@ class LLMSelector:
         self._tokenizer: Any = None
         self._model: Any = None
         self._loaded = False
+        import threading
+        self._lock = threading.Lock()
 
     def _load(self) -> None:
         """Load tokenizer and model on first use."""
         if self._loaded:
             return
-        if os.environ.get("AGENT_SKILL_LLM") == "" or "pytest" in sys.modules:
-            return
-        try:
-            from transformers import AutoTokenizer, AutoModelForCausalLM
-            logger.info("loading LLM skill selector: %s", self._model_name)
-            local_files_only = _model_already_cached(self._model_name)
-            self._tokenizer = AutoTokenizer.from_pretrained(
-                self._model_name,
-                local_files_only=local_files_only,
-            )
-            self._model = AutoModelForCausalLM.from_pretrained(
-                self._model_name,
-                torch_dtype="auto",
-                device_map="auto",
-                local_files_only=local_files_only,
-            )
-            self._loaded = True
-            logger.info("LLM skill selector loaded (local_files_only=%s)", local_files_only)
-        except Exception as e:
-            logger.warning("failed to load LLM skill selector: %s", e)
-            self._loaded = False
+        with self._lock:
+            if self._loaded:
+                return
+            if os.environ.get("AGENT_SKILL_LLM") in ("", "0", "false", "none") or "pytest" in sys.modules:
+                return
+            try:
+                from transformers import AutoTokenizer, AutoModelForCausalLM
+                from .embeddings import _model_already_cached
+                logger.info("loading LLM skill selector: %s", self._model_name)
+                local_files_only = _model_already_cached(self._model_name)
+                if local_files_only:
+                    os.environ["HF_HUB_OFFLINE"] = "1"
+                self._tokenizer = AutoTokenizer.from_pretrained(
+                    self._model_name,
+                    local_files_only=local_files_only,
+                )
+                self._model = AutoModelForCausalLM.from_pretrained(
+                    self._model_name,
+                    torch_dtype="auto",
+                    device_map="auto",
+                    local_files_only=local_files_only,
+                )
+                self._loaded = True
+                logger.info("LLM skill selector loaded (local_files_only=%s)", local_files_only)
+            except Exception as e:
+                logger.warning("failed to load LLM skill selector: %s", e)
+                self._loaded = False
 
     def _build_prompt(self, task: str, candidates: list[dict[str, str]], limit: int) -> str:
         """Build a chat-style prompt for skill selection."""

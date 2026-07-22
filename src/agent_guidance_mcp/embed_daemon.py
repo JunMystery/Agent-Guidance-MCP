@@ -354,22 +354,36 @@ def _on_startup() -> None:
 
 # ── Model loading ───────────────────────────────────────────────────────
 
+_model_load_lock = threading.Lock()
+
 
 def _load_model() -> None:
     global _model
-    os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
-    os.environ["TRANSFORMERS_NO_ADVISORY_WARNINGS"] = "1"
-    from sentence_transformers import SentenceTransformer
-    from .embeddings import _model_already_cached
+    if _model is not None:
+        return
+    with _model_load_lock:
+        if _model is not None:
+            return
+        os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+        os.environ["TRANSFORMERS_NO_ADVISORY_WARNINGS"] = "1"
+        from sentence_transformers import SentenceTransformer
+        from .embeddings import _model_already_cached
 
-    local_files_only = (
-        "pytest" in sys.modules
-        or os.environ.get("HF_HUB_OFFLINE", "0") == "1"
-        or _model_already_cached(_E5_MODEL)
-    )
-    logger.info("loading %s (local_files_only=%s)", _E5_MODEL, local_files_only)
-    _model = SentenceTransformer(_E5_MODEL, local_files_only=local_files_only)
-    logger.info("model loaded")
+        cached = _model_already_cached(_E5_MODEL)
+        if cached:
+            os.environ["HF_HUB_OFFLINE"] = "1"
+
+        local_files_only = (
+            "pytest" in sys.modules
+            or os.environ.get("HF_HUB_OFFLINE", "0") == "1"
+            or cached
+        )
+        logger.info("loading %s (local_files_only=%s)", _E5_MODEL, local_files_only)
+        try:
+            _model = SentenceTransformer(_E5_MODEL, local_files_only=local_files_only)
+            logger.info("model loaded successfully")
+        except Exception as e:
+            logger.error("failed to load %s: %s", _E5_MODEL, e)
 
 
 # ── Background reaper ───────────────────────────────────────────────────
